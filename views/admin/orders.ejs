@@ -1,0 +1,225 @@
+<%- include('partials/admin-header', { title: typeof t !== 'undefined' ? t('admin.orders.title') : 'Order Management', pageTitle: typeof t !== 'undefined' ? t('admin.orders.title') : 'Order Management', currentPage: 'orders', admin: admin, t: typeof t !== 'undefined' ? t : null, lang: typeof lang !== 'undefined' ? lang : 'en' }) %>
+
+<div class="admin-page-header">
+    <h2><i class="fas fa-shopping-cart"></i> <%= typeof t !== 'undefined' ? t('admin.orders.listTitle') : 'Order List' %></h2>
+    <p><%= typeof t !== 'undefined' ? t('admin.orders.description') : 'Manage all user orders' %></p>
+</div>
+
+<div class="order-filter-section">
+    <form method="GET" action="/admin/orders" class="filter-form">
+        <div class="filter-group">
+            <label for="status-filter">
+                <i class="fas fa-filter"></i> Order Status Filter:
+            </label>
+            <select id="status-filter" name="status" onchange="this.form.submit()" class="filter-select">
+                <option value=""><%= typeof t !== 'undefined' ? t('admin.orders.filter.all') : 'All' %></option>
+                <option value="pending" <%= typeof statusFilter !== 'undefined' && statusFilter === 'pending' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.filter.pending') : 'Pending' %></option>
+                <option value="paid" <%= typeof statusFilter !== 'undefined' && statusFilter === 'paid' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.filter.paid') : 'Paid' %></option>
+                <option value="completed" <%= typeof statusFilter !== 'undefined' && statusFilter === 'completed' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.filter.completed') : 'Completed' %></option>
+                <option value="cancelled" <%= typeof statusFilter !== 'undefined' && statusFilter === 'cancelled' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.filter.cancelled') : 'Cancelled' %></option>
+            </select>
+        </div>
+        <div class="filter-summary">
+            <span class="filter-count">
+                <i class="fas fa-list"></i> Total <strong><%= orders.length %></strong> orders
+            </span>
+        </div>
+    </form>
+</div>
+
+<div class="admin-table-container">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.id') : 'Order #' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.user') : 'User' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.product') : 'Product' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.quantity') : 'Quantity' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.amount') : 'Amount' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.status') : 'Status' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.createdAt') : 'Created At' %></th>
+                <th>Transaction Hash</th>
+                <th><%= typeof t !== 'undefined' ? t('admin.orders.actions') : 'Actions' %></th>
+            </tr>
+        </thead>
+        <tbody>
+            <% orders.forEach(function(order) { %>
+                <tr>
+                    <td>#<%= order.id %></td>
+                    <td><%= order.username %></td>
+                    <td><%= order.productName %></td>
+                    <td><%= order.quantity %></td>
+                    <td><%= order.totalAmount %> USDT</td>
+                    <td>
+                        <span class="badge status-<%= order.status %>">
+                            <% if (order.status === 'pending') { %><%= typeof t !== 'undefined' ? t('admin.orders.pending') : 'Pending' %><% } %>
+                            <% if (order.status === 'paid') { %><%= typeof t !== 'undefined' ? t('admin.orders.paid') : 'Paid' %><% } %>
+                            <% if (order.status === 'completed') { %><%= typeof t !== 'undefined' ? t('admin.orders.completed') : 'Completed' %><% } %>
+                            <% if (order.status === 'cancelled') { %><%= typeof t !== 'undefined' ? t('admin.orders.cancelled') : 'Cancelled' %><% } %>
+                        </span>
+                    </td>
+                    <td><%= new Date(order.createdAt).toLocaleString('en-US') %></td>
+                    <td>
+                        <% if (order.txHash && order.txHash.length > 0) { %>
+                            <code class="tx-hash-display" title="<%= order.txHash %>">
+                                <%= order.txHash.length > 20 ? order.txHash.substring(0, 20) + '...' : order.txHash %>
+                            </code>
+                        <% } else { %>
+                            <span class="text-muted">-</span>
+                        <% } %>
+                    </td>
+                    <td>
+                        <div class="order-actions">
+                            <form action="/admin/orders/<%= order.id %>/status" method="POST" style="display: inline; margin-right: 0.5rem;">
+                                <select name="status" onchange="this.form.submit()" class="status-select">
+                                    <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.pending') : 'Pending' %></option>
+                                    <option value="paid" <%= order.status === 'paid' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.paid') : 'Paid' %></option>
+                                    <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.completed') : 'Completed' %></option>
+                                    <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>><%= typeof t !== 'undefined' ? t('admin.orders.cancelled') : 'Cancelled' %></option>
+                                </select>
+                            </form>
+                            <form action="/admin/orders/<%= order.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete order #<%= order.id %>? This action cannot be undone!');">
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i> <%= typeof t !== 'undefined' ? t('admin.orders.delete') : 'Delete' %>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            <% }); %>
+            <% if (orders.length === 0) { %>
+                <tr>
+                    <td colspan="9" class="text-center"><%= typeof t !== 'undefined' ? t('admin.orders.empty') : 'No orders found' %></td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+</div>
+
+<style>
+.order-filter-section {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 1.5rem;
+}
+
+.filter-form {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.filter-group label {
+    color: var(--text-primary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.filter-select {
+    padding: 0.6rem 1rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.95rem;
+    min-width: 150px;
+    transition: all 0.3s ease;
+}
+
+.filter-select:hover {
+    border-color: var(--primary-color);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+}
+
+.filter-summary {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.filter-count strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.status-select {
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.status-select:hover {
+    border-color: var(--primary-color);
+}
+
+.order-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-danger {
+    background: #f5576c;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    background: #e0455a;
+    transform: translateY(-2px);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.tx-hash-display {
+    background: var(--bg-darker);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+    display: inline-block;
+    max-width: 200px;
+    cursor: pointer;
+}
+
+.tx-hash-display:hover {
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.text-muted {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+</style>
+
+<%- include('partials/admin-footer') %>
+

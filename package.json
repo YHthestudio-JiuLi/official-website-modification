@@ -1,0 +1,30 @@
+{
+  "name": "yhthestudio-web",
+  "version": "1.0.0",
+  "description": "YHthestudio 科技感前端网页",
+  "main": "server.js",
+  "scripts": {
+    "py": "./.venv/bin/python -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "view-db": "node view-db.js"
+  },
+  "keywords": [
+    "yhthestudio",
+    "web",
+    "forum"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^1.20.2",
+    "compression": "^1.8.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

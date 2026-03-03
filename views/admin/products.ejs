@@ -1,0 +1,49 @@
+<%- include('partials/admin-header', { title: typeof t !== 'undefined' ? t('admin.products.title') : 'Product Management', pageTitle: typeof t !== 'undefined' ? t('admin.products.title') : 'Product Management', currentPage: 'products', admin: admin, t: typeof t !== 'undefined' ? t : null, lang: typeof lang !== 'undefined' ? lang : 'en' }) %>
+
+<div class="admin-page-header">
+    <h2><i class="fas fa-box"></i> <%= typeof t !== 'undefined' ? t('admin.products.listTitle') : 'Product List' %></h2>
+    <a href="/admin/products/add" class="btn btn-primary">
+        <i class="fas fa-plus"></i> <%= typeof t !== 'undefined' ? t('admin.products.addProduct') : 'Add Product' %>
+    </a>
+</div>
+
+<div class="admin-table-container">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th><%= typeof t !== 'undefined' ? t('admin.products.id') : 'ID' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.products.name') : 'Name' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.products.description') : 'Description' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.products.date') : 'Date' %></th>
+                <th><%= typeof t !== 'undefined' ? t('admin.products.actions') : 'Actions' %></th>
+            </tr>
+        </thead>
+        <tbody>
+            <% products.forEach(function(product) { %>
+                <tr>
+                    <td><%= product.id %></td>
+                    <td><%= product.name %></td>
+                    <td><%= product.description.length > 50 ? product.description.substring(0, 50) + '...' : product.description %></td>
+                    <td><%= product.date %></td>
+                    <td>
+                        <a href="/admin/products/edit/<%= product.id %>" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-edit"></i> <%= typeof t !== 'undefined' ? t('admin.products.edit') : 'Edit' %>
+                        </a>
+                        <form action="/admin/products/delete/<%= product.id %>" method="POST" style="display: inline;" onsubmit="return confirm('<%= typeof t !== 'undefined' ? t('admin.products.confirmDelete') : 'Are you sure you want to delete this product?' %>');">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i> <%= typeof t !== 'undefined' ? t('admin.products.delete') : 'Delete' %>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            <% }); %>
+            <% if (products.length === 0) { %>
+                <tr>
+                    <td colspan="5" class="text-center"><%= typeof t !== 'undefined' ? t('admin.products.empty') : 'No products found' %></td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+</div>
+
+<%- include('partials/admin-footer') %>

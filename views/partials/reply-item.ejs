@@ -1,0 +1,80 @@
+<%
+const isNested = depth > 0;
+const replyDate = new Date(reply.createdAt);
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const replyDateStr = months[replyDate.getMonth()] + ' ' + replyDate.getDate() + ', ' + replyDate.getHours().toString().padStart(2, '0') + ':' + replyDate.getMinutes().toString().padStart(2, '0');
+const parentReply = reply.parentReplyId ? replies.find(r => r.id === reply.parentReplyId) : null;
+const children = childRepliesMap[reply.id] || [];
+const authorInitial = reply.author ? reply.author.charAt(0).toUpperCase() : '?';
+const isAuthor = typeof user !== 'undefined' && user && user.username === reply.author;
+const isAdmin = typeof user !== 'undefined' && user && user.isAdmin;
+%>
+<div class="reply-card <%= isNested ? 'nested-reply' : '' %>" data-reply-id="<%= reply.id %>">
+    <div class="reply-header">
+        <div class="reply-author-info">
+            <div class="author-avatar-small">
+                <%= authorInitial %>
+            </div>
+            <div class="author-details">
+                <span class="author-name"><%= reply.author %></span>
+                <span class="reply-date"><%= replyDateStr %></span>
+                <button class="btn-toggle-reply" onclick="toggleReply(<%= reply.id %>)">
+                    <span class="toggle-text">+</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="reply-content collapsed" id="reply-content-<%= reply.id %>">
+        <% if (parentReply) { %>
+            <span class="reply-to">
+                <i class="fas fa-reply"></i> <strong><%= parentReply.author %></strong>
+            </span>
+        <% } %>
+        <%= reply.content %>
+    </div>
+    <% if (typeof user !== 'undefined' && user) { %>
+        <div class="reply-actions collapsed" id="reply-actions-<%= reply.id %>">
+            <button class="btn-reply-to" data-reply-id="<%= reply.id %>" data-author-name="<%= reply.author %>">
+                Reply
+            </button>
+            <% if (isAuthor || isAdmin) { %>
+                <form action="/forum/<%= post.id %>/reply/<%= reply.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this reply?');">
+                    <button type="submit" class="btn-delete-reply">Delete</button>
+                </form>
+            <% } %>
+        </div>
+    <% } %>
+    <!-- 回复表单（隐藏） -->
+    <div class="nested-reply-form" id="reply-form-<%= reply.id %>" style="display: none;">
+        <form action="/forum/<%= post.id %>/reply" method="POST" class="reply-form-inline">
+            <input type="hidden" name="parentReplyId" value="<%= reply.id %>">
+            <div class="form-group">
+                <textarea name="content" rows="3" required placeholder="Reply..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Submit
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="hideReplyForm(<%= reply.id %>)">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 递归渲染子回复 -->
+    <%
+    for (var j = 0; j < children.length; j++) {
+        var child = children[j];
+        var childData = {
+            reply: child,
+            depth: depth + 1,
+            childRepliesMap: childRepliesMap,
+            replies: replies,
+            post: post,
+            user: user
+        };
+    %>
+        <%- include('reply-item', childData) %>
+    <% } %>
+</div>

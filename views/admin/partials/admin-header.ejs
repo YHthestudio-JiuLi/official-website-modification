@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+    <html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= typeof title !== 'undefined' && title ? title + ' - ' : '' %>Admin Panel - YHthestudio</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <div class="admin-container">
+        <aside class="admin-sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-cube"></i> <%= typeof t !== 'undefined' ? t('admin.title') : '管理后台' %></h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'dashboard' ? 'active' : '' %>">
+                    <i class="fas fa-chart-line"></i> <%= typeof t !== 'undefined' ? t('admin.dashboard') : '仪表板' %>
+                </a>
+                <a href="/admin/users" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'users' ? 'active' : '' %>">
+                    <i class="fas fa-users"></i> <%= typeof t !== 'undefined' ? t('admin.users') : '用户管理' %>
+                </a>
+                <a href="/admin/products" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'products' ? 'active' : '' %>">
+                    <i class="fas fa-box"></i> <%= typeof t !== 'undefined' ? t('admin.products') : '产品管理' %>
+                </a>
+                <a href="/admin/posts" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'posts' ? 'active' : '' %>">
+                    <i class="fas fa-comments"></i> <%= typeof t !== 'undefined' ? t('admin.posts') : '论坛管理' %>
+                </a>
+                <a href="/admin/orders" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'orders' ? 'active' : '' %>">
+                    <i class="fas fa-shopping-cart"></i> <%= typeof t !== 'undefined' ? t('admin.orders') : '订单管理' %>
+                </a>
+                <a href="/admin/payment-settings" class="nav-item <%= typeof currentPage !== 'undefined' && currentPage === 'payment-settings' ? 'active' : '' %>">
+                    <i class="fas fa-wallet"></i> <%= typeof t !== 'undefined' ? t('admin.paymentSettings') : '收款设置' %>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/" class="nav-item" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> <%= typeof t !== 'undefined' ? t('admin.viewSite') : '查看网站' %>
+                </a>
+                <a href="/admin/logout" class="nav-item">
+                    <i class="fas fa-sign-out-alt"></i> <%= typeof t !== 'undefined' ? t('admin.logout') : '退出登录' %>
+                </a>
+            </div>
+        </aside>
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1><%= typeof pageTitle !== 'undefined' ? (typeof t !== 'undefined' ? t('admin.' + currentPage + '.title') || pageTitle : pageTitle) : (typeof t !== 'undefined' ? t('admin.title') : '管理后台') %></h1>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="admin-user">
+                        <i class="fas fa-user-shield"></i> <%= admin.username %>
+                    </div>
+                </div>
+            </header>
+            <div class="admin-content">
+
+

@@ -1,0 +1,77 @@
+<%- include('partials/admin-header', { title: typeof t !== 'undefined' ? t('admin.dashboard.title') : '仪表板', pageTitle: typeof t !== 'undefined' ? t('admin.dashboard.title') : '仪表板', currentPage: 'dashboard', admin: admin, t: typeof t !== 'undefined' ? t : null, lang: typeof lang !== 'undefined' ? lang : 'en' }) %>
+
+<div class="dashboard-stats">
+    <div class="stat-card">
+        <div class="stat-icon users">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+            <h3><%= stats.totalUsers %></h3>
+            <p><%= typeof t !== 'undefined' ? t('admin.dashboard.totalUsers') : '总用户数' %></p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon products">
+            <i class="fas fa-box"></i>
+        </div>
+        <div class="stat-content">
+            <h3><%= stats.totalProducts %></h3>
+            <p><%= typeof t !== 'undefined' ? t('admin.dashboard.totalProducts') : '产品数量' %></p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon posts">
+            <i class="fas fa-comments"></i>
+        </div>
+        <div class="stat-content">
+            <h3><%= stats.totalPosts %></h3>
+            <p><%= typeof t !== 'undefined' ? t('admin.dashboard.totalPosts') : '论坛帖子' %></p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orders">
+            <i class="fas fa-shopping-cart"></i>
+        </div>
+        <div class="stat-content">
+            <h3><%= stats.totalOrders || 0 %></h3>
+            <p><%= typeof t !== 'undefined' ? t('admin.dashboard.totalOrders') : '总订单数' %></p>
+            <% if (stats.pendingOrders > 0) { %>
+                <span class="badge"><%= stats.pendingOrders %> <%= typeof t !== 'undefined' ? t('admin.dashboard.pendingOrders') : '待处理' %></span>
+            <% } %>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon revenue">
+            <i class="fas fa-dollar-sign"></i>
+        </div>
+        <div class="stat-content">
+            <h3><%= (stats.totalRevenue || 0).toFixed(2) %></h3>
+            <p><%= typeof t !== 'undefined' ? t('admin.dashboard.totalRevenue') : '总收入 (USDT)' %></p>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-actions">
+    <div class="action-card">
+        <h3><i class="fas fa-users"></i> <%= typeof t !== 'undefined' ? t('admin.dashboard.actions.userManagement') : '用户管理' %></h3>
+        <p><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.userManagementDesc') : '管理系统用户，查看、删除用户账号' %></p>
+        <a href="/admin/users" class="btn btn-primary"><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.manageUsers') : '管理用户' %></a>
+    </div>
+    <div class="action-card">
+        <h3><i class="fas fa-box"></i> <%= typeof t !== 'undefined' ? t('admin.dashboard.actions.productManagement') : '产品管理' %></h3>
+        <p><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.productManagementDesc') : '添加、编辑、删除产品信息' %></p>
+        <a href="/admin/products" class="btn btn-primary"><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.manageProducts') : '管理产品' %></a>
+    </div>
+    <div class="action-card">
+        <h3><i class="fas fa-comments"></i> <%= typeof t !== 'undefined' ? t('admin.dashboard.actions.forumManagement') : '论坛管理' %></h3>
+        <p><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.forumManagementDesc') : '管理论坛帖子，审核内容' %></p>
+        <a href="/admin/posts" class="btn btn-primary"><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.manageForum') : '管理论坛' %></a>
+    </div>
+    <div class="action-card">
+        <h3><i class="fas fa-shopping-cart"></i> <%= typeof t !== 'undefined' ? t('admin.dashboard.actions.orderManagement') : '订单管理' %></h3>
+        <p><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.orderManagementDesc') : '管理所有用户订单和支付' %></p>
+        <a href="/admin/orders" class="btn btn-primary"><%= typeof t !== 'undefined' ? t('admin.dashboard.actions.manageOrders') : '管理订单' %></a>
+    </div>
+</div>
+
+<%- include('partials/admin-footer') %>

@@ -1,0 +1,164 @@
+<%
+const pageTitle = post.title || '';
+const authorInitial = post.author ? post.author.charAt(0).toUpperCase() : '?';
+%>
+<%- include('partials/header', { title: pageTitle, user: user }) %>
+
+<div class="page-header">
+    <div class="container">
+        <div class="forum-breadcrumb">
+            <a href="/forum"><i class="fas fa-arrow-left"></i> Back to Forum</a>
+        </div>
+        <h1><i class="fas fa-comments"></i> <%= post.title %></h1>
+    </div>
+</div>
+
+<div class="forum-detail-page">
+    <div class="container">
+        <div class="forum-post-main">
+            <div class="post-main-header">
+                <div class="post-author-info">
+                    <div class="author-avatar">
+                        <%= authorInitial %>
+                    </div>
+                    <div class="author-details">
+                        <span class="author-name"><%= post.author %></span>
+                        <%
+                        var displayDate = '';
+                        if (post.date) {
+                            displayDate = post.date;
+                        } else if (post.createdAt) {
+                            var postDate = new Date(post.createdAt);
+                            displayDate = postDate.toLocaleDateString('en-US');
+                        }
+                        %>
+                        <span class="post-date">
+                            <i class="fas fa-calendar"></i> <%= displayDate %>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="post-main-content">
+                <p><%= post.content %></p>
+            </div>
+            <div class="post-main-footer">
+                <span class="replies-count">
+                    <i class="fas fa-comments"></i> <%= replies.length %> replies
+                </span>
+            </div>
+        </div>
+
+        <div class="forum-replies-section">
+            <h2><i class="fas fa-reply"></i> Replies (<%= replies.length %>)</h2>
+            <% if (replies.length === 0) { %>
+                <div class="no-replies">
+                    <i class="fas fa-comment-slash"></i>
+                    <p>No replies yet, be the first to reply!</p>
+                </div>
+            <% } else { %>
+                <div class="replies-list">
+                    <% 
+                    for (var i = 0; i < topLevelReplies.length; i++) {
+                        var reply = topLevelReplies[i];
+                        var replyData = {
+                            reply: reply,
+                            depth: 0,
+                            childRepliesMap: childRepliesMap,
+                            replies: replies,
+                            post: post,
+                            user: user
+                        };
+                    %>
+                        <%- include('partials/reply-item', replyData) %>
+                    <% } %>
+                </div>
+            <% } %>
+        </div>
+
+        <% if (typeof user !== 'undefined' && user) { %>
+            <div class="reply-form-section" id="reply">
+                <h3><i class="fas fa-edit"></i> Post Reply</h3>
+                <% if (typeof error !== 'undefined' && error) { %>
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i> <%= error %>
+                    </div>
+                <% } %>
+                <form action="/forum/<%- post.id %>/reply" method="POST" class="reply-form">
+                    <div class="form-group">
+                        <label for="reply-content">
+                            <i class="fas fa-comment"></i> Reply Content
+                        </label>
+                        <textarea id="reply-content" name="content" rows="5" required placeholder="Enter your reply content..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Reply
+                    </button>
+                </form>
+            </div>
+        <% } else { %>
+            <div class="reply-login-prompt">
+                <p><i class="fas fa-info-circle"></i> Please <a href="/login?redirect=/forum/<%- post.id %>">login</a> to reply</p>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<script>
+function toggleReply(replyId) {
+    const content = document.getElementById('reply-content-' + replyId);
+    const actions = document.getElementById('reply-actions-' + replyId);
+    const card = document.querySelector('[data-reply-id="' + replyId + '"]');
+    const toggleText = card.querySelector('.toggle-text');
+
+    if (content && content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        if (actions) actions.classList.remove('collapsed');
+        if (toggleText) toggleText.textContent = '-';
+    } else {
+        content.classList.add('collapsed');
+        if (actions) actions.classList.add('collapsed');
+        if (toggleText) toggleText.textContent = '+';
+    }
+}
+
+function showReplyForm(replyId, authorName) {
+    const form = document.getElementById('reply-form-' + replyId);
+    if (form) {
+        form.style.display = 'block';
+        const textarea = form.querySelector('textarea');
+        if (textarea) {
+            textarea.focus();
+            if (authorName) {
+                textarea.placeholder = 'Reply to ' + authorName + '...';
+            }
+        }
+        form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function hideReplyForm(replyId) {
+    const form = document.getElementById('reply-form-' + replyId);
+    if (form) {
+        form.style.display = 'none';
+        const textarea = form.querySelector('textarea');
+        if (textarea) {
+            textarea.value = '';
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-reply-to');
+        if (btn) {
+            const replyId = btn.getAttribute('data-reply-id');
+            const authorName = btn.getAttribute('data-author-name');
+            if (replyId && authorName) {
+                showReplyForm(parseInt(replyId), authorName);
+            }
+        }
+    });
+});
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,43 @@
+<%- include('partials/header', { title: 'Products', user: user }) %>
+
+<div class="page-header">
+    <div class="container">
+        <h1><i class="fas fa-box"></i> Our Products</h1>
+        <p>Explore innovative technology, experience cutting-edge solutions</p>
+    </div>
+</div>
+
+<div class="products-page">
+    <div class="container">
+        <div class="products-grid">
+            <% products.forEach(function(product) { %>
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="<%= product.image %>" alt="<%= product.name %>" onerror="this.src='data:image/svg+xml;charset=utf-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22180%22><rect fill=%22%231a1f3a%22 width=%22100%%22 height=%22100%%22/><text x=%2250%%22 y=%2250%%22 fill=%22%2300d4ff%22 font-family=%22Arial%22 font-size=%2220%22 text-anchor=%22middle%22 dy=%22.3em%22>No Image</text></svg>'">
+                        <div class="product-overlay">
+                            <a href="/products/<%= product.id %>" class="btn btn-primary">View Details</a>
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <h3 title="<%= product.name %>"><%= product.name %></h3>
+                        <p title="<%= product.description %>"><%= product.description %></p>
+                        <div class="product-price-small">
+                            <span class="price-amount"><%= product.priceUsdt || product.price || 0 %> USDT</span>
+                        </div>
+                        <div class="product-meta-small">
+                            <span class="product-date"><i class="fas fa-calendar"></i> <%= product.date %></span>
+                        </div>
+                        <div class="product-actions-small">
+                            <a href="/products/<%= product.id %>" class="btn btn-secondary btn-sm">View Details</a>
+                            <a href="/products/<%= product.id %>/buy" class="btn btn-primary btn-sm">
+                                <i class="fas fa-shopping-cart"></i> Buy Now
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

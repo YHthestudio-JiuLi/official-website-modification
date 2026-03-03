@@ -1,0 +1,180 @@
+{
+  "admin": {
+    "title": "管理后台",
+    "dashboard": "仪表板",
+    "users": "用户管理",
+    "products": "产品管理",
+    "posts": "论坛管理",
+    "orders": "订单管理",
+    "paymentSettings": "收款设置",
+    "logout": "退出登录",
+    "viewSite": "查看网站",
+    "login": {
+      "title": "管理后台登录",
+      "subtitle": "YHthestudio 管理系统",
+      "username": "管理员用户名",
+      "password": "密码",
+      "submit": "登录",
+      "defaultAccount": "默认账号: admin / admin123"
+    },
+    "dashboard": {
+      "title": "仪表板",
+      "totalUsers": "总用户数",
+      "totalProducts": "产品数量",
+      "totalPosts": "论坛帖子",
+      "totalOrders": "总订单数",
+      "pendingOrders": "待处理",
+      "totalRevenue": "总收入 (USDT)",
+      "actions": {
+        "userManagement": "用户管理",
+        "userManagementDesc": "管理系统用户，查看、删除用户账号",
+        "manageUsers": "管理用户",
+        "productManagement": "产品管理",
+        "productManagementDesc": "添加、编辑、删除产品信息",
+        "manageProducts": "管理产品",
+        "forumManagement": "论坛管理",
+        "forumManagementDesc": "管理论坛帖子，审核内容",
+        "manageForum": "管理论坛",
+        "orderManagement": "订单管理",
+        "orderManagementDesc": "管理所有用户订单和支付",
+        "manageOrders": "管理订单"
+      }
+    },
+    "users": {
+      "title": "用户管理",
+      "listTitle": "用户列表",
+      "description": "管理系统中的所有用户账号",
+      "id": "ID",
+      "username": "用户名",
+      "email": "邮箱",
+      "registerTime": "注册时间",
+      "isAdmin": "管理员",
+      "actions": "操作",
+      "yes": "是",
+      "no": "否",
+      "edit": "修改",
+      "delete": "删除",
+      "cannotDelete": "不可删除",
+      "confirmDelete": "确定要删除此用户吗？",
+      "empty": "暂无用户",
+      "addUser": "添加用户",
+      "editUser": "编辑用户",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "products": {
+      "title": "产品管理",
+      "listTitle": "产品列表",
+      "description": "管理系统中的所有产品",
+      "id": "ID",
+      "name": "产品名称",
+      "description": "描述",
+      "price": "价格 (USDT)",
+      "date": "发布日期",
+      "actions": "操作",
+      "edit": "编辑",
+      "delete": "删除",
+      "confirmDelete": "确定要删除此产品吗？",
+      "empty": "暂无产品",
+      "addProduct": "添加产品",
+      "editProduct": "编辑产品",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "posts": {
+      "title": "论坛管理",
+      "listTitle": "论坛帖子",
+      "description": "管理系统中的所有论坛帖子",
+      "id": "ID",
+      "title": "标题",
+      "author": "作者",
+      "date": "日期",
+      "replies": "回复数",
+      "actions": "操作",
+      "edit": "编辑",
+      "delete": "删除",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "confirmDelete": "确定要删除此帖子吗？",
+      "empty": "暂无帖子",
+      "addPost": "发布新帖",
+      "editPost": "编辑帖子",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "orders": {
+      "title": "订单管理",
+      "listTitle": "订单列表",
+      "description": "管理系统中的所有订单",
+      "id": "ID",
+      "user": "用户",
+      "product": "产品",
+      "quantity": "数量",
+      "amount": "金额 (USDT)",
+      "status": "状态",
+      "createdAt": "创建时间",
+      "actions": "操作",
+      "pending": "待支付",
+      "paid": "已支付",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "updateStatus": "更新状态",
+      "delete": "删除",
+      "confirmDelete": "确定要删除此订单吗？",
+      "empty": "暂无订单",
+      "filter": {
+        "all": "全部",
+        "pending": "待支付",
+        "paid": "已支付",
+        "completed": "已完成",
+        "cancelled": "已取消"
+      }
+    },
+    "paymentSettings": {
+      "title": "收款设置",
+      "description": "配置收款相关设置",
+      "walletAddress": "钱包地址",
+      "network": "网络类型",
+      "autoDeleteMinutes": "自动删除时间（分钟）",
+      "save": "保存设置",
+      "saved": "设置保存成功"
+    }
+  },
+  "login": {
+    "title": "登录",
+    "username": "用户名",
+    "password": "密码",
+    "submit": "登录",
+    "noAccount": "还没有账号？",
+    "register": "立即注册",
+    "error": {
+      "invalidCredentials": "用户名或密码错误"
+    }
+  },
+  "register": {
+    "title": "注册",
+    "username": "用户名",
+    "email": "邮箱",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "submit": "注册",
+    "hasAccount": "已有账号？",
+    "login": "立即登录",
+    "error": {
+      "usernameExists": "用户名已存在",
+      "emailExists": "邮箱已被注册",
+      "emailInUse": "邮箱已被使用",
+      "fillAllFields": "请填写所有必填项"
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+

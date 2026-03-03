@@ -1,0 +1,43 @@
+<%- include('partials/header', { title: 'Register', user: user }) %>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-user-plus"></i> Register</h1>
+            <p>Join YHthestudio and start your tech journey</p>
+        </div>
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> <%= error %>
+            </div>
+        <% } %>
+        <form action="/register" method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> Username
+                </label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i> Email
+                </label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Password
+                </label>
+                <input type="password" id="password" name="password" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-user-plus"></i> Register
+            </button>
+        </form>
+        <div class="auth-footer">
+            <p>Already have an account? <a href="/login">Login Now</a></p>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

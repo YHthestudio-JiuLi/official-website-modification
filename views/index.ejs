@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: '', user: user }) %>
+
+<div class="hero-section">
+    <div class="hero-background">
+        <div class="grid-overlay"></div>
+        <div class="particles"></div>
+    </div>
+    <div class="hero-content">
+        <h1 class="hero-title">
+            <span class="gradient-text">YHthestudio</span>
+        </h1>
+        <p class="hero-subtitle">Innovative Technology · Leading the Future</p>
+        <p class="hero-description">Explore cutting-edge technology, connect innovative thinking, build the digital future</p>
+        <div class="hero-buttons">
+            <a href="/products" class="btn btn-primary btn-large">
+                <i class="fas fa-rocket"></i> Explore Products
+            </a>
+            <a href="/forum" class="btn btn-secondary btn-large">
+                <i class="fas fa-comments"></i> Join Forum
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="features-section">
+    <div class="container">
+        <h2 class="section-title">Core Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3>Tech Forum</h3>
+                <p>Exchange with industry experts and tech enthusiasts, share experiences and insights</p>
+                <a href="/forum" class="feature-link">Enter Forum <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-box"></i>
+                </div>
+                <h3>Product Showcase</h3>
+                <p>Browse our latest innovative products and solutions</p>
+                <a href="/products" class="feature-link">View Products <i class="fas fa-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="products-preview">
+    <div class="container">
+        <h2 class="section-title">Latest Products</h2>
+        <div class="products-grid">
+            <% products.forEach(function(product) { %>
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="<%= product.image %>" alt="<%= product.name %>" onerror="this.src='data:image/svg+xml;charset=utf-8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22180%22><rect fill=%22%231a1f3a%22 width=%22100%%22 height=%22100%%22/><text x=%2250%%22 y=%2250%%22 fill=%22%2300d4ff%22 font-family=%22Arial%22 font-size=%2220%22 text-anchor=%22middle%22 dy=%22.3em%22>No Image</text></svg>'">
+                        <div class="product-overlay">
+                            <a href="/products/<%= product.id %>" class="btn btn-primary">View Details</a>
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <h3 title="<%= product.name %>"><%= product.name %></h3>
+                        <p title="<%= product.description %>"><%= product.description && product.description.length > 100 ? product.description.substring(0, 100) + '...' : product.description %></p>
+                        <div class="product-price-small">
+                            <span class="price-amount"><%= product.priceUsdt || product.price || 0 %> USDT</span>
+                        </div>
+                        <div class="product-meta-small">
+                            <span class="product-date"><i class="fas fa-calendar"></i> <%= product.date %></span>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        <div class="text-center" style="margin-top: 3rem;">
+            <a href="/products" class="btn btn-secondary">View All Products</a>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

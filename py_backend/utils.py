@@ -52,7 +52,7 @@ def row_to_dict(row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:
 
 
 def rows_to_dict(rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
-    return [{k: r[k] for r in r.keys()} for r in rows]
+    return [{k: row[k] for k in row.keys()} for row in rows]
 
 
 def validate_table_name(table: str) -> bool:

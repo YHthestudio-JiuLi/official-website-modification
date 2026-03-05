@@ -542,12 +542,11 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
 // 所有非 API 请求返回 index.html，让 Vue Router 处理
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientDistPath, 'index.html'));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // 启动服务器
 app.listen(PORT, HOST, () => {
-  console.log(`Server running at http://${HOST}:${PORT}`);
-  console.log(`Serving Vue frontend from: ${clientDistPath}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`API server running on http://${HOST}:${PORT}`);
+  console.log(`Serving Vue frontend from: ${distPath}`);
 });

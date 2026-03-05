@@ -54,18 +54,29 @@ official-website-modification/
 # 安装依赖
 npm install
 
-# 启动 Python 数据库后端 (必须先启动)
+# 方式一：开发模式 (推荐)
+# 终端 1: 启动 Python 数据库后端
 npm run py
 
-# 启动 Vue 前端开发服务器 (新终端)
+# 终端 2: 启动 Vue 前端开发服务器 (Vite)
 npm run dev
 
-# 启动 API 服务器 (新终端)
+# 终端 3: 启动 API 服务器 (可选，用于测试后端接口)
 npm start
 
-# 构建 Vue 前端
+# 方式二：生产模式
+# 构建前端并启动 API 服务器
 npm run build
+npm start
 ```
+
+## 访问地址
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| Vite 开发服务器 | http://localhost:5173 | 前端开发环境 (热重载) |
+| API 服务器 | http://localhost:3000 | 后端 API + 静态文件 |
+| Python 后端 | http://localhost:5100 | 数据库服务 |
 
 ## 生产部署
 

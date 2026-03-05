@@ -23,30 +23,29 @@ YHthestudio 是一个现代化的双语（中文/英文）电子商务网站，�
 
 ```
 official-website-modification/
-├── client/                 # Vue 3 前端源码
-│   ├── src/
-│   │   ├── components/    # 可复用组件
-│   │   │   ├── common/    # 通用组件
-│   │   │   ├── user/      # 用户端组件
-│   │   │   └── admin/     # 管理端组件
-│   │   ├── views/         # 页面组件
-│   │   │   ├── user/      # 用户前端页面
-│   │   │   └── admin/     # 管理后台页面
-│   │   ├── stores/        # Pinia 状态管理
-│   │   ├── router/        # Vue Router 配置
-│   │   ├── i18n/          # 国际化文件
-│   │   ├── services/      # API 服务
-│   │   └── styles/        # 全局样式
-│   ├── index.html
-│   └── package.json
-├── py_backend/            # Python FastAPI 后端
-│   ├── main.py           # FastAPI 应用入口
-│   └── db.sqlite         # SQLite 数据库
-├── data/                  # 数据文件目录
-├── api-server.js          # Node.js API 服务器
-├── database.js            # RPC 客户端 (连接 Python 后端)
-├── translate.js           # 中文转英文翻译工具
-└── package.json           # 项目依赖配置
+├── src/               # Vue 3 前端源码
+│   ├── components/    # 可复用组件
+│   │   ├── common/    # 通用组件
+│   │   ├── user/      # 用户端组件
+│   │   └── admin/     # 管理端组件
+│   ├── views/         # 页面组件
+│   │   ├── user/      # 用户前端页面
+│   │   └── admin/     # 管理后台页面
+│   ├── stores/        # Pinia 状态管理
+│   ├── router/        # Vue Router 配置
+│   ├── i18n/          # 国际化文件
+│   ├── services/      # API 服务
+│   └── styles/        # 全局样式
+├── dist/              # 构建产物 (生产环境)
+├── py_backend/        # Python FastAPI 后端
+│   └── main.py       # FastAPI 应用入口
+├── data/              # 数据文件目录
+├── api-server.js      # Node.js API 服务器
+├── database.js        # RPC 客户端 (连接 Python 后端)
+├── translate.js       # 中文转英文翻译工具
+├── index.html         # HTML 入口
+├── vite.config.js     # Vite 配置
+└── package.json       # 项目依赖配置
 ```
 
 ## 开发命令
@@ -54,29 +53,28 @@ official-website-modification/
 ```bash
 # 安装依赖
 npm install
-cd client && npm install
 
 # 启动 Python 数据库后端 (必须先启动)
 npm run py
 
+# 启动 Vue 前端开发服务器 (新终端)
+npm run dev
+
 # 启动 API 服务器 (新终端)
 npm start
 
-# 启动 Vue 前端开发服务器 (新终端)
-npm run client:dev
-
 # 构建 Vue 前端
-npm run client:build
+npm run build
 ```
 
 ## 生产部署
 
 1. 构建前端:
 ```bash
-npm run client:build
+npm run build
 ```
 
-2. 构建产物位于 `client/dist/`
+2. 构建产物位于 `dist/`
 
 3. 使用 PM2 运行 API 服务:
 ```bash
@@ -84,14 +82,14 @@ pm2 start api-server.js --name yhthestudio-api
 ```
 
 4. 配置 Nginx:
-- 静态文件指向 `client/dist/`
+- 静态文件指向 `dist/`
 - `/api` 代理到 Node.js 服务器 (端口 3000)
 
 ## 默认账户
 
 管理员账户（首次初始化自动创建）:
-- 用户名: `admin`
-- 密码: `admin123`
+- 用户名：`admin`
+- 密码：`admin123`
 
 ## 环境变量
 
@@ -101,30 +99,6 @@ pm2 start api-server.js --name yhthestudio-api
 | HOST | Node.js 服务器主机 | 0.0.0.0 |
 | PY_DB_URL | Python 后端地址 | http://127.0.0.1:5100 |
 | YH_DB_PATH | SQLite 数据库路径 | data/yhthestudio.db |
-
-## API 端点
-
-### 用户 API
-- `GET /api/auth/me` - 获取当前用户
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/logout` - 用户登出
-- `GET /api/products` - 获取产品列表
-- `GET /api/products/:id` - 获取产品详情
-- `POST /api/orders` - 创建订单
-- `GET /api/orders` - 获取用户订单
-- `GET /api/forum/posts` - 获取论坛帖子
-- `POST /api/forum/posts` - 发布帖子
-- 更多见 CLAUDE.md
-
-### 管理 API
-- `POST /api/admin/auth/login` - 管理员登录
-- `GET /api/admin/stats` - 获取统计数据
-- `GET/POST/PUT/DELETE /api/admin/users` - 用户管理
-- `GET/POST/PUT/DELETE /api/admin/products` - 产品管理
-- `GET/POST/PUT/DELETE /api/admin/orders` - 订单管理
-- `GET/POST/PUT/DELETE /api/admin/posts` - 论坛管理
-- `GET/PUT /api/admin/payment-settings` - 支付设置
 
 ## 功能特性
 

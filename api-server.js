@@ -31,8 +31,8 @@ app.use(session({
 }));
 
 // 静态文件服务 - 提供 Vue 构建后的前端
-const clientDistPath = path.join(__dirname, 'client', 'dist');
-app.use(express.static(clientDistPath, {
+const distPath = path.join(__dirname, 'dist');
+app.use(express.static(distPath, {
   maxAge: '1y',
   etag: true,
   lastModified: true

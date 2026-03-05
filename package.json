@@ -4,12 +4,11 @@
   "description": "YHthestudio - Vue 3 E-commerce & Forum Platform",
   "main": "api-server.js",
   "scripts": {
-    "py": "python3 -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
-    "client:dev": "cd client && npm run dev",
-    "client:build": "cd client && npm run build",
-    "build": "npm run client:build",
-    "start": "node api-server.js",
-    "dev": "npm run build && npm start"
+    "py": "python3 -m uvicorn py_backend/main:app --host 127.0.0.1 --port 5100 --reload",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node api-server.js"
   },
   "keywords": [
     "yhthestudio",
@@ -21,13 +20,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "body-parser": "^1.20.2",
     "compression": "^1.8.1",
+    "cors": "^2.8.6",
     "express": "^4.18.2",
-    "express-session": "^1.17.3"
+    "express-session": "^1.17.3",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.25",
+    "vue-i18n": "^9.14.4",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@vitejs/plugin-vue": "^6.0.2",
+    "vite": "^7.3.1"
   }
 }

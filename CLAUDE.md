@@ -11,19 +11,18 @@ YHthestudio is a bilingual (Chinese/English) e-commerce web application with a f
 ```bash
 # Install dependencies
 npm install
-cd client && npm install
 
 # Start Python DB backend (required first)
 npm run py
 
+# Start Vue frontend development server (in another terminal)
+npm run dev
+
 # Start API server (in another terminal)
 npm start
 
-# Start Vue frontend development server (in another terminal)
-npm run client:dev
-
 # Build Vue frontend for production
-npm run client:build
+npm run build
 ```
 
 ## Architecture
@@ -34,7 +33,7 @@ npm run client:build
 - **Routing**: Vue Router
 - **Internationalization**: Vue I18n
 - **HTTP Client**: Axios
-- **Location**: `client/` directory
+- **Location**: `src/` directory
 
 ### Backend (Dual-Stack Design)
 - **API Server** (`api-server.js`): Express REST API server handling HTTP routes, sessions, and JSON responses. Runs on port 3000 by default.
@@ -47,7 +46,7 @@ The Node.js server communicates with the Python backend through HTTP RPC calls d
 - `database.js` - RPC client for Python backend communication
 - `py_backend/main.py` - FastAPI server with SQLite database and RPC endpoints
 - `translate.js` - Chinese-to-English translation utilities for product content
-- `client/src/` - Vue.js frontend source code
+- `src/` - Vue.js frontend source code
   - `views/` - Page components (user/ and admin/)
   - `components/` - Reusable components
   - `stores/` - Pinia state management
@@ -107,13 +106,13 @@ Admin account created on first init:
 
 1. Build the Vue frontend:
 ```bash
-npm run client:build
+npm run build
 ```
 
-2. The built files will be in `client/dist/`
+2. The built files will be in `dist/`
 
 3. Configure your web server (Nginx/Apache) to:
-   - Serve static files from `client/dist/`
+   - Serve static files from `dist/`
    - Proxy `/api` requests to the Node.js server
 
 PM2 configuration example for running the API server:
@@ -128,9 +127,9 @@ pm2 start api-server.js --name yh-api
 2. Use existing `dbOperations` methods or add new ones in `database.js`
 
 ### Adding a new Vue page
-1. Create component in `client/src/views/user/` or `client/src/views/admin/`
-2. Add route in `client/src/router/index.js`
-3. Add store if needed in `client/src/stores/`
+1. Create component in `src/views/user/` or `src/views/admin/`
+2. Add route in `src/router/index.js`
+3. Add store if needed in `src/stores/`
 
 ### Session Management
 - User sessions: `req.session.user` for logged-in users

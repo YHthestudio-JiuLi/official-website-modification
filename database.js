@@ -54,6 +54,7 @@ const dbOperations = {
     create: (orderData) => rpc('orders.create', { orderData }),
     updateStatus: (id, status) => rpc('orders.updateStatus', { id, status }),
     updateTxHash: (id, txHash) => rpc('orders.updateTxHash', { id, txHash }),
+    updateShippingAddress: (id, shippingAddress) => rpc('orders.updateShippingAddress', { id, shippingAddress }),
     getStats: () => rpc('orders.getStats'),
     delete: (id) => rpc('orders.delete', { id }),
     deleteExpiredPending: (minutes) => rpc('orders.deleteExpiredPending', { minutes })

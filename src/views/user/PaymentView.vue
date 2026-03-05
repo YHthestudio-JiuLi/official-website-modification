@@ -36,11 +36,15 @@
                   <span>Payment Amount: </span>
                   <span class="amount-highlight">{{ order.totalAmount }} USDT</span>
                 </div>
-                <div class="info-item">
+                <div v-if="order.status === 'pending'" class="info-item">
                   <span>Order Status: </span>
                   <span :class="['status-badge', 'status-' + order.status]">
                     {{ getStatusText(order.status) }}
                   </span>
+                </div>
+                <div v-if="order.shippingAddress && order.status !== 'pending'" class="info-item">
+                  <span>Address: </span>
+                  <span>{{ order.shippingAddress }}</span>
                 </div>
               </div>
 
@@ -70,6 +74,19 @@
             <div v-if="order.status === 'pending'" class="payment-form-card">
               <h3><i class="fas fa-check-circle"></i> Confirm Payment</h3>
               <form @submit.prevent="handleConfirmPayment" class="payment-form">
+                <div class="form-group">
+                  <label for="shippingAddress">
+                    <i class="fas fa-map-marker-alt"></i> Address *
+                  </label>
+                  <input
+                    type="text"
+                    id="shippingAddress"
+                    v-model="shippingAddress"
+                    required
+                    placeholder="Please enter your shipping address"
+                  />
+                  <small>Please ensure the address is correct, otherwise the order cannot be confirmed</small>
+                </div>
                 <div class="form-group">
                   <label for="txHash">
                     <i class="fas fa-hashtag"></i> Transaction Hash (TX Hash) *
@@ -121,6 +138,7 @@ const { t } = useI18n()
 
 const order = ref(null)
 const txHash = ref('')
+const shippingAddress = ref('')
 const loading = ref(true)
 const submitting = ref(false)
 const copied = ref(false)
@@ -157,9 +175,20 @@ async function copyAddress() {
 }
 
 async function handleConfirmPayment() {
+  if (!shippingAddress.value || !shippingAddress.value.trim()) {
+    alert('Please enter your address')
+    return
+  }
+  if (!txHash.value || !txHash.value.trim()) {
+    alert('Please enter your transaction hash')
+    return
+  }
   submitting.value = true
   try {
-    await api.post(`/api/orders/${route.params.id}/confirm`, { txHash: txHash.value })
+    await api.post(`/api/orders/${route.params.id}/confirm`, {
+      txHash: txHash.value,
+      shippingAddress: shippingAddress.value.trim()
+    })
     await onMounted()
   } catch (error) {
     console.error('Failed to confirm payment:', error)
@@ -169,3 +198,6 @@ async function handleConfirmPayment() {
   }
 }
 </script>
+
+<style scoped>
+</style>

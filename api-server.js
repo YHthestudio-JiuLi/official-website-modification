@@ -185,7 +185,7 @@ app.get('/api/payment-settings', async (req, res) => {
 });
 
 app.post('/api/orders', requireUser, async (req, res) => {
-  const { productId, quantity = 1 } = req.body;
+  const { productId, quantity = 1, shippingAddress } = req.body;
   const product = await dbOperations.products.findById(parseInt(productId));
   if (!product) {
     return res.status(404).json({ error: 'Product not found' });
@@ -207,7 +207,8 @@ app.post('/api/orders', requireUser, async (req, res) => {
     status: 'pending',
     paymentMethod: 'USDT',
     usdtWallet: walletAddress,
-    network: network
+    network: network,
+    shippingAddress: shippingAddress
   };
 
   const orderId = await dbOperations.orders.create(orderData);
@@ -239,8 +240,13 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
     return res.status(404).json({ error: 'Order not found' });
   }
 
-  const { txHash } = req.body;
+  const { txHash, shippingAddress } = req.body;
+  if (!shippingAddress || !shippingAddress.trim()) {
+    return res.status(400).json({ error: 'Shipping address required' });
+  }
+
   if (txHash && txHash.trim()) {
+    await dbOperations.orders.updateShippingAddress(id, shippingAddress.trim());
     await dbOperations.orders.updateTxHash(id, txHash.trim());
     await dbOperations.orders.updateStatus(id, 'paid');
     res.json({ success: true, message: 'Payment successful!' });

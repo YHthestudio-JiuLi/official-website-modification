@@ -95,3 +95,16 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.post-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.post-actions .btn {
+  white-space: nowrap;
+}
+</style>

@@ -82,6 +82,12 @@
         </form>
       </div>
     </div>
+
+    <!-- Toast Notification -->
+    <div v-if="toast.visible" :class="['toast', 'toast-' + toast.type]">
+      <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+      <span>{{ toast.message }}</span>
+    </div>
   </AdminLayout>
 </template>
 
@@ -105,6 +111,12 @@ const form = ref({
 const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
+
+const toast = ref({
+  visible: false,
+  type: 'success',
+  message: ''
+})
 
 onMounted(async () => {
   if (isEdit.value) {
@@ -136,11 +148,68 @@ async function handleSubmit() {
     } else {
       await api.post('/api/admin/posts', form.value)
     }
-    router.push('/admin/posts')
+    showToast('Post saved successfully', 'success')
+    setTimeout(() => {
+      router.back()
+    }, 1500)
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to save post'
   } finally {
     submitting.value = false
   }
 }
+
+function showToast(message, type = 'success') {
+  toast.value = { visible: true, type, message }
+  setTimeout(() => {
+    toast.value.visible = false
+  }, 4000)
+}
 </script>
+
+<style scoped>
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: slideInRight 0.3s ease;
+  z-index: 2000;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.toast.toast-success {
+  background: rgba(67, 233, 123, 0.15);
+  border: 1px solid #43e97b;
+  color: #43e97b;
+}
+
+.toast.toast-error {
+  background: rgba(245, 87, 108, 0.15);
+  border: 1px solid #f5576c;
+  color: #f5576c;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
+</style>

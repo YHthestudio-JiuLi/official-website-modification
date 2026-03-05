@@ -28,9 +28,6 @@
           <div v-if="error" class="alert alert-error">
             <i class="fas fa-exclamation-circle"></i> {{ error }}
           </div>
-          <div v-if="success" class="alert alert-success">
-            <i class="fas fa-check-circle"></i> User saved successfully!
-          </div>
 
           <!-- Basic Information Section -->
           <div class="form-section">
@@ -153,6 +150,12 @@
         </form>
       </div>
     </div>
+
+    <!-- Toast Notification -->
+    <div v-if="toast.visible" :class="['toast', toast.type]">
+      <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
+      <span>{{ toast.message }}</span>
+    </div>
   </AdminLayout>
 </template>
 
@@ -178,7 +181,12 @@ const showPassword = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
-const success = ref(false)
+
+const toast = ref({
+  visible: false,
+  type: 'success',
+  message: ''
+})
 
 // Form validation
 const isValid = computed(() => {
@@ -191,9 +199,8 @@ const isValid = computed(() => {
   return true
 })
 
-// Clear success message when form changes
+// Clear error message when form changes
 watch(form, () => {
-  success.value = false
   error.value = ''
 }, { deep: true })
 
@@ -227,32 +234,35 @@ async function handleSubmit() {
 
   submitting.value = true
   error.value = ''
-  success.value = false
 
   try {
     const submitData = { ...form.value }
-    // Don't send empty password for edit
     if (isEdit.value && !submitData.password) {
       delete submitData.password
     }
 
     if (isEdit.value) {
       await api.put(`/api/admin/users/${route.params.id}`, submitData)
-      success.value = true
     } else {
       await api.post('/api/admin/users', submitData)
-      success.value = true
     }
 
-    // Redirect after short delay
+    showToast('User saved successfully', 'success')
     setTimeout(() => {
-      router.push('/admin/users')
+      router.back()
     }, 1500)
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to save user. Please try again.'
   } finally {
     submitting.value = false
   }
+}
+
+function showToast(message, type = 'success') {
+  toast.value = { visible: true, type, message }
+  setTimeout(() => {
+    toast.value.visible = false
+  }, 4000)
 }
 </script>
 
@@ -598,6 +608,52 @@ async function handleSubmit() {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Toast Notification */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: slideInRight 0.3s ease;
+  z-index: 2000;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.toast.success {
+  background: rgba(67, 233, 123, 0.15);
+  border: 1px solid #43e97b;
+  color: #43e97b;
+}
+
+.toast.error {
+  background: rgba(245, 87, 108, 0.15);
+  border: 1px solid #f5576c;
+  color: #f5576c;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
 }
 
 @keyframes fadeIn {

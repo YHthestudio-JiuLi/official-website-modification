@@ -58,6 +58,7 @@
                 <th class="col-status">Status</th>
                 <th class="col-date">Date</th>
                 <th class="col-tx">TX Hash</th>
+                <th class="col-address">Address</th>
                 <th class="col-actions">Actions</th>
               </tr>
             </thead>
@@ -86,13 +87,23 @@
                 </td>
                 <td class="col-date">{{ formatDate(order.createdAt) }}</td>
                 <td class="col-tx">
-                  <span v-if="order.txHash" class="tx-hash" :title="order.txHash">
+                  <span v-if="order.txHash" class="tx-hash" :title="order.txHash" @dblclick="copyTxHash(order.txHash)">
                     {{ truncateHash(order.txHash) }}
+                  </span>
+                  <span v-else class="no-data">-</span>
+                </td>
+                <td class="col-address">
+                  <span v-if="order.shippingAddress" class="address-text" :title="order.shippingAddress" @dblclick="copyAddress(order.shippingAddress)">
+                    {{ truncateAddress(order.shippingAddress) }}
                   </span>
                   <span v-else class="no-data">-</span>
                 </td>
                 <td class="col-actions">
                   <div class="action-group">
+                    <button @click="openOrderDetail(order)" class="btn-view" title="View Details">
+                      <i class="fas fa-eye"></i>
+                      <span class="btn-text">View</span>
+                    </button>
                     <select
                       :value="order.status"
                       @change="handleStatusUpdate(order.id, $event.target.value)"
@@ -116,7 +127,7 @@
                 </td>
               </tr>
               <tr v-if="orders.length === 0">
-                <td colspan="9" class="empty-state">
+                <td colspan="10" class="empty-state">
                   <i class="fas fa-inbox"></i>
                   <p>No orders found</p>
                 </td>
@@ -170,6 +181,96 @@
         </div>
       </div>
 
+      <!-- Order Detail Modal -->
+      <div v-if="showOrderDetailModal" class="modal-overlay" @click="closeOrderDetailModal">
+        <div class="modal-container modal-large" @click.stop>
+          <div class="modal-header">
+            <i class="fas fa-shopping-cart"></i>
+            <h3>Order Details #{{ selectedOrder?.id }}</h3>
+            <button @click="closeOrderDetailModal" class="modal-close">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="order-detail-grid">
+              <div class="detail-section">
+                <h4><i class="fas fa-user"></i> Customer Information</h4>
+                <div class="detail-item">
+                  <span class="detail-label">Username:</span>
+                  <span class="detail-value">{{ selectedOrder?.username }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">User ID:</span>
+                  <span class="detail-value">#{{ selectedOrder?.userId }}</span>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4><i class="fas fa-box"></i> Product Information</h4>
+                <div class="detail-item">
+                  <span class="detail-label">Product Name:</span>
+                  <span class="detail-value">{{ selectedOrder?.productName }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Quantity:</span>
+                  <span class="detail-value">{{ selectedOrder?.quantity }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Unit Price:</span>
+                  <span class="detail-value">{{ selectedOrder?.price }} USDT</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Total Amount:</span>
+                  <span class="detail-value highlight">{{ selectedOrder?.totalAmount }} USDT</span>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4><i class="fas fa-map-marker-alt"></i> Shipping Address</h4>
+                <div class="detail-item full-width">
+                  <span class="detail-value">{{ selectedOrder?.shippingAddress || 'No shipping address provided' }}</span>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4><i class="fas fa-link"></i> Transaction Information</h4>
+                <div class="detail-item">
+                  <span class="detail-label">TX Hash:</span>
+                  <span class="detail-value tx-hash-value">{{ selectedOrder?.txHash || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Status:</span>
+                  <span :class="['status-badge', 'status-' + selectedOrder?.status]">
+                    {{ getStatusText(selectedOrder?.status) }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h4><i class="fas fa-calendar"></i> Timestamps</h4>
+                <div class="detail-item">
+                  <span class="detail-label">Created At:</span>
+                  <span class="detail-value">{{ formatDate(selectedOrder?.createdAt) }}</span>
+                </div>
+                <div v-if="selectedOrder?.paidAt" class="detail-item">
+                  <span class="detail-label">Paid At:</span>
+                  <span class="detail-value">{{ formatDate(selectedOrder?.paidAt) }}</span>
+                </div>
+                <div v-if="selectedOrder?.completedAt" class="detail-item">
+                  <span class="detail-label">Completed At:</span>
+                  <span class="detail-value">{{ formatDate(selectedOrder?.completedAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="closeOrderDetailModal" class="btn btn-secondary">
+              <i class="fas fa-times"></i> Close
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Toast Notification -->
       <div v-if="toast.visible" :class="['toast', toast.type]">
         <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
@@ -193,11 +294,16 @@ const statusFilter = ref('')
 const showDeleteModal = ref(false)
 const orderToDelete = ref(null)
 
+const showOrderDetailModal = ref(false)
+const selectedOrder = ref(null)
+
 const toast = ref({
   visible: false,
   type: 'success',
   message: ''
 })
+
+const copiedContent = ref(null)
 
 const statusTextMap = {
   'pending': 'Pending',
@@ -273,6 +379,45 @@ function formatDate(dateStr) {
 function truncateHash(hash) {
   if (!hash) return '-'
   return hash.length > 16 ? hash.substring(0, 16) + '...' : hash
+}
+
+function truncateAddress(address) {
+  if (!address) return '-'
+  return address.length > 30 ? address.substring(0, 30) + '...' : address
+}
+
+async function copyAddress(address) {
+  if (!address) return
+  try {
+    await navigator.clipboard.writeText(address)
+    copiedContent.value = address
+    showToast('Address copied', 'success')
+    setTimeout(() => { copiedContent.value = null }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
+}
+
+async function copyTxHash(hash) {
+  if (!hash) return
+  try {
+    await navigator.clipboard.writeText(hash)
+    copiedContent.value = hash
+    showToast('TX Hash copied', 'success')
+    setTimeout(() => { copiedContent.value = null }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
+}
+
+function openOrderDetail(order) {
+  selectedOrder.value = order
+  showOrderDetailModal.value = true
+}
+
+function closeOrderDetailModal() {
+  showOrderDetailModal.value = false
+  selectedOrder.value = null
 }
 </script>
 
@@ -448,6 +593,7 @@ function truncateHash(hash) {
 .col-status { min-width: 100px; }
 .col-date { min-width: 150px; }
 .col-tx { min-width: 180px; }
+.col-address { min-width: 200px; }
 .col-actions { min-width: 200px; text-align: center; }
 
 /* Cell content */
@@ -520,6 +666,14 @@ function truncateHash(hash) {
   color: var(--primary-color);
 }
 
+.address-text {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .no-data {
   color: var(--text-secondary);
 }
@@ -584,6 +738,53 @@ function truncateHash(hash) {
   .btn-text {
     display: inline;
   }
+}
+
+.btn-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 70px;
+  height: 36px;
+  padding: 0 0.75rem;
+  background: rgba(0, 212, 255, 0.15);
+  border: none;
+  border-radius: 6px;
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn-view:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.address-text {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.address-text:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.tx-hash {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.tx-hash:hover {
+  background: rgba(0, 212, 255, 0.1);
 }
 
 /* ========== Scroll Hint ========== */
@@ -696,12 +897,17 @@ function truncateHash(hash) {
   overflow-y: auto;
 }
 
+.modal-container.modal-large {
+  max-width: 800px;
+}
+
 .modal-header {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  position: relative;
 }
 
 .modal-header.danger i {
@@ -712,6 +918,87 @@ function truncateHash(hash) {
 .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
+  flex: 1;
+}
+
+/* Order Detail Modal */
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.detail-section {
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.detail-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-section h4 i {
+  color: var(--primary-color);
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.detail-item.full-width {
+  flex-direction: column;
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: right;
+  word-break: break-word;
+}
+
+.detail-value.highlight {
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.detail-value.tx-hash-value {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+  color: var(--primary-color);
 }
 
 .modal-body {
@@ -881,6 +1168,19 @@ function truncateHash(hash) {
   
   .orders-table {
     min-width: 1000px !important;
+  }
+  
+  .order-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .detail-value {
+    text-align: left;
   }
 }
 </style>

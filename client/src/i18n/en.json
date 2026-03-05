@@ -1,0 +1,273 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "error": "Error",
+    "success": "Success"
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "forum": "Forum",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "myOrders": "My Orders"
+  },
+  "home": {
+    "hero": {
+      "title": "YHthestudio",
+      "subtitle": "Professional Digital Solutions",
+      "description": "We provide high-quality digital products and services to help your business grow",
+      "cta": "Explore Products"
+    },
+    "features": {
+      "title": "Why Choose Us",
+      "quality": {
+        "title": "Premium Quality",
+        "description": "All products undergo strict quality control"
+      },
+      "support": {
+        "title": "24/7 Support",
+        "description": "Professional technical team at your service"
+      },
+      "secure": {
+        "title": "Secure Payment",
+        "description": "Multiple payment methods, safe and reliable"
+      }
+    },
+    "latestProducts": "Latest Products"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Login",
+      "noAccount": "Don't have an account?",
+      "registerNow": "Register Now",
+      "error": {
+        "invalidCredentials": "Invalid username or password"
+      }
+    },
+    "register": {
+      "title": "Register",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Register",
+      "hasAccount": "Already have an account?",
+      "loginNow": "Login",
+      "error": {
+        "usernameExists": "Username already exists",
+        "emailExists": "Email already in use",
+        "fillAllFields": "Please fill in all required fields"
+      }
+    }
+  },
+  "products": {
+    "title": "Products",
+    "buyNow": "Buy Now",
+    "viewDetails": "View Details",
+    "price": "Price",
+    "usdt": "USDT",
+    "empty": "No products available"
+  },
+  "orders": {
+    "title": "My Orders",
+    "empty": "No orders yet",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "payNow": "Pay Now",
+    "quantity": "Quantity",
+    "total": "Total",
+    "createdAt": "Created At"
+  },
+  "payment": {
+    "title": "Payment",
+    "orderInfo": "Order Information",
+    "productName": "Product",
+    "quantity": "Quantity",
+    "amount": "Amount",
+    "walletAddress": "Wallet Address",
+    "network": "Network",
+    "txHash": "Transaction Hash",
+    "txHashPlaceholder": "Please enter the transaction hash after payment",
+    "submit": "Confirm Payment",
+    "copyAddress": "Copy Address",
+    "copied": "Copied!"
+  },
+  "buy": {
+    "title": "Buy Product",
+    "productInfo": "Product Information",
+    "quantity": "Quantity",
+    "total": "Total",
+    "paymentInfo": "Payment Information",
+    "submit": "Create Order"
+  },
+  "forum": {
+    "title": "Forum",
+    "newPost": "New Post",
+    "replies": "replies",
+    "reply": "Reply",
+    "pinned": "Pinned",
+    "empty": "No posts yet",
+    "postTitle": "Title",
+    "content": "Content",
+    "submit": "Post",
+    "deleteReply": "Delete",
+    "noReplies": "No replies yet"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "products": "Products",
+    "posts": "Forum Posts",
+    "orders": "Orders",
+    "paymentSettings": "Payment Settings",
+    "logout": "Logout",
+    "viewSite": "View Site",
+    "login": {
+      "title": "Admin Login",
+      "subtitle": "YHthestudio Management System",
+      "username": "Admin Username",
+      "password": "Password",
+      "submit": "Login",
+      "defaultAccount": "Default account: admin / admin123",
+      "error": "Username or password incorrect"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "totalUsers": "Total Users",
+      "totalProducts": "Products",
+      "totalPosts": "Forum Posts",
+      "totalOrders": "Total Orders",
+      "pendingOrders": "Pending",
+      "totalRevenue": "Total Revenue (USDT)",
+      "actions": {
+        "userManagement": "User Management",
+        "userManagementDesc": "Manage system users, view and delete user accounts",
+        "manageUsers": "Manage Users",
+        "productManagement": "Product Management",
+        "productManagementDesc": "Add, edit, and delete product information",
+        "manageProducts": "Manage Products",
+        "forumManagement": "Forum Management",
+        "forumManagementDesc": "Manage forum posts and review content",
+        "manageForum": "Manage Forum",
+        "orderManagement": "Order Management",
+        "orderManagementDesc": "Manage all user orders and payments",
+        "manageOrders": "Manage Orders"
+      }
+    },
+    "users": {
+      "title": "User Management",
+      "listTitle": "User List",
+      "description": "Manage all user accounts in the system",
+      "id": "ID",
+      "username": "Username",
+      "email": "Email",
+      "registerTime": "Register Time",
+      "isAdmin": "Admin",
+      "actions": "Actions",
+      "yes": "Yes",
+      "no": "No",
+      "edit": "Edit",
+      "delete": "Delete",
+      "cannotDelete": "Cannot Delete",
+      "confirmDelete": "Are you sure you want to delete this user?",
+      "empty": "No users found",
+      "addUser": "Add User",
+      "editUser": "Edit User",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "products": {
+      "title": "Product Management",
+      "listTitle": "Product List",
+      "description": "Manage all products in the system",
+      "id": "ID",
+      "name": "Name",
+      "description": "Description",
+      "price": "Price (USDT)",
+      "date": "Date",
+      "actions": "Actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirmDelete": "Are you sure you want to delete this product?",
+      "empty": "No products found",
+      "addProduct": "Add Product",
+      "editProduct": "Edit Product",
+      "save": "Save",
+      "cancel": "Cancel",
+      "imageUrl": "Image URL"
+    },
+    "posts": {
+      "title": "Forum Management",
+      "listTitle": "Forum Posts",
+      "description": "Manage all forum posts in the system",
+      "id": "ID",
+      "title": "Title",
+      "author": "Author",
+      "date": "Date",
+      "replies": "Replies",
+      "actions": "Actions",
+      "edit": "Edit",
+      "delete": "Delete",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "confirmDelete": "Are you sure you want to delete this post?",
+      "empty": "No posts found",
+      "addPost": "Add Post",
+      "editPost": "Edit Post",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "orders": {
+      "title": "Order Management",
+      "listTitle": "Order List",
+      "description": "Manage all orders in the system",
+      "id": "ID",
+      "user": "User",
+      "product": "Product",
+      "quantity": "Quantity",
+      "amount": "Amount (USDT)",
+      "status": "Status",
+      "createdAt": "Created At",
+      "actions": "Actions",
+      "pending": "Pending",
+      "paid": "Paid",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "updateStatus": "Update Status",
+      "delete": "Delete",
+      "confirmDelete": "Are you sure you want to delete this order?",
+      "empty": "No orders found",
+      "filter": {
+        "all": "All",
+        "pending": "Pending",
+        "paid": "Paid",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "paymentSettings": {
+      "title": "Payment Settings",
+      "description": "Configure payment receipt settings",
+      "walletAddress": "Wallet Address",
+      "network": "Network",
+      "autoDeleteMinutes": "Auto Delete Minutes",
+      "save": "Save Settings",
+      "saved": "Settings saved successfully"
+    }
+  }
+}

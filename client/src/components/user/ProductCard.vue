@@ -1,0 +1,56 @@
+<template>
+  <div class="product-card">
+    <div class="product-image">
+      <img
+        :src="product.image"
+        :alt="product.name"
+        @error="handleImageError"
+      />
+      <div class="product-overlay">
+        <router-link :to="`/products/${product.id}`" class="btn btn-primary">
+          {{ $t('products.viewDetails') }}
+        </router-link>
+      </div>
+    </div>
+    <div class="product-info">
+      <h3 :title="product.name">{{ product.name }}</h3>
+      <p :title="product.description">{{ truncatedDescription }}</p>
+      <div class="product-price-small">
+        <span class="price-amount">{{ product.priceUsdt || product.price || 0 }} USDT</span>
+      </div>
+      <div class="product-meta-small">
+        <span class="product-date">
+          <i class="fas fa-calendar"></i> {{ product.date }}
+        </span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+
+const props = defineProps({
+  product: {
+    type: Object,
+    required: true
+  }
+})
+
+const truncatedDescription = computed(() => {
+  const desc = props.product.description
+  return desc && desc.length > 100 ? desc.substring(0, 100) + '...' : desc
+})
+
+function handleImageError(e) {
+  e.target.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+      <rect fill="#1a1f3a" width="400" height="300"/>
+      <text fill="#667eea" font-family="sans-serif" font-size="48" x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">
+        <tspan x="200" y="135">📷</tspan>
+        <tspan x="200" y="180" font-size="14">Image not available</tspan>
+      </text>
+    </svg>
+  `)
+}
+</script>

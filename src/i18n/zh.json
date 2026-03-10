@@ -10,6 +10,11 @@
     "error": "错误",
     "success": "成功"
   },
+  "language": {
+    "switch": "切换语言",
+    "en": "English",
+    "zh": "中文"
+  },
   "nav": {
     "home": "首页",
     "products": "产品",
@@ -73,10 +78,23 @@
   "products": {
     "title": "产品列表",
     "buyNow": "立即购买",
+    "addToCart": "加入购物车",
+    "added": "已添加",
+    "addedToCart": "已添加到购物车",
     "viewDetails": "查看详情",
     "price": "价格",
     "usdt": "USDT",
-    "empty": "暂无产品"
+    "empty": "暂无产品",
+    "searchPlaceholder": "搜索产品名称或描述...",
+    "sort": {
+      "default": "默认排序",
+      "priceAsc": "价格从低到高",
+      "priceDesc": "价格从高到低",
+      "nameAsc": "名称 A-Z",
+      "dateDesc": "最新上架"
+    },
+    "results": "个产品",
+    "noResults": "未找到相关产品"
   },
   "orders": {
     "title": "我的订单",
@@ -114,6 +132,18 @@
     "paymentInfo": "支付信息",
     "submit": "创建订单"
   },
+  "cart": {
+    "title": "购物车",
+    "empty": "购物车空空如也",
+    "browse": "去逛逛",
+    "items": "商品列表",
+    "price": "单价",
+    "subtotal": "小计",
+    "summary": "订单摘要",
+    "total": "总计",
+    "continue": "继续购物",
+    "checkout": "去结算"
+  },
   "forum": {
     "title": "论坛",
     "newPost": "发布新帖",
@@ -135,25 +165,42 @@
     "posts": "论坛管理",
     "orders": "订单管理",
     "paymentSettings": "收款设置",
+    "settings": "设置",
     "logout": "退出登录",
     "viewSite": "查看网站",
+    "sidebar": {
+      "expand": "展开侧边栏",
+      "collapse": "收起侧边栏"
+    },
     "login": {
       "title": "管理后台登录",
       "subtitle": "YHthestudio 管理系统",
       "username": "管理员用户名",
       "password": "密码",
       "submit": "登录",
-      "defaultAccount": "默认账号: admin / admin123",
+      "defaultAccount": "",
       "error": "用户名或密码错误"
     },
     "dashboard": {
       "title": "仪表板",
+      "overview": "概览",
       "totalUsers": "总用户数",
       "totalProducts": "产品数量",
       "totalPosts": "论坛帖子",
       "totalOrders": "总订单数",
       "pendingOrders": "待处理",
       "totalRevenue": "总收入 (USDT)",
+      "active": "活跃",
+      "inCatalog": "在目录中",
+      "discussions": "讨论",
+      "pending": "待处理",
+      "needsAction": "需要操作",
+      "growing": "增长中",
+      "quickActions": "快捷操作",
+      "systemStatus": "系统状态",
+      "online": "在线",
+      "connected": "已连接",
+      "enabled": "已启用",
       "actions": {
         "userManagement": "用户管理",
         "userManagementDesc": "管理系统用户，查看、删除用户账号",
@@ -189,7 +236,29 @@
       "addUser": "添加用户",
       "editUser": "编辑用户",
       "save": "保存",
-      "cancel": "取消"
+      "cancel": "取消",
+      "user": "用户",
+      "role": "角色",
+      "registered": "注册时间",
+      "selectAll": "全选",
+      "infoText": "编辑用户详情或删除账号。管理员账号出于安全考虑无法删除。",
+      "totalUsers": "共",
+      "registeredUsers": "个注册用户",
+      "deleteSelected": "删除选中",
+      "confirmBatchDeletion": "确认批量删除",
+      "batchDeleteWarning": "确定要删除选中的 {count} 个用户吗？",
+      "actionCannotUndo": "此操作无法撤销！",
+      "batchDeleteWarning1": "所有选中的用户账号将被永久删除",
+      "batchDeleteWarning2": "用户将失去对其订单和论坛帖子的访问权限",
+      "batchDeleteWarning3": "相关数据可能会受到影响",
+      "cancel": "取消",
+      "keepUser": "取消，保留用户",
+      "deleteUsers": "删除 {count} 个用户",
+      "successfullyDeleted": "成功删除 {count} 个用户",
+      "failedToDelete": "删除用户失败",
+      "loadingUsers": "正在加载用户列表...",
+      "admin": "管理员",
+      "userRole": "普通用户"
     },
     "products": {
       "title": "产品管理",

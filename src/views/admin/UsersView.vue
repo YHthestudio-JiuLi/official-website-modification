@@ -1,26 +1,37 @@
 <template>
   <AdminLayout>
-    <template #header-title>User Management</template>
+    <template #header-title>{{ $t('admin.users.title') }}</template>
 
     <div class="users-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
             <i class="fas fa-users"></i>
-            User Management
+            {{ $t('admin.users.title') }}
           </h2>
-          <p>Manage user accounts, roles, and permissions</p>
+          <p>{{ $t('admin.users.description') }}</p>
         </div>
-        <router-link to="/admin/users/edit" class="btn btn-primary" title="Create a new user account">
-          <i class="fas fa-plus"></i>
-          <span>Add User</span>
-        </router-link>
+        <div class="header-actions">
+          <button
+            v-if="selectedUsers.length > 0"
+            @click="confirmBatchDelete"
+            class="btn btn-danger"
+            :disabled="selectedUsers.length === 0"
+          >
+            <i class="fas fa-trash"></i>
+            <span>{{ $t('admin.users.deleteSelected') }} ({{ selectedUsers.length }})</span>
+          </button>
+          <router-link to="/admin/users/edit" class="btn btn-primary" :title="$t('admin.users.addUser')">
+            <i class="fas fa-plus"></i>
+            <span>{{ $t('admin.users.addUser') }}</span>
+          </router-link>
+        </div>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading users...</span>
+          <span>{{ $t('admin.users.loadingUsers') }}</span>
         </div>
       </div>
 
@@ -28,7 +39,13 @@
         <div class="table-header">
           <div class="table-info">
             <i class="fas fa-users"></i>
-            <span>Total <strong>{{ users.length }}</strong> registered users</span>
+            <span>{{ $t('admin.users.totalUsers') }} <strong>{{ users.length }}</strong> {{ $t('admin.users.registeredUsers') }}</span>
+          </div>
+          <div class="table-actions">
+            <label class="select-all-label">
+              <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
+              <span>{{ $t('admin.users.selectAll') }}</span>
+            </label>
           </div>
         </div>
 
@@ -36,7 +53,7 @@
         <div class="table-info-bar">
           <p class="info-text">
             <i class="fas fa-info-circle"></i>
-            Edit user details or remove accounts. Admin accounts cannot be deleted for security.
+            {{ $t('admin.users.infoText') }}
           </p>
         </div>
 
@@ -44,16 +61,22 @@
           <table class="data-table">
             <thead>
               <tr>
+                <th class="select-column">
+                  <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
+                </th>
                 <th>ID</th>
-                <th>User</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Registered</th>
-                <th class="text-center">Actions</th>
+                <th>{{ $t('admin.users.user') }}</th>
+                <th>{{ $t('admin.users.email') }}</th>
+                <th>{{ $t('admin.users.role') }}</th>
+                <th>{{ $t('admin.users.registered') }}</th>
+                <th class="text-center">{{ $t('admin.users.actions') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="user in users" :key="user.id" :class="{ 'admin-row': user.isAdmin }">
+              <tr v-for="user in users" :key="user.id" :class="{ 'admin-row': user.isAdmin, 'selected-row': selectedUsers.includes(user.id) }">
+                <td class="select-column">
+                  <input type="checkbox" v-model="selectedUsers" :value="user.id" :disabled="user.isAdmin" />
+                </td>
                 <td>
                   <span class="id-badge">#{{ user.id }}</span>
                 </td>
@@ -71,7 +94,7 @@
                 <td>
                   <span :class="['role-badge', user.isAdmin ? 'role-admin' : 'role-user']">
                     <i :class="user.isAdmin ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
-                    {{ user.isAdmin ? 'Admin' : 'User' }}
+                    {{ user.isAdmin ? $t('admin.users.admin') : $t('admin.users.userRole') }}
                   </span>
                 </td>
                 <td>
@@ -82,27 +105,27 @@
                     <router-link
                       :to="`/admin/users/edit/${user.id}`"
                       class="action-btn btn-edit"
-                      :title="`Edit ${user.username} - Modify user details and permissions`"
+                      :title="`${$t('admin.users.edit')} ${user.username}`"
                     >
                       <i class="fas fa-edit"></i>
-                      <span class="action-text">Edit</span>
+                      <span class="action-text">{{ $t('admin.users.edit') }}</span>
                     </router-link>
                     <button
                       v-if="!user.isAdmin"
                       @click="confirmDelete(user.id, user.username)"
                       class="action-btn btn-delete"
-                      :title="`Delete ${user.username} - Remove user account permanently`"
+                      :title="`${$t('admin.users.delete')} ${user.username}`"
                     >
                       <i class="fas fa-trash"></i>
-                      <span class="action-text">Delete</span>
+                      <span class="action-text">{{ $t('admin.users.delete') }}</span>
                     </button>
                     <span
                       v-else
                       class="action-btn btn-protected"
-                      :title="`Cannot delete ${user.username} - Admin accounts are protected`"
+                      :title="`${$t('admin.users.cannotDelete')} ${user.username}`"
                     >
                       <i class="fas fa-lock"></i>
-                      <span class="action-text">Protected</span>
+                      <span class="action-text">{{ $t('admin.users.cannotDelete') }}</span>
                     </span>
                   </div>
                 </td>
@@ -110,10 +133,10 @@
               <tr v-if="users.length === 0">
                 <td colspan="6" class="empty-state">
                   <i class="fas fa-user-injured"></i>
-                  <h3>No Users Yet</h3>
-                  <p>No user accounts have been created. Be the first to add a user.</p>
+                  <h3>{{ $t('admin.users.empty') }}</h3>
+                  <p>{{ $t('admin.users.empty') }}</p>
                   <router-link to="/admin/users/edit" class="btn btn-primary">
-                    <i class="fas fa-user-plus"></i> Add First User
+                    <i class="fas fa-user-plus"></i> {{ $t('admin.users.addUser') }}
                   </router-link>
                 </td>
               </tr>
@@ -131,10 +154,10 @@
         <div class="modal-container" @click.stop>
           <div class="modal-header danger">
             <i class="fas fa-exclamation-triangle"></i>
-            <h3>Confirm User Deletion</h3>
+            <h3>{{ $t('admin.users.confirmDelete') }}</h3>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete this user:</p>
+            <p>{{ $t('admin.users.confirmDelete') }}</p>
             <div class="user-info-box">
               <div class="user-avatar-large">
                 {{ userToDelete?.username?.charAt(0).toUpperCase() }}
@@ -147,7 +170,7 @@
                 <p class="user-role-text">
                   <span :class="['badge', userToDelete?.isAdmin ? 'badge-admin' : 'badge-user']">
                     <i :class="userToDelete?.isAdmin ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
-                    {{ userToDelete?.isAdmin ? 'Administrator' : 'Regular User' }}
+                    {{ userToDelete?.isAdmin ? $t('admin.users.admin') : $t('admin.users.userRole') }}
                   </span>
                 </p>
               </div>
@@ -155,21 +178,53 @@
             <div class="warning-box">
               <i class="fas fa-exclamation-circle"></i>
               <div class="warning-content">
-                <p><strong>This action cannot be undone!</strong></p>
+                <p><strong>{{ $t('admin.users.actionCannotUndo') }}</strong></p>
                 <ul>
-                  <li>The user account will be permanently deleted</li>
-                  <li>User will lose access to their orders and forum posts</li>
-                  <li>Associated data may be affected</li>
+                  <li>{{ $t('admin.users.batchDeleteWarning1') }}</li>
+                  <li>{{ $t('admin.users.batchDeleteWarning2') }}</li>
+                  <li>{{ $t('admin.users.batchDeleteWarning3') }}</li>
                 </ul>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button @click="closeDeleteModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel, Keep User
+              <i class="fas fa-times"></i> {{ $t('admin.users.keepUser') }}
             </button>
             <button @click="executeDelete" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Delete User Account
+              <i class="fas fa-trash"></i> {{ $t('admin.users.delete') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch Delete Confirmation Modal -->
+      <div v-if="showBatchDeleteModal" class="modal-overlay" @click="closeBatchDeleteModal">
+        <div class="modal-container" @click.stop>
+          <div class="modal-header danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>{{ $t('admin.users.confirmBatchDeletion') }}</h3>
+          </div>
+          <div class="modal-body">
+            <p>{{ $t('admin.users.batchDeleteWarning', { count: selectedUsers.length }) }}</p>
+            <div class="warning-box">
+              <i class="fas fa-exclamation-circle"></i>
+              <div class="warning-content">
+                <p><strong>{{ $t('admin.users.actionCannotUndo') }}</strong></p>
+                <ul>
+                  <li>{{ $t('admin.users.batchDeleteWarning1') }}</li>
+                  <li>{{ $t('admin.users.batchDeleteWarning2') }}</li>
+                  <li>{{ $t('admin.users.batchDeleteWarning3') }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="closeBatchDeleteModal" class="btn btn-secondary">
+              <i class="fas fa-times"></i> {{ $t('admin.users.cancel') }}
+            </button>
+            <button @click="executeBatchDelete" class="btn btn-danger">
+              <i class="fas fa-trash"></i> {{ $t('admin.users.deleteUsers', { count: selectedUsers.length }) }}
             </button>
           </div>
         </div>
@@ -185,16 +240,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
+const { t } = useI18n()
+
 const users = ref([])
 const loading = ref(true)
+const selectAll = ref(false)
+const selectedUsers = ref([])
 
 // Delete modal state
 const showDeleteModal = ref(false)
 const userToDelete = ref(null)
+
+// Batch delete modal state
+const showBatchDeleteModal = ref(false)
 
 // Toast notification state
 const toast = ref({
@@ -211,7 +274,7 @@ async function fetchUsers() {
     const response = await api.get('/api/admin/users')
     users.value = response.data
   } catch (error) {
-    showToast('Failed to load users', 'error')
+    showToast(t('admin.users.failedToDelete'), 'error')
   } finally {
     loading.value = false
   }
@@ -237,9 +300,9 @@ async function executeDelete() {
     await api.delete(`/api/admin/users/${userId}`)
     closeDeleteModal()
     await fetchUsers()
-    showToast(`User "${username}" deleted successfully`, 'success')
+    showToast(`${username} deleted successfully`, 'success')
   } catch (error) {
-    showToast('Failed to delete user: ' + (error.response?.data?.message || 'Unknown error'), 'error')
+    showToast(t('admin.users.failedToDelete') + ': ' + (error.response?.data?.message || t('common.error')), 'error')
   }
 }
 
@@ -262,6 +325,49 @@ function formatDate(dateStr) {
 function formatFullDate(dateStr) {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('en-US')
+}
+
+// Watch for changes in selectedUsers to update selectAll
+watch(selectedUsers, (newVal) => {
+  const nonAdminUsers = users.value.filter(u => !u.isAdmin).map(u => u.id)
+  selectAll.value = newVal.length > 0 && nonAdminUsers.every(id => newVal.includes(id))
+}, { deep: true })
+
+function toggleSelectAll() {
+  if (selectAll.value) {
+    // Select all non-admin users
+    selectedUsers.value = users.value.filter(u => !u.isAdmin).map(u => u.id)
+  } else {
+    // Deselect all
+    selectedUsers.value = []
+  }
+}
+
+function confirmBatchDelete() {
+  if (selectedUsers.value.length === 0) return
+  showBatchDeleteModal.value = true
+}
+
+function closeBatchDeleteModal() {
+  showBatchDeleteModal.value = false
+}
+
+async function executeBatchDelete() {
+  const selectedIds = [...selectedUsers.value]
+  if (selectedIds.length === 0) return
+
+  try {
+    // Delete users one by one
+    const deletePromises = selectedIds.map(id => api.delete(`/api/admin/users/${id}`))
+    await Promise.all(deletePromises)
+
+    closeBatchDeleteModal()
+    selectedUsers.value = []
+    await fetchUsers()
+    showToast(t('admin.users.successfullyDeleted', { count: selectedIds.length }), 'success')
+  } catch (error) {
+    showToast(t('admin.users.failedToDelete') + ': ' + (error.response?.data?.message || t('common.error')), 'error')
+  }
 }
 </script>
 

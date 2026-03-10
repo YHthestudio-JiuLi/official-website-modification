@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,9 @@ DB_PATH = Path(os.environ.get("YH_DB_PATH", str(DATA_DIR / "yhthestudio.db")))
 DEFAULT_ADMIN_BCRYPT_HASH = (
     "$2b$10$L44E.0mupOj9DbN5rZnIJuhF7v9K1zjP6xglMiaNoEsFYoHJ/HPH."
 )
+
+# 全局锁用于线程安全的数据库访问
+_db_lock = threading.Lock()
 
 
 def now_iso() -> str:
@@ -38,11 +42,41 @@ def generate_placeholder_svg(text: str, width: int = 400, height: int = 300) -> 
     return "data:image/svg+xml;charset=utf-8," + encoded
 
 
+class DatabaseConnection:
+    """单例数据库连接类（线程安全）"""
+    _instance = None
+    _conn = None
+    _lock = threading.Lock()
+    
+    @classmethod
+    def get_connection(cls) -> sqlite3.Connection:
+        """获取数据库连接（线程安全）"""
+        with cls._lock:
+            if cls._conn is None:
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                cls._conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+                cls._conn.row_factory = sqlite3.Row
+                # 启用 WAL 模式以提高并发性能
+                cls._conn.execute("PRAGMA journal_mode=WAL")
+        return cls._conn
+    
+    @classmethod
+    def close(cls):
+        """关闭数据库连接"""
+        with cls._lock:
+            if cls._conn is not None:
+                cls._conn.close()
+                cls._conn = None
+
+
 def connect() -> sqlite3.Connection:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """获取数据库连接（使用单例模式）"""
+    return DatabaseConnection.get_connection()
+
+
+def get_db_lock() -> threading.Lock:
+    """获取全局数据库锁，用于写操作同步"""
+    return _db_lock
 
 
 def row_to_dict(row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:

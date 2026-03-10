@@ -81,6 +81,16 @@ const dbOperations = {
     get: () => rpc('paymentSettings.get'),
     update: (walletAddress, network = 'TRC20', autoDeleteMinutes = 30) =>
       rpc('paymentSettings.update', { walletAddress, network, autoDeleteMinutes })
+  },
+  cart: {
+    get: (userId) => rpc('cart.get', { userId }),
+    addItem: (userId, productId, quantity = 1) =>
+      rpc('cart.addItem', { userId, productId, quantity }),
+    updateQuantity: (userId, productId, quantity) =>
+      rpc('cart.updateQuantity', { userId, productId, quantity }),
+    removeItem: (userId, productId) =>
+      rpc('cart.removeItem', { userId, productId }),
+    clear: (userId) => rpc('cart.clear', { userId })
   }
 };
 

@@ -10,6 +10,11 @@
     "error": "Error",
     "success": "Success"
   },
+  "language": {
+    "switch": "Switch Language",
+    "en": "English",
+    "zh": "中文"
+  },
   "nav": {
     "home": "Home",
     "products": "Products",
@@ -73,10 +78,23 @@
   "products": {
     "title": "Products",
     "buyNow": "Buy Now",
+    "addToCart": "Add to Cart",
+    "added": "Added",
+    "addedToCart": "Added to cart",
     "viewDetails": "View Details",
     "price": "Price",
     "usdt": "USDT",
-    "empty": "No products available"
+    "empty": "No products available",
+    "searchPlaceholder": "Search products by name or description...",
+    "sort": {
+      "default": "Default Sort",
+      "priceAsc": "Price: Low to High",
+      "priceDesc": "Price: High to Low",
+      "nameAsc": "Name: A to Z",
+      "dateDesc": "Newest First"
+    },
+    "results": "products",
+    "noResults": "No products found"
   },
   "orders": {
     "title": "My Orders",
@@ -114,6 +132,18 @@
     "paymentInfo": "Payment Information",
     "submit": "Create Order"
   },
+  "cart": {
+    "title": "Shopping Cart",
+    "empty": "Your cart is empty",
+    "browse": "Browse Products",
+    "items": "Items",
+    "price": "Price",
+    "subtotal": "Subtotal",
+    "summary": "Order Summary",
+    "total": "Total",
+    "continue": "Continue Shopping",
+    "checkout": "Checkout"
+  },
   "forum": {
     "title": "Forum",
     "newPost": "New Post",
@@ -135,25 +165,42 @@
     "posts": "Forum Posts",
     "orders": "Orders",
     "paymentSettings": "Payment Settings",
+    "settings": "Settings",
     "logout": "Logout",
     "viewSite": "View Site",
+    "sidebar": {
+      "expand": "Expand sidebar",
+      "collapse": "Collapse sidebar"
+    },
     "login": {
       "title": "Admin Login",
       "subtitle": "YHthestudio Management System",
       "username": "Admin Username",
       "password": "Password",
       "submit": "Login",
-      "defaultAccount": "Default account: admin / admin123",
+      "defaultAccount": "",
       "error": "Username or password incorrect"
     },
     "dashboard": {
       "title": "Dashboard",
+      "overview": "Overview",
       "totalUsers": "Total Users",
       "totalProducts": "Products",
       "totalPosts": "Forum Posts",
       "totalOrders": "Total Orders",
       "pendingOrders": "Pending",
       "totalRevenue": "Total Revenue (USDT)",
+      "active": "Active",
+      "inCatalog": "In Catalog",
+      "discussions": "Discussions",
+      "pending": "Pending",
+      "needsAction": "Needs Action",
+      "growing": "Growing",
+      "quickActions": "Quick Actions",
+      "systemStatus": "System Status",
+      "online": "Online",
+      "connected": "Connected",
+      "enabled": "Enabled",
       "actions": {
         "userManagement": "User Management",
         "userManagementDesc": "Manage system users, view and delete user accounts",
@@ -189,7 +236,29 @@
       "addUser": "Add User",
       "editUser": "Edit User",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "user": "User",
+      "role": "Role",
+      "registered": "Registered",
+      "selectAll": "Select All",
+      "infoText": "Edit user details or remove accounts. Admin accounts cannot be deleted for security.",
+      "totalUsers": "Total",
+      "registeredUsers": "registered users",
+      "deleteSelected": "Delete Selected",
+      "confirmBatchDeletion": "Confirm Batch Deletion",
+      "batchDeleteWarning": "Are you sure you want to delete {count} selected users?",
+      "actionCannotUndo": "This action cannot be undone!",
+      "batchDeleteWarning1": "All selected user accounts will be permanently deleted",
+      "batchDeleteWarning2": "Users will lose access to their orders and forum posts",
+      "batchDeleteWarning3": "Associated data may be affected",
+      "cancel": "Cancel",
+      "keepUser": "Cancel, Keep User",
+      "deleteUsers": "Delete {count} Users",
+      "successfullyDeleted": "Successfully deleted {count} users",
+      "failedToDelete": "Failed to delete users",
+      "loadingUsers": "Loading users...",
+      "admin": "Admin",
+      "userRole": "User"
     },
     "products": {
       "title": "Product Management",

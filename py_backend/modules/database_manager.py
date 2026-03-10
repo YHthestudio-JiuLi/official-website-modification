@@ -10,6 +10,7 @@ from .forum_posts import ForumPostManager
 from .forum_replies import ForumReplyManager
 from .contact_messages import ContactMessageManager
 from .payment_settings import PaymentSettingsManager
+from .cart import CartManager
 
 
 class DatabaseManager:
@@ -22,6 +23,7 @@ class DatabaseManager:
         self.forum_replies = ForumReplyManager(conn)
         self.contact_messages = ContactMessageManager(conn)
         self.payment_settings = PaymentSettingsManager(conn)
+        self.cart = CartManager(conn)
 
     def init_db(self) -> None:
         self.conn.execute("PRAGMA foreign_keys = ON")
@@ -33,6 +35,7 @@ class DatabaseManager:
         self.forum_replies.create_table()
         self.contact_messages.create_table()
         self.payment_settings.create_table()
+        self.cart.create_table()
 
         self._apply_pragmas()
 

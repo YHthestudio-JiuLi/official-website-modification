@@ -189,7 +189,13 @@ async function handleConfirmPayment() {
       txHash: txHash.value,
       shippingAddress: shippingAddress.value.trim()
     })
-    await onMounted()
+    // Reload order data after successful payment
+    try {
+      const response = await api.get(`/api/orders/${route.params.id}`)
+      order.value = response.data
+    } catch (refreshError) {
+      console.error('Failed to refresh order:', refreshError)
+    }
   } catch (error) {
     console.error('Failed to confirm payment:', error)
     alert(error.response?.data?.message || 'Submission failed, please try again')

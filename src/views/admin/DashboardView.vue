@@ -1,6 +1,6 @@
 <template>
   <AdminLayout>
-    <template #header-title>Dashboard</template>
+    <template #header-title>{{ $t('admin.dashboard.title') }}</template>
 
     <div class="dashboard-page">
       <!-- Stats Overview -->
@@ -11,11 +11,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalUsers }}</h3>
-            <p class="stat-label">Total Users</p>
+            <p class="stat-label">{{ $t('admin.dashboard.totalUsers') }}</p>
           </div>
           <div class="stat-trend positive">
             <i class="fas fa-arrow-up"></i>
-            <span>Active</span>
+            <span>{{ $t('admin.dashboard.active') }}</span>
           </div>
         </div>
 
@@ -25,11 +25,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalProducts }}</h3>
-            <p class="stat-label">Total Products</p>
+            <p class="stat-label">{{ $t('admin.dashboard.totalProducts') }}</p>
           </div>
           <div class="stat-trend">
             <i class="fas fa-cube"></i>
-            <span>In Catalog</span>
+            <span>{{ $t('admin.dashboard.inCatalog') }}</span>
           </div>
         </div>
 
@@ -39,11 +39,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalPosts }}</h3>
-            <p class="stat-label">Forum Posts</p>
+            <p class="stat-label">{{ $t('admin.dashboard.totalPosts') }}</p>
           </div>
           <div class="stat-trend">
             <i class="fas fa-comment-dots"></i>
-            <span>Discussions</span>
+            <span>{{ $t('admin.dashboard.discussions') }}</span>
           </div>
         </div>
 
@@ -53,11 +53,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalOrders }}</h3>
-            <p class="stat-label">Total Orders</p>
+            <p class="stat-label">{{ $t('admin.dashboard.totalOrders') }}</p>
           </div>
           <div v-if="stats.pendingOrders > 0" class="stat-trend warning">
             <i class="fas fa-clock"></i>
-            <span>{{ stats.pendingOrders }} Pending</span>
+            <span>{{ stats.pendingOrders }} {{ $t('admin.dashboard.pending') }}</span>
           </div>
         </div>
 
@@ -67,11 +67,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.pendingOrders }}</h3>
-            <p class="stat-label">Pending Orders</p>
+            <p class="stat-label">{{ $t('admin.dashboard.pendingOrders') }}</p>
           </div>
           <div class="stat-trend warning">
             <i class="fas fa-exclamation-circle"></i>
-            <span>Needs Action</span>
+            <span>{{ $t('admin.dashboard.needsAction') }}</span>
           </div>
         </div>
 
@@ -81,11 +81,11 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalRevenue.toFixed(2) }}</h3>
-            <p class="stat-label">Total Revenue (USDT)</p>
+            <p class="stat-label">{{ $t('admin.dashboard.totalRevenue') }}</p>
           </div>
           <div class="stat-trend positive">
             <i class="fas fa-chart-line"></i>
-            <span>Growing</span>
+            <span>{{ $t('admin.dashboard.growing') }}</span>
           </div>
         </div>
       </div>
@@ -93,17 +93,17 @@
       <!-- Quick Actions -->
       <div class="dashboard-actions">
         <h2 class="section-title">
-          <i class="fas fa-bolt"></i> Quick Actions
+          <i class="fas fa-bolt"></i> {{ $t('admin.dashboard.quickActions') }}
         </h2>
         <div class="actions-grid">
           <router-link to="/admin/users" class="action-card">
             <div class="action-icon users">
               <i class="fas fa-user-plus"></i>
             </div>
-            <h3>User Management</h3>
-            <p>Manage user accounts and permissions</p>
+            <h3>{{ $t('admin.users.title') }}</h3>
+            <p>{{ $t('admin.dashboard.userManagementDesc') }}</p>
             <div class="action-link">
-              Manage Users <i class="fas fa-arrow-right"></i>
+              {{ $t('admin.dashboard.manageUsers') }} <i class="fas fa-arrow-right"></i>
             </div>
           </router-link>
 
@@ -111,10 +111,10 @@
             <div class="action-icon products">
               <i class="fas fa-box-open"></i>
             </div>
-            <h3>Product Management</h3>
-            <p>Add, edit or remove products from catalog</p>
+            <h3>{{ $t('admin.products.title') }}</h3>
+            <p>{{ $t('admin.dashboard.productManagementDesc') }}</p>
             <div class="action-link">
-              Manage Products <i class="fas fa-arrow-right"></i>
+              {{ $t('admin.dashboard.manageProducts') }} <i class="fas fa-arrow-right"></i>
             </div>
           </router-link>
 
@@ -122,10 +122,10 @@
             <div class="action-icon posts">
               <i class="fas fa-edit"></i>
             </div>
-            <h3>Forum Management</h3>
-            <p>Moderate posts and discussions</p>
+            <h3>{{ $t('admin.posts.title') }}</h3>
+            <p>{{ $t('admin.dashboard.forumManagementDesc') }}</p>
             <div class="action-link">
-              Manage Forum <i class="fas fa-arrow-right"></i>
+              {{ $t('admin.dashboard.manageForum') }} <i class="fas fa-arrow-right"></i>
             </div>
           </router-link>
 
@@ -133,10 +133,10 @@
             <div class="action-icon orders">
               <i class="fas fa-receipt"></i>
             </div>
-            <h3>Order Management</h3>
-            <p>Process and track customer orders</p>
+            <h3>{{ $t('admin.orders.title') }}</h3>
+            <p>{{ $t('admin.dashboard.orderManagementDesc') }}</p>
             <div class="action-link">
-              Manage Orders <i class="fas fa-arrow-right"></i>
+              {{ $t('admin.dashboard.manageOrders') }} <i class="fas fa-arrow-right"></i>
             </div>
           </router-link>
         </div>
@@ -145,28 +145,28 @@
       <!-- System Status -->
       <div class="dashboard-status">
         <h2 class="section-title">
-          <i class="fas fa-heartbeat"></i> System Status
+          <i class="fas fa-heartbeat"></i> {{ $t('admin.dashboard.systemStatus') }}
         </h2>
         <div class="status-grid">
           <div class="status-item">
             <div class="status-indicator online"></div>
             <span>API Server</span>
-            <span class="status-badge success">Online</span>
+            <span class="status-badge success">{{ $t('admin.dashboard.online') }}</span>
           </div>
           <div class="status-item">
             <div class="status-indicator online"></div>
             <span>Database</span>
-            <span class="status-badge success">Connected</span>
+            <span class="status-badge success">{{ $t('admin.dashboard.connected') }}</span>
           </div>
           <div class="status-item">
             <div class="status-indicator online"></div>
             <span>Forum Module</span>
-            <span class="status-badge success">Active</span>
+            <span class="status-badge success">{{ $t('admin.dashboard.active') }}</span>
           </div>
           <div class="status-item">
             <div class="status-indicator online"></div>
             <span>Payment System</span>
-            <span class="status-badge success">Enabled</span>
+            <span class="status-badge success">{{ $t('admin.dashboard.enabled') }}</span>
           </div>
         </div>
       </div>

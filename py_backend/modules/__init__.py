@@ -7,6 +7,7 @@ from .forum_posts import ForumPostManager
 from .forum_replies import ForumReplyManager
 from .contact_messages import ContactMessageManager
 from .payment_settings import PaymentSettingsManager
+from .cart import CartManager
 from .database_manager import DatabaseManager
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "ForumReplyManager",
     "ContactMessageManager",
     "PaymentSettingsManager",
+    "CartManager",
     "DatabaseManager",
 ]

@@ -25,12 +25,16 @@
     "body-parser": "^1.20.2",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
+    "csurf": "^1.11.0",
+    "dotenv": "^17.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.3.1",
     "express-session": "^1.17.3",
     "pinia": "^3.0.4",
     "vue": "^3.5.25",
     "vue-i18n": "^9.14.4",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.2",

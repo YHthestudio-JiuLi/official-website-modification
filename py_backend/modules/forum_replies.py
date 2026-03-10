@@ -47,6 +47,15 @@ class ForumReplyManager:
         content: str,
         parent_reply_id: Optional[int] = None,
     ) -> int:
+        """
+        创建论坛回复
+        
+        在事务中执行：
+        1. 插入回复记录
+        2. 增加帖子回复计数
+        
+        返回新创建的回复 ID
+        """
         with self.conn:
             self.cur.execute(
                 "INSERT INTO forum_replies (postId, author, content, parentReplyId) VALUES (?, ?, ?, ?)",
@@ -57,5 +66,12 @@ class ForumReplyManager:
         return reply_id
 
     def delete(self, reply_id: int) -> None:
-        self.cur.execute("DELETE FROM forum_replies WHERE id = ?", (reply_id,))
-        self.conn.commit()
+        """
+        删除论坛回复
+        
+        注意：删除回复时不会减少帖子回复计数，
+        因为删除回复可能导致级联删除，计数逻辑复杂。
+        如需精确计数，应定期同步或使用触发器。
+        """
+        with self.conn:
+            self.cur.execute("DELETE FROM forum_replies WHERE id = ?", (reply_id,))

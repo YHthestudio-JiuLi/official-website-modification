@@ -12,79 +12,79 @@
       <nav class="sidebar-nav">
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-chart-line"></i> Overview
+            <i class="fas fa-chart-line"></i> {{ $t('admin.dashboard.overview') }}
           </div>
           <router-link to="/admin" class="nav-link" :class="{ active: isActive('/admin') }">
             <i class="fas fa-tachometer-alt"></i>
-            <span>Dashboard</span>
+            <span>{{ $t('admin.dashboard.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin" class="nav-link" :class="{ active: isActive('/admin') }" v-show="collapsed" title="Dashboard">
+        <router-link to="/admin" class="nav-link" :class="{ active: isActive('/admin') }" v-show="collapsed" :title="$t('admin.dashboard.title')">
           <i class="fas fa-tachometer-alt"></i>
         </router-link>
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-users"></i> User Management
+            <i class="fas fa-users"></i> {{ $t('admin.users.title') }}
           </div>
           <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
             <i class="fas fa-user-friends"></i>
-            <span>Users</span>
+            <span>{{ $t('admin.users.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }" v-show="collapsed" title="Users">
+        <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }" v-show="collapsed" :title="$t('admin.users.title')">
           <i class="fas fa-user-friends"></i>
         </router-link>
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-box"></i> Product Management
+            <i class="fas fa-box"></i> {{ $t('admin.products.title') }}
           </div>
           <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }">
             <i class="fas fa-box-open"></i>
-            <span>Products</span>
+            <span>{{ $t('admin.products.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" v-show="collapsed" title="Products">
+        <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" v-show="collapsed" :title="$t('admin.products.title')">
           <i class="fas fa-box-open"></i>
         </router-link>
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-comments"></i> Forum Management
+            <i class="fas fa-comments"></i> {{ $t('admin.posts.title') }}
           </div>
           <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }">
             <i class="fas fa-newspaper"></i>
-            <span>Posts</span>
+            <span>{{ $t('admin.posts.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" v-show="collapsed" title="Posts">
+        <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" v-show="collapsed" :title="$t('admin.posts.title')">
           <i class="fas fa-newspaper"></i>
         </router-link>
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-shopping-cart"></i> Order Management
+            <i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}
           </div>
           <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }">
             <i class="fas fa-receipt"></i>
-            <span>Orders</span>
+            <span>{{ $t('admin.orders.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" v-show="collapsed" title="Orders">
+        <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" v-show="collapsed" :title="$t('admin.orders.title')">
           <i class="fas fa-receipt"></i>
         </router-link>
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-cog"></i> Settings
+            <i class="fas fa-cog"></i> {{ $t('admin.settings') }}
           </div>
           <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }">
             <i class="fas fa-wallet"></i>
-            <span>Payment</span>
+            <span>{{ $t('admin.paymentSettings') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" title="Payment Settings">
+        <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" :title="$t('admin.paymentSettings')">
           <i class="fas fa-wallet"></i>
         </router-link>
       </nav>
@@ -92,16 +92,16 @@
       <div class="sidebar-footer">
         <a href="/" class="nav-link" target="_blank" v-show="!collapsed">
           <i class="fas fa-external-link-alt"></i>
-          <span>View Site</span>
+          <span>{{ $t('admin.viewSite') }}</span>
         </a>
-        <a href="/" class="nav-link" target="_blank" v-show="collapsed" title="View Site">
+        <a href="/" class="nav-link" target="_blank" v-show="collapsed" :title="$t('admin.viewSite')">
           <i class="fas fa-external-link-alt"></i>
         </a>
         <button @click="handleLogout" class="nav-link logout-link" v-show="!collapsed">
           <i class="fas fa-sign-out-alt"></i>
-          <span>Logout</span>
+          <span>{{ $t('admin.logout') }}</span>
         </button>
-        <button @click="handleLogout" class="nav-link logout-link" v-show="collapsed" title="Logout">
+        <button @click="handleLogout" class="nav-link logout-link" v-show="collapsed" :title="$t('admin.logout')">
           <i class="fas fa-sign-out-alt"></i>
         </button>
       </div>
@@ -111,18 +111,23 @@
     <div class="admin-main">
       <header class="admin-header">
         <div class="header-left">
-          <button class="sidebar-toggle-btn" @click="toggleCollapse" :title="collapsed ? 'Expand sidebar (E)' : 'Collapse sidebar (E)'">
+          <button class="sidebar-toggle-btn" @click="toggleCollapse" :title="collapsed ? $t('admin.sidebar.expand') : $t('admin.sidebar.collapse')">
             <i class="fas fa-angles-left" :class="{'icon-hidden': collapsed}"></i>
             <i class="fas fa-angles-right" :class="{'icon-hidden': !collapsed}"></i>
           </button>
           <h1 class="header-title">
-            <slot name="header-title">Admin Panel</slot>
+            <slot name="header-title">{{ $t('admin.title') }}</slot>
           </h1>
         </div>
         <div class="header-right">
+          <!-- 语言切换 -->
+          <button @click="toggleLanguage" class="lang-btn" :title="$t('language.switch')">
+            <i class="fas fa-globe"></i>
+            <span>{{ currentLang === 'zh' ? '中文' : 'EN' }}</span>
+          </button>
           <span class="admin-info">
             <i class="fas fa-user-circle"></i>
-            <span class="admin-name">{{ adminStore.username || 'Admin' }}</span>
+            <span class="admin-name">{{ adminStore.username || $t('admin.title') }}</span>
           </span>
         </div>
       </header>
@@ -138,13 +143,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
+import { setLanguage } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const adminStore = useAdminStore()
+const { locale } = useI18n()
+
+const currentLang = computed(() => locale.value)
+
+onMounted(() => {
+  // 确保初始语言与 localStorage 一致
+  const savedLang = localStorage.getItem('lang') || 'en'
+  locale.value = savedLang
+})
+
+function toggleLanguage() {
+  const newLang = currentLang.value === 'en' ? 'zh' : 'en'
+  setLanguage(newLang)
+}
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
@@ -503,6 +524,29 @@ onUnmounted(() => {
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
+}
+
+.lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(26, 31, 58, 0.8);
+  border: 1px solid #233554;
+  color: #e6f1ff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.lang-btn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: #00d4ff;
+}
+
+.lang-btn i {
+  font-size: 16px;
 }
 
 .admin-info {

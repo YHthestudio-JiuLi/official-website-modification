@@ -115,6 +115,29 @@ img {
     width: 100%;
 }
 
+/* 购物车链接样式 */
+.cart-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cart-count {
+    position: absolute;
+    top: -8px;
+    right: -12px;
+    background: var(--gradient-3);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+}
+
 .btn-primary {
     background: var(--gradient-3);
     color: white;
@@ -502,6 +525,44 @@ img {
 
 .product-card:hover .product-overlay {
     opacity: 1;
+}
+
+/* 购物车添加成功提示 */
+.product-card .added-toast {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 212, 255, 0.9);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+    z-index: 10;
+    animation: slideIn 0.3s ease;
+}
+
+.product-card .added-toast i {
+    font-size: 14px;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.product-card .product-actions .btn-sm.added {
+    background: var(--gradient-3);
+    border-color: transparent;
 }
 
 .product-info {

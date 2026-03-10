@@ -4,15 +4,74 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const compression = require('compression');
 const path = require('path');
+const dotenv = require('dotenv');
+const rateLimit = require('express-rate-limit');
+const csrf = require('csurf');
+const winston = require('winston');
+const fs = require('fs');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
+
+// 加载环境变量
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-here';
+
+// 创建日志目录
+const logDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+
+// 配置 Winston 日志
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
+      maxsize: 10485760, // 10MB
+      maxFiles: 5
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'combined.log'),
+      maxsize: 10485760, // 10MB
+      maxFiles: 5
+    })
+  ]
+});
+
+// 开发环境下同时输出到控制台
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
 
 // 启用压缩中间件
 app.use(compression());
+
+// API 限流配置
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 分钟
+  max: 100, // 每个 IP 最多 100 个请求
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 应用限流中间件到 API 路由
+app.use('/api', limiter);
 
 // 中间件配置
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
@@ -20,7 +79,7 @@ app.use(bodyParser.json({ limit: '10mb' }));
 
 // Session 配置
 app.use(session({
-  secret: 'yhthestudio-secret-key-2024',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -29,6 +88,21 @@ app.use(session({
     sameSite: 'lax'
   }
 }));
+
+// CSRF 保护配置（必须在 session 之后）
+// 使用 session 存储 CSRF token，而不是 cookie
+const csrfProtection = csrf({
+  cookie: false,
+  ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
+});
+
+// 应用 CSRF 保护中间件到所有 API 路由
+app.use('/api', csrfProtection);
+
+// 获取 CSRF token 的端点
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 // 静态文件服务 - 提供 Vue 构建后的前端
 const distPath = path.join(__dirname, 'dist');
@@ -255,6 +329,40 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
   }
 });
 
+// 用户取消自己的订单（仅允许取消 pending 状态的订单）
+app.put('/api/orders/:id/status', requireUser, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { status, cancelReason } = req.body;
+  
+  // 只允许取消订单
+  if (status !== 'cancelled') {
+    return res.status(400).json({ error: 'Only cancellation is allowed via this endpoint' });
+  }
+  
+  const order = await dbOperations.orders.findById(id);
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  
+  // 验证订单所有权
+  if (order.userId !== req.session.user.id) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
+  // 只允许取消 pending 状态的订单
+  if (order.status !== 'pending') {
+    return res.status(400).json({ error: 'Only pending orders can be cancelled' });
+  }
+  
+  await dbOperations.orders.updateStatus(id, 'cancelled');
+  logger.info(`Order ${id} cancelled by user ${req.session.user.username}`, {
+    orderId: id,
+    userId: req.session.user.id,
+    reason: cancelReason
+  });
+  res.json({ success: true });
+});
+
 // ==================== 论坛 API ====================
 
 app.get('/api/forum/posts', async (req, res) => {
@@ -301,8 +409,8 @@ app.post('/api/forum/posts/:id/replies', requireUser, async (req, res) => {
     }
   }
 
+  // ForumReplyManager.create() 已经处理了回复计数，无需再次调用 incrementReplies
   await dbOperations.forumReplies.create(postId, req.session.user.username, content.trim(), parentReplyIdInt);
-  await dbOperations.forumPosts.incrementReplies(postId);
   res.json({ success: true });
 });
 
@@ -320,6 +428,63 @@ app.delete('/api/forum/replies/:id', requireUser, async (req, res) => {
 
   await dbOperations.forumReplies.delete(replyId);
   res.json({ success: true });
+});
+
+// ==================== 购物车 API ====================
+
+app.get('/api/cart', requireUser, async (req, res) => {
+  try {
+    const cart = await dbOperations.cart.get(req.session.user.id)
+    res.json(cart);
+  } catch (error) {
+    console.error('[API Error] /api/cart:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/cart/items', requireUser, async (req, res) => {
+  const { productId, quantity = 1 } = req.body;
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID required' });
+  }
+  try {
+    await dbOperations.cart.addItem(req.session.user.id, parseInt(productId), parseInt(quantity));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API Error] POST /api/cart/items:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/cart/items/:productId', requireUser, async (req, res) => {
+  const { quantity } = req.body;
+  try {
+    await dbOperations.cart.updateQuantity(req.session.user.id, parseInt(req.params.productId), parseInt(quantity));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API Error] PUT /api/cart/items/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.delete('/api/cart/items/:productId', requireUser, async (req, res) => {
+  try {
+    await dbOperations.cart.removeItem(req.session.user.id, parseInt(req.params.productId));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API Error] DELETE /api/cart/items/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.delete('/api/cart', requireUser, async (req, res) => {
+  try {
+    await dbOperations.cart.clear(req.session.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API Error] DELETE /api/cart:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
 });
 
 // ==================== 管理员认证 API ====================
@@ -551,8 +716,16 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
+// 全局错误处理
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', { error: err.message, stack: err.stack, url: req.url });
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 // 启动服务器
 app.listen(PORT, HOST, () => {
+  logger.info('API server started', { port: PORT, host: HOST });
+  logger.info(`Serving Vue frontend from: ${distPath}`);
   console.log(`API server running on http://${HOST}:${PORT}`);
   console.log(`Serving Vue frontend from: ${distPath}`);
 });

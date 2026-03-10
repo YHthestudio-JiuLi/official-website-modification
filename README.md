@@ -58,16 +58,9 @@ npm install
 # 终端 1: 启动 Python 数据库后端
 npm run py
 
-# 终端 2: 启动 Vue 前端开发服务器 (Vite)
+# 终端 2: 启动 Vue 前端服务(Vite)
 npm run dev
 
-# 终端 3: 启动 API 服务器 (可选，用于测试后端接口)
-npm start
-
-# 方式二：生产模式
-# 构建前端并启动 API 服务器
-npm run build
-npm start
 ```
 
 ## 访问地址

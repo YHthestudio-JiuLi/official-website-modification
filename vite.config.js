@@ -7,7 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
-    }
+    },
+    extensions: ['.js', '.vue', '.json']
   },
   server: {
     port: 5173,
@@ -20,6 +21,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'i18n': ['vue-i18n']
+        }
+      }
+    }
   }
 })

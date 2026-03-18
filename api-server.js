@@ -106,6 +106,15 @@ app.get('/api/csrf-token', (req, res) => {
 
 // 静态文件服务 - 提供 Vue 构建后的前端
 const distPath = path.join(__dirname, 'dist');
+
+// 对于静态资源文件（JS、CSS 等），如果文件不存在则返回 404，不回退到 index.html
+app.use('/assets', express.static(distPath + '/assets', {
+  maxAge: '1y',
+  etag: true,
+  lastModified: true
+}));
+
+// 其他静态文件
 app.use(express.static(distPath, {
   maxAge: '1y',
   etag: true,
@@ -711,8 +720,13 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
 
 // ==================== 前端路由回退 ====================
 // 所有非 API 请求返回 index.html，让 Vue Router 处理
+// 但静态资源文件除外
 
 app.get('*', (req, res) => {
+  // 对于静态资源请求，返回 404 而不是 index.html
+  if (req.path.startsWith('/assets/') || req.path.startsWith('/dist/assets/')) {
+    return res.status(404).send('File not found');
+  }
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

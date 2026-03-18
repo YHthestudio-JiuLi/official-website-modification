@@ -286,10 +286,14 @@ onUnmounted(() => {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  padding-bottom: 80px;
 }
 
 .sidebar-footer {
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 0.75rem 0;
   border-top: 1px solid var(--border-color);
   background: var(--bg-card);

@@ -14,7 +14,7 @@
           <div class="nav-section-title">
             <i class="fas fa-chart-line"></i> {{ $t('admin.dashboard.overview') }}
           </div>
-          <router-link to="/admin" class="nav-link" :class="{ active: isActive('/admin') }">
+          <router-link to="/admin" class="nav-link" :class="{ active: isActive('/admin') }" @click="closeMobileMenu">
             <i class="fas fa-tachometer-alt"></i>
             <span>{{ $t('admin.dashboard.title') }}</span>
           </router-link>
@@ -27,7 +27,7 @@
           <div class="nav-section-title">
             <i class="fas fa-users"></i> {{ $t('admin.users.title') }}
           </div>
-          <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
+          <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }" @click="closeMobileMenu">
             <i class="fas fa-user-friends"></i>
             <span>{{ $t('admin.users.title') }}</span>
           </router-link>
@@ -40,7 +40,7 @@
           <div class="nav-section-title">
             <i class="fas fa-box"></i> {{ $t('admin.products.title') }}
           </div>
-          <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }">
+          <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" @click="closeMobileMenu">
             <i class="fas fa-box-open"></i>
             <span>{{ $t('admin.products.title') }}</span>
           </router-link>
@@ -53,7 +53,7 @@
           <div class="nav-section-title">
             <i class="fas fa-comments"></i> {{ $t('admin.posts.title') }}
           </div>
-          <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }">
+          <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" @click="closeMobileMenu">
             <i class="fas fa-newspaper"></i>
             <span>{{ $t('admin.posts.title') }}</span>
           </router-link>
@@ -66,7 +66,7 @@
           <div class="nav-section-title">
             <i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}
           </div>
-          <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }">
+          <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" @click="closeMobileMenu">
             <i class="fas fa-receipt"></i>
             <span>{{ $t('admin.orders.title') }}</span>
           </router-link>
@@ -79,7 +79,7 @@
           <div class="nav-section-title">
             <i class="fas fa-cog"></i> {{ $t('admin.settings') }}
           </div>
-          <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }">
+          <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" @click="closeMobileMenu">
             <i class="fas fa-wallet"></i>
             <span>{{ $t('admin.paymentSettings') }}</span>
           </router-link>
@@ -111,7 +111,10 @@
     <div class="admin-main">
       <header class="admin-header">
         <div class="header-left">
-          <button class="sidebar-toggle-btn" @click="toggleCollapse" :title="collapsed ? $t('admin.sidebar.expand') : $t('admin.sidebar.collapse')">
+          <button class="sidebar-toggle-btn mobile-menu-btn" @click="toggleMobileMenu" v-if="isMobile">
+            <i class="fas fa-bars"></i>
+          </button>
+          <button class="sidebar-toggle-btn" @click="toggleCollapse" :title="collapsed ? $t('admin.sidebar.expand') : $t('admin.sidebar.collapse')" v-else>
             <i class="fas fa-angles-left" :class="{'icon-hidden': collapsed}"></i>
             <i class="fas fa-angles-right" :class="{'icon-hidden': !collapsed}"></i>
           </button>
@@ -138,12 +141,12 @@
     </div>
 
     <!-- Mobile Overlay -->
-    <div v-if="mobileOpen" class="sidebar-overlay" @click="mobileOpen = false"></div>
+    <div v-show="mobileOpen" class="sidebar-overlay show" @click="mobileOpen = false"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
@@ -196,9 +199,13 @@ function handleKeyDown(e) {
 }
 
 // Handle responsive
+const isMobile = ref(false)
+
 function handleResize() {
-  if (window.innerWidth < 992) {
+  isMobile.value = window.innerWidth < 992
+  if (isMobile.value) {
     collapsed.value = false
+    mobileOpen.value = false
   }
 }
 
@@ -214,6 +221,27 @@ onMounted(() => {
   handleResize()
 })
 
+const sidebarRef = ref(null)
+
+function toggleMobileMenu() {
+  mobileOpen.value = !mobileOpen.value
+  // 当侧边栏打开时，滚动到顶部
+  if (mobileOpen.value) {
+    setTimeout(() => {
+      const sidebar = document.querySelector('.admin-sidebar')
+      if (sidebar) {
+        sidebar.scrollTop = 0
+      }
+    }, 100)
+  }
+}
+
+function closeMobileMenu() {
+  if (isMobile.value) {
+    mobileOpen.value = false
+  }
+}
+
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeyDown)
@@ -228,15 +256,6 @@ onUnmounted(() => {
 }
 
 /* Sidebar Styles */
-.sidebar-header {
-  padding: 1.25rem 1rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-shrink: 0;
-}
-
 .admin-sidebar {
   width: 260px;
   background: var(--bg-card);
@@ -245,11 +264,70 @@ onUnmounted(() => {
   flex-direction: column;
   position: fixed;
   height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  max-height: 100vh;
+  overflow: hidden;
   z-index: 100;
   transition: width 0.3s ease;
   flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+  z-index: 10;
+}
+
+/* 移动端侧边栏优化 */
+@media (max-width: 992px) {
+  .admin-sidebar {
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .sidebar-header {
+    flex-shrink: 0;
+  }
+  
+  .sidebar-nav {
+    flex: 1 0 auto;
+    min-height: 0;
+    padding-bottom: 0.5rem;
+  }
+  
+  .sidebar-footer {
+    flex-shrink: 0;
+    padding: 0.75rem 0 1.5rem 0;
+    border-top: 1px solid var(--border-color);
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-card);
+  }
 }
 
 .admin-sidebar::-webkit-scrollbar {
@@ -284,9 +362,10 @@ onUnmounted(() => {
 }
 
 .sidebar-nav {
-  flex: 1;
-  padding: 0.75rem 0;
+  flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .nav-link {
@@ -347,12 +426,6 @@ onUnmounted(() => {
 
 .nav-section-title i {
   font-size: 0.8rem;
-}
-
-.sidebar-footer {
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
 }
 
 .logout-link {
@@ -588,6 +661,10 @@ onUnmounted(() => {
   z-index: 99;
 }
 
+.sidebar-overlay.show {
+  display: block;
+}
+
 /* Responsive */
 @media (max-width: 992px) {
   .admin-sidebar {
@@ -595,7 +672,8 @@ onUnmounted(() => {
     transition: transform 0.3s ease;
   }
 
-  .admin-sidebar.mobile-open {
+  .admin-sidebar.mobile-open,
+  .admin-layout.sidebar-mobile-open .admin-sidebar {
     transform: translateX(0);
   }
 

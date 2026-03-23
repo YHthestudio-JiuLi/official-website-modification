@@ -4031,3 +4031,225 @@ img {
 /* 响应式优化 - 详情页、购买页、支付页、论坛页 */
 
 
+
+/* ========================================
+   统一滚动条样式 - 与深色主题呼应
+   ======================================== */
+
+/* 全局滚动条基础样式 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background: var(--primary-color);
+}
+
+/* 管理后台侧边栏滚动条 */
+.admin-sidebar::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track,
+.sidebar-nav::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(42, 47, 74, 0.5);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.4);
+}
+
+/* 卡片内容区域滚动条 */
+.admin-content::-webkit-scrollbar,
+.form-card::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.admin-content::-webkit-scrollbar-track,
+.form-card::-webkit-scrollbar-track,
+.modal-body::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+.admin-content::-webkit-scrollbar-thumb,
+.form-card::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2a2f4a 0%, #3a3f5a 100%);
+    border-radius: 4px;
+}
+
+.admin-content::-webkit-scrollbar-thumb:hover,
+.form-card::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3a3f5a 0%, #4a4f6a 100%);
+}
+
+/* 弹窗公告表单滚动条 */
+.form-page-card::-webkit-scrollbar,
+.form-page-overlay ::-webkit-scrollbar {
+    width: 8px;
+}
+
+.form-page-card::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+.form-page-card::-webkit-scrollbar-thumb {
+    background: #2a2f4a;
+    border-radius: 4px;
+}
+
+.form-page-card::-webkit-scrollbar-thumb:hover {
+    background: #3a3f5a;
+}
+
+/* 表格容器滚动条 */
+.table-responsive::-webkit-scrollbar,
+.data-table-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track,
+.data-table-wrapper::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+.data-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+/* 消息/聊天区域滚动条 */
+.messages::-webkit-scrollbar,
+.admin-messages::-webkit-scrollbar,
+.conv-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages::-webkit-scrollbar-track,
+.admin-messages::-webkit-scrollbar-track,
+.conv-list::-webkit-scrollbar-track {
+    background: rgba(10, 14, 39, 0.5);
+}
+
+.messages::-webkit-scrollbar-thumb,
+.admin-messages::-webkit-scrollbar-thumb,
+.conv-list::-webkit-scrollbar-thumb {
+    background: rgba(42, 47, 74, 0.6);
+    border-radius: 3px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover,
+.admin-messages::-webkit-scrollbar-thumb:hover,
+.conv-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 255, 0.5);
+}
+
+/* 下拉菜单/选择框滚动条 */
+select::-webkit-scrollbar,
+.v-select-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+select::-webkit-scrollbar-track,
+.v-select-list::-webkit-scrollbar-track {
+    background: var(--bg-card);
+}
+
+select::-webkit-scrollbar-thumb,
+.v-select-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+/* Firefox 滚动条样式 */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg-darker);
+}
+
+.admin-sidebar,
+.sidebar-nav,
+.admin-content,
+.form-card,
+.messages,
+.admin-messages,
+.conv-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(42, 47, 74, 0.6) rgba(10, 14, 39, 0.5);
+}
+
+/* 平滑滚动 */
+html {
+    scroll-behavior: smooth;
+}
+
+/* 滚动条淡入淡出效果 */
+::-webkit-scrollbar-thumb {
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+/* 深色主题卡片悬停滚动条高亮 */
+.card:hover ::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+}
+
+/* 表格/列表项悬停时的滚动条 */
+.notice-card:hover ~ .form-page-card ::-webkit-scrollbar-thumb,
+.action-card:hover ~ .admin-content ::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+}
+
+/* 移动端滚动优化 */
+@media (max-width: 768px) {
+    ::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+    }
+    
+    .admin-sidebar::-webkit-scrollbar,
+    .sidebar-nav::-webkit-scrollbar {
+        width: 3px;
+    }
+}
+
+/* 打印时隐藏滚动条 */
+@media print {
+    ::-webkit-scrollbar {
+        display: none;
+    }
+    
+    * {
+        scrollbar-width: none;
+    }
+}

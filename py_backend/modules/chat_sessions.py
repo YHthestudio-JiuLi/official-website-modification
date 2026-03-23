@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import sqlite3
+from typing import Any, Dict, List, Optional
+
+
+class ChatSessionManager:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+        self.cur = conn.cursor()
+
+    def create_table(self) -> None:
+        # 创建基础表结构（不包含新列）
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+              id TEXT PRIMARY KEY,
+              nickname TEXT NOT NULL,
+              admin_id INTEGER NOT NULL,
+              created_at TEXT NOT NULL DEFAULT (datetime('now')),
+              FOREIGN KEY (admin_id) REFERENCES chat_admins(id)
+            )
+            """
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chat_sessions_admin ON chat_sessions(admin_id)"
+        )
+        # 尝试添加新列（如果表已存在但没有这些列）
+        try:
+            self.conn.execute("ALTER TABLE chat_sessions ADD COLUMN user_id INTEGER")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
+        except Exception:
+            pass
+        try:
+            self.conn.execute("ALTER TABLE chat_sessions ADD COLUMN service_type TEXT DEFAULT 'support'")
+        except Exception:
+            pass
+
+    def find_all(self) -> List[Dict[str, Any]]:
+        self.cur.execute(
+            """
+            SELECT s.id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
+                   a.display_name AS admin_display_name, a.avatar_color AS admin_avatar_color
+            FROM chat_sessions s
+            JOIN chat_admins a ON a.id = s.admin_id
+            ORDER BY s.created_at DESC
+            """
+        )
+        return [dict(row) for row in self.cur.fetchall()]
+
+    def find_by_id(self, session_id: str) -> Optional[Dict[str, Any]]:
+        self.cur.execute(
+            """
+            SELECT s.id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
+                   a.display_name AS admin_display_name, a.avatar_color AS admin_avatar_color
+            FROM chat_sessions s
+            JOIN chat_admins a ON a.id = s.admin_id
+            WHERE s.id = ?
+            """,
+            (session_id,),
+        )
+        row = self.cur.fetchone()
+        return dict(row) if row else None
+
+    def find_by_user_id(self, user_id: int) -> List[Dict[str, Any]]:
+        self.cur.execute(
+            """
+            SELECT s.id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
+                   a.display_name AS admin_display_name, a.avatar_color AS admin_avatar_color
+            FROM chat_sessions s
+            JOIN chat_admins a ON a.id = s.admin_id
+            WHERE s.user_id = ?
+            ORDER BY s.created_at DESC
+            """,
+            (user_id,),
+        )
+        return [dict(row) for row in self.cur.fetchall()]
+
+    def create(self, session_id: str, nickname: str, admin_id: int, service_type: str = 'support', user_id: int = None) -> Optional[Dict[str, Any]]:
+        # Check if admin exists
+        self.cur.execute("SELECT id FROM chat_admins WHERE id = ?", (admin_id,))
+        admin_exists = self.cur.fetchone()
+        if not admin_exists:
+            return None
+        self.cur.execute(
+            "INSERT INTO chat_sessions (id, nickname, admin_id, user_id, service_type) VALUES (?, ?, ?, ?, ?)",
+            (session_id, nickname.strip()[:32], admin_id, user_id, service_type),
+        )
+        self.conn.commit()
+        return self.find_by_id(session_id)
+
+    def delete(self, session_id: str) -> None:
+        self.cur.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+        self.conn.commit()
+
+    def find_conversations_for_admin(self) -> List[Dict[str, Any]]:
+        self.cur.execute(
+            """
+            SELECT s.id AS session_id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
+                   a.display_name AS admin_display_name,
+                   a.avatar_color AS admin_avatar_color,
+                   (SELECT body FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_body,
+                   (SELECT created_at FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_at,
+                   (SELECT sender FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_sender
+            FROM chat_sessions s
+            JOIN chat_admins a ON a.id = s.admin_id
+            ORDER BY datetime(COALESCE(
+              (SELECT created_at FROM chat_messages m2 WHERE m2.session_id = s.id ORDER BY m2.id DESC LIMIT 1),
+              s.created_at
+            )) DESC
+            """
+        )
+        return [dict(row) for row in self.cur.fetchall()]

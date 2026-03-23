@@ -3,12 +3,15 @@
     "loading": "Loading...",
     "submit": "Submit",
     "cancel": "Cancel",
+    "close": "Close",
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
     "confirm": "Confirm",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "language": {
     "switch": "Switch Language",
@@ -22,7 +25,8 @@
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
-    "myOrders": "My Orders"
+    "myOrders": "My Orders",
+    "chat": "Chat"
   },
   "home": {
     "hero": {
@@ -159,28 +163,6 @@
   },
   "admin": {
     "title": "Admin Panel",
-    "dashboard": "Dashboard",
-    "users": "Users",
-    "products": "Products",
-    "posts": "Forum Posts",
-    "orders": "Orders",
-    "paymentSettings": "Payment Settings",
-    "settings": "Settings",
-    "logout": "Logout",
-    "viewSite": "View Site",
-    "sidebar": {
-      "expand": "Expand sidebar",
-      "collapse": "Collapse sidebar"
-    },
-    "login": {
-      "title": "Admin Login",
-      "subtitle": "YHthestudio Management System",
-      "username": "Admin Username",
-      "password": "Password",
-      "submit": "Login",
-      "defaultAccount": "",
-      "error": "Username or password incorrect"
-    },
     "dashboard": {
       "title": "Dashboard",
       "overview": "Overview",
@@ -214,7 +196,11 @@
         "orderManagement": "Order Management",
         "orderManagementDesc": "Manage all user orders and payments",
         "manageOrders": "Manage Orders"
-      }
+      },
+      "manageUsers": "Manage Users",
+      "manageProducts": "Manage Products",
+      "manageForum": "Manage Forum",
+      "manageOrders": "Manage Orders"
     },
     "users": {
       "title": "User Management",
@@ -251,7 +237,6 @@
       "batchDeleteWarning1": "All selected user accounts will be permanently deleted",
       "batchDeleteWarning2": "Users will lose access to their orders and forum posts",
       "batchDeleteWarning3": "Associated data may be affected",
-      "cancel": "Cancel",
       "keepUser": "Cancel, Keep User",
       "deleteUsers": "Delete {count} Users",
       "successfullyDeleted": "Successfully deleted {count} users",
@@ -263,10 +248,9 @@
     "products": {
       "title": "Product Management",
       "listTitle": "Product List",
-      "description": "Manage all products in the system",
+      "description": "Description",
       "id": "ID",
       "name": "Name",
-      "description": "Description",
       "price": "Price (USDT)",
       "date": "Date",
       "actions": "Actions",
@@ -281,11 +265,10 @@
       "imageUrl": "Image URL"
     },
     "posts": {
-      "title": "Forum Management",
+      "title": "Title",
       "listTitle": "Forum Posts",
       "description": "Manage all forum posts in the system",
       "id": "ID",
-      "title": "Title",
       "author": "Author",
       "date": "Date",
       "replies": "Replies",
@@ -337,6 +320,139 @@
       "autoDeleteMinutes": "Auto Delete Minutes",
       "save": "Save Settings",
       "saved": "Settings saved successfully"
+    },
+    "settings": "Settings",
+    "logout": "Logout",
+    "viewSite": "View Site",
+    "sidebar": {
+      "expand": "Expand sidebar",
+      "collapse": "Collapse sidebar"
+    },
+    "login": {
+      "title": "Admin Login",
+      "subtitle": "YHthestudio Management System",
+      "username": "Admin Username",
+      "password": "Password",
+      "submit": "Login",
+      "defaultAccount": "",
+      "error": "Username or password incorrect"
+    },
+    "popupNotices": {
+      "menu": "Popup Notices",
+      "title": "Popup Notices",
+      "subtitle": "Manage homepage popup announcements",
+      "addNew": "Add New",
+      "createFirst": "Create First Notice",
+      "empty": "No notices yet",
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit Notice",
+      "create": "Create Notice",
+      "titlePlaceholder": "Enter notice title",
+      "contentPlaceholder": "Enter notice content (supports line breaks)",
+      "enabled": "Enable this notice",
+      "noticeContent": "Notice Content",
+      "settings": "Settings",
+      "deleteConfirm": "Are you sure you want to delete this notice?",
+      "editDesc": "Update notice content and status",
+      "createDesc": "Create a new popup notice for homepage",
+      "contentHint": "Use line breaks to format your message",
+      "enabledHint": "Only one enabled notice will be shown on homepage",
+      "content": "Content"
+    },
+    "chatSettings": {
+      "title": "Chat Settings",
+      "subtitle": "Manage chatbot and Telegram integration",
+      "serviceConfigTitle": "Service Configuration",
+      "serviceConfigDesc": "Configure chatbot and Telegram for each service type",
+      "officialSupport": "Official Support",
+      "salesConsult": "Sales Consultation",
+      "botEnabled": "Bot Enabled",
+      "botDisabled": "Bot Disabled",
+      "chatbotSection": "Chatbot",
+      "telegramSection": "Telegram",
+      "telegramToken": "Bot Token",
+      "telegramChatId": "Chat ID",
+      "tokenPlaceholder": "e.g., 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+      "chatIdPlaceholder": "e.g., -1001234567890",
+      "configAutoSave": "Changes are saved automatically",
+      "chatbotEnabled": "Chatbot enabled",
+      "chatbotDisabled": "Chatbot disabled",
+      "settingsSaved": "Settings saved",
+      "loadError": "Failed to load admins",
+      "noAdmins": "No service accounts configured",
+      "helpTitle": "How to get credentials?",
+      "helpTokenTitle": "Bot Token",
+      "helpTokenDesc": "Create a bot in Telegram via BotFather",
+      "helpChatIdTitle": "Chat ID",
+      "helpChatIdDesc": "Use myidbot to get group/channel ID",
+      "botFather": "BotFather",
+      "myIdBot": "myidbot"
+    },
+    "chatService": "Customer Service",
+    "chatWorkspace": "Chat Workspace"
+  },
+  "adminChat": {
+    "login": {
+      "title": "Admin Login",
+      "subtitle": "Support Workspace",
+      "password": "Password",
+      "passwordPlaceholder": "Please enter password",
+      "submit": "Login",
+      "error": "Login failed"
+    },
+    "workspace": {
+      "title": "Support Workspace",
+      "connected": "Live Connected",
+      "connecting": "Connecting…",
+      "logout": "Logout",
+      "conversations": "Conversations",
+      "selectUser": "Click a visitor to reply",
+      "pending": "Pending",
+      "serving": "Session in service",
+      "noMessages": "Select a conversation from left",
+      "inputPlaceholder": "Type a message…",
+      "send": "Send",
+      "hint": "Enter to send · Shift+Enter for new line",
+      "sendError": "Failed to send"
     }
+  },
+  "chat": {
+    "authRequired": {
+      "title": "Login Required",
+      "desc": "Please login to use the customer service chat"
+    },
+    "serviceType": "Service Type",
+    "types": {
+      "support": {
+        "title": "Customer Support",
+        "desc": "Technical support and account assistance"
+      },
+      "sales": {
+        "title": "Sales Consultation",
+        "desc": "Product inquiries and purchase assistance"
+      }
+    },
+    "noAgents": "No agents available",
+    "setup": {
+      "title": "Start Conversation",
+      "desc": "Select a service type and start chatting with our team",
+      "nickname": "Your Nickname",
+      "nicknamePlaceholder": "e.g., Guest User",
+      "selectAdmin": "Select Agent",
+      "startChat": "Start Chat"
+    },
+    "back": "Back",
+    "admin": "Support",
+    "online": "Online",
+    "connecting": "Connecting",
+    "emptyHint": "No messages yet, say hello!",
+    "inputPlaceholder": "Type a message…",
+    "send": "Send",
+    "loadAdminsError": "Failed to load agent list",
+    "loadMessagesError": "Failed to load messages",
+    "createSessionError": "Failed to create session",
+    "sendError": "Failed to send",
+    "networkError": "Network error"
   }
 }

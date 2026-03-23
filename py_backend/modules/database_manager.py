@@ -11,6 +11,11 @@ from .forum_replies import ForumReplyManager
 from .contact_messages import ContactMessageManager
 from .payment_settings import PaymentSettingsManager
 from .cart import CartManager
+from .chat_admins import ChatAdminManager
+from .chat_sessions import ChatSessionManager
+from .chat_messages import ChatMessageManager
+from .chat_tg_links import ChatTgLinkManager
+from .popup_notices import PopupNoticeManager
 
 
 class DatabaseManager:
@@ -24,6 +29,11 @@ class DatabaseManager:
         self.contact_messages = ContactMessageManager(conn)
         self.payment_settings = PaymentSettingsManager(conn)
         self.cart = CartManager(conn)
+        self.chat_admins = ChatAdminManager(conn)
+        self.chat_sessions = ChatSessionManager(conn)
+        self.chat_messages = ChatMessageManager(conn)
+        self.chat_tg_links = ChatTgLinkManager(conn)
+        self.popup_notices = PopupNoticeManager(conn)
 
     def init_db(self) -> None:
         self.conn.execute("PRAGMA foreign_keys = ON")
@@ -36,6 +46,11 @@ class DatabaseManager:
         self.contact_messages.create_table()
         self.payment_settings.create_table()
         self.cart.create_table()
+        self.chat_admins.create_table()
+        self.chat_sessions.create_table()
+        self.chat_messages.create_table()
+        self.chat_tg_links.create_table()
+        self.popup_notices.create_table()
 
         self._apply_pragmas()
 
@@ -43,6 +58,7 @@ class DatabaseManager:
         self.products.seed_sample_data()
         self.forum_posts.seed_sample_data()
         self.payment_settings.seed_default()
+        self.chat_admins.init_default_admins()
 
         self.conn.commit()
 

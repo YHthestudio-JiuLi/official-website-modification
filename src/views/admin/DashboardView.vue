@@ -101,7 +101,7 @@
               <i class="fas fa-user-plus"></i>
             </div>
             <h3>{{ $t('admin.users.title') }}</h3>
-            <p>{{ $t('admin.dashboard.userManagementDesc') }}</p>
+            <p>{{ $t('admin.dashboard.actions.userManagementDesc') }}</p>
             <div class="action-link">
               {{ $t('admin.dashboard.manageUsers') }} <i class="fas fa-arrow-right"></i>
             </div>
@@ -112,7 +112,7 @@
               <i class="fas fa-box-open"></i>
             </div>
             <h3>{{ $t('admin.products.title') }}</h3>
-            <p>{{ $t('admin.dashboard.productManagementDesc') }}</p>
+            <p>{{ $t('admin.dashboard.actions.productManagementDesc') }}</p>
             <div class="action-link">
               {{ $t('admin.dashboard.manageProducts') }} <i class="fas fa-arrow-right"></i>
             </div>
@@ -123,7 +123,7 @@
               <i class="fas fa-edit"></i>
             </div>
             <h3>{{ $t('admin.posts.title') }}</h3>
-            <p>{{ $t('admin.dashboard.forumManagementDesc') }}</p>
+            <p>{{ $t('admin.dashboard.actions.forumManagementDesc') }}</p>
             <div class="action-link">
               {{ $t('admin.dashboard.manageForum') }} <i class="fas fa-arrow-right"></i>
             </div>
@@ -134,7 +134,7 @@
               <i class="fas fa-receipt"></i>
             </div>
             <h3>{{ $t('admin.orders.title') }}</h3>
-            <p>{{ $t('admin.dashboard.orderManagementDesc') }}</p>
+            <p>{{ $t('admin.dashboard.actions.orderManagementDesc') }}</p>
             <div class="action-link">
               {{ $t('admin.dashboard.manageOrders') }} <i class="fas fa-arrow-right"></i>
             </div>

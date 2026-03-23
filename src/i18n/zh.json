@@ -3,12 +3,15 @@
     "loading": "加载中...",
     "submit": "提交",
     "cancel": "取消",
+    "close": "关闭",
     "save": "保存",
     "delete": "删除",
     "edit": "编辑",
     "confirm": "确认",
     "error": "错误",
-    "success": "成功"
+    "success": "成功",
+    "enabled": "已启用",
+    "disabled": "已禁用"
   },
   "language": {
     "switch": "切换语言",
@@ -22,7 +25,8 @@
     "login": "登录",
     "register": "注册",
     "logout": "退出",
-    "myOrders": "我的订单"
+    "myOrders": "我的订单",
+    "chat": "客服"
   },
   "home": {
     "hero": {
@@ -159,28 +163,6 @@
   },
   "admin": {
     "title": "管理后台",
-    "dashboard": "仪表板",
-    "users": "用户管理",
-    "products": "产品管理",
-    "posts": "论坛管理",
-    "orders": "订单管理",
-    "paymentSettings": "收款设置",
-    "settings": "设置",
-    "logout": "退出登录",
-    "viewSite": "查看网站",
-    "sidebar": {
-      "expand": "展开侧边栏",
-      "collapse": "收起侧边栏"
-    },
-    "login": {
-      "title": "管理后台登录",
-      "subtitle": "YHthestudio 管理系统",
-      "username": "管理员用户名",
-      "password": "密码",
-      "submit": "登录",
-      "defaultAccount": "",
-      "error": "用户名或密码错误"
-    },
     "dashboard": {
       "title": "仪表板",
       "overview": "概览",
@@ -214,7 +196,11 @@
         "orderManagement": "订单管理",
         "orderManagementDesc": "管理所有用户订单和支付",
         "manageOrders": "管理订单"
-      }
+      },
+      "manageUsers": "管理用户",
+      "manageProducts": "管理产品",
+      "manageForum": "管理论坛",
+      "manageOrders": "管理订单"
     },
     "users": {
       "title": "用户管理",
@@ -251,7 +237,6 @@
       "batchDeleteWarning1": "所有选中的用户账号将被永久删除",
       "batchDeleteWarning2": "用户将失去对其订单和论坛帖子的访问权限",
       "batchDeleteWarning3": "相关数据可能会受到影响",
-      "cancel": "取消",
       "keepUser": "取消，保留用户",
       "deleteUsers": "删除 {count} 个用户",
       "successfullyDeleted": "成功删除 {count} 个用户",
@@ -263,10 +248,9 @@
     "products": {
       "title": "产品管理",
       "listTitle": "产品列表",
-      "description": "管理系统中的所有产品",
+      "description": "描述",
       "id": "ID",
       "name": "产品名称",
-      "description": "描述",
       "price": "价格 (USDT)",
       "date": "发布日期",
       "actions": "操作",
@@ -281,11 +265,10 @@
       "imageUrl": "图片地址"
     },
     "posts": {
-      "title": "论坛管理",
+      "title": "标题",
       "listTitle": "论坛帖子",
       "description": "管理系统中的所有论坛帖子",
       "id": "ID",
-      "title": "标题",
       "author": "作者",
       "date": "日期",
       "replies": "回复数",
@@ -337,6 +320,139 @@
       "autoDeleteMinutes": "自动删除时间（分钟）",
       "save": "保存设置",
       "saved": "设置保存成功"
+    },
+    "settings": "设置",
+    "logout": "退出登录",
+    "viewSite": "查看网站",
+    "sidebar": {
+      "expand": "展开侧边栏",
+      "collapse": "收起侧边栏"
+    },
+    "login": {
+      "title": "管理后台登录",
+      "subtitle": "YHthestudio 管理系统",
+      "username": "管理员用户名",
+      "password": "密码",
+      "submit": "登录",
+      "defaultAccount": "",
+      "error": "用户名或密码错误"
+    },
+    "popupNotices": {
+      "menu": "弹窗公告",
+      "title": "弹窗公告管理",
+      "subtitle": "管理网站主页弹窗公告",
+      "addNew": "新建公告",
+      "createFirst": "创建第一条公告",
+      "empty": "暂无公告",
+      "active": "已启用",
+      "inactive": "未启用",
+      "edit": "编辑公告",
+      "create": "创建公告",
+      "titlePlaceholder": "输入公告标题",
+      "contentPlaceholder": "输入公告内容（支持换行）",
+      "enabled": "启用此公告",
+      "noticeContent": "公告内容",
+      "settings": "设置",
+      "deleteConfirm": "确定要删除此公告吗？",
+      "editDesc": "更新公告内容和状态",
+      "createDesc": "创建新的主页弹窗公告",
+      "contentHint": "使用换行符来格式化您的消息",
+      "enabledHint": "只有一个启用的公告会在主页显示",
+      "content": "内容"
+    },
+    "chatSettings": {
+      "title": "聊天设置",
+      "subtitle": "管理聊天机器人和 Telegram 集成",
+      "serviceConfigTitle": "客服配置",
+      "serviceConfigDesc": "为每种服务类型配置聊天机器人和 Telegram",
+      "officialSupport": "官方客服",
+      "salesConsult": "售前咨询",
+      "botEnabled": "机器人已启用",
+      "botDisabled": "机器人已禁用",
+      "chatbotSection": "聊天机器人",
+      "telegramSection": "Telegram",
+      "telegramToken": "机器人令牌",
+      "telegramChatId": "聊天 ID",
+      "tokenPlaceholder": "例如：1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+      "chatIdPlaceholder": "例如：-1001234567890",
+      "configAutoSave": "离开输入框时自动保存",
+      "chatbotEnabled": "已启用聊天机器人",
+      "chatbotDisabled": "已禁用聊天机器人",
+      "settingsSaved": "设置已保存",
+      "loadError": "加载管理员列表失败",
+      "noAdmins": "暂无客服账户",
+      "helpTitle": "如何获取 Telegram 凭证？",
+      "helpTokenTitle": "机器人令牌",
+      "helpTokenDesc": "在 Telegram 中通过 BotFather 创建机器人",
+      "helpChatIdTitle": "聊天 ID",
+      "helpChatIdDesc": "使用 myidbot 获取群组/频道 ID",
+      "botFather": "BotFather",
+      "myIdBot": "myidbot"
+    },
+    "chatService": "客服服务",
+    "chatWorkspace": "聊天工作台"
+  },
+  "adminChat": {
+    "login": {
+      "title": "客服工作台登录",
+      "subtitle": "在线为用户提供服务",
+      "password": "密码",
+      "passwordPlaceholder": "请输入密码",
+      "submit": "登录",
+      "error": "登录失败"
+    },
+    "workspace": {
+      "title": "客服工作台",
+      "connected": "实时已连接",
+      "connecting": "正在连接…",
+      "logout": "退出登录",
+      "conversations": "会话列表",
+      "selectUser": "点击访客开始回复",
+      "pending": "待回复",
+      "serving": "会话服务中",
+      "noMessages": "请从左侧选择一个会话",
+      "inputPlaceholder": "输入消息…",
+      "send": "发送",
+      "hint": "Enter 发送 · Shift+Enter 换行",
+      "sendError": "发送失败"
     }
+  },
+  "chat": {
+    "authRequired": {
+      "title": "需要登录",
+      "desc": "请先登录后使用客服聊天功能"
+    },
+    "serviceType": "服务类型",
+    "types": {
+      "support": {
+        "title": "官方客服",
+        "desc": "技术支持和账户帮助"
+      },
+      "sales": {
+        "title": "售前咨询",
+        "desc": "产品咨询和购买帮助"
+      }
+    },
+    "noAgents": "暂无可用客服",
+    "setup": {
+      "title": "开始对话",
+      "desc": "选择服务类型后，选择一位客服发起会话",
+      "nickname": "你的昵称",
+      "nicknamePlaceholder": "例如：访客小李",
+      "selectAdmin": "选择客服",
+      "startChat": "进入聊天"
+    },
+    "back": "返回",
+    "admin": "客服",
+    "online": "在线",
+    "connecting": "连接中",
+    "emptyHint": "暂无消息，向客服打个招呼吧",
+    "inputPlaceholder": "发送消息…",
+    "send": "发送",
+    "loadAdminsError": "加载客服列表失败",
+    "loadMessagesError": "加载消息失败",
+    "createSessionError": "创建会话失败",
+    "sendError": "发送失败",
+    "networkError": "网络错误"
   }
 }

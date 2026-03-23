@@ -10,6 +10,7 @@
         <li><router-link to="/" class="nav-link">{{ $t('nav.home') }}</router-link></li>
         <li><router-link to="/products" class="nav-link">{{ $t('nav.products') }}</router-link></li>
         <li><router-link to="/forum" class="nav-link">{{ $t('nav.forum') }}</router-link></li>
+        <li><router-link to="/chat" class="nav-link">{{ $t('nav.chat') }}</router-link></li>
         <li>
           <router-link to="/cart" class="nav-link cart-link">
             <i class="fas fa-shopping-cart"></i>

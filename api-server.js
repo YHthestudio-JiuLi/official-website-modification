@@ -9,8 +9,13 @@ const rateLimit = require('express-rate-limit');
 const csrf = require('csurf');
 const winston = require('winston');
 const fs = require('fs');
+const http = require('http');
+const { WebSocketServer } = require('ws');
+const { v4: uuidv4 } = require('uuid');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
+const { createTelegramIntegration } = require('./telegram');
+const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegram-fetcher');
 
 // 加载环境变量
 dotenv.config();
@@ -96,8 +101,34 @@ const csrfProtection = csrf({
   ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
 });
 
-// 应用 CSRF 保护中间件到所有 API 路由
-app.use('/api', csrfProtection);
+// 应用 CSRF 保护中间件到所有 API 路由（除了聊天 API、管理员 API 和认证 API）
+app.use('/api', (req, res, next) => {
+  // 跳过聊天 API、管理员 API 和认证 API - 使用路径前缀匹配
+  if (req.path.startsWith('/chat/') || req.path.startsWith('/admin/') || req.path.startsWith('/auth/')) {
+    return next()
+  }
+  csrfProtection(req, res, next)
+});
+
+// 聊天相关状态
+const adminTokens = new Set();
+const chatSessions = new Map();
+
+// 广播消息到 WebSocket 客户端
+function broadcastToChat(sessionId, payload) {
+  const msg = JSON.stringify(payload);
+  if (wss) {
+    for (const client of wss.clients) {
+      if (client.readyState !== 1) continue;
+      if (client.chatSessionId === sessionId || (client.isAdmin && client.adminSubscribed)) {
+        client.send(msg);
+      }
+    }
+  }
+}
+
+// Telegram 集成
+const telegram = createTelegramIntegration({ broadcastToChat });
 
 // 获取 CSRF token 的端点
 app.get('/api/csrf-token', (req, res) => {
@@ -718,6 +749,310 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// ==================== 聊天 API ====================
+
+// 获取当前用户的聊天会话
+app.get('/api/chat/user-session', async (req, res) => {
+  try {
+    if (!req.session || !req.session.user) {
+      return res.json({ session: null });
+    }
+    // 通过用户 ID 查找活跃的聊天会话
+    const sessions = await dbOperations.chatSessions.findByUserId(req.session.user.id);
+    if (sessions && sessions.length > 0) {
+      // 返回最近的活跃会话
+      res.json({ session: sessions[0] });
+    } else {
+      res.json({ session: null });
+    }
+  } catch (error) {
+    console.error('[API Error] /api/chat/user-session:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.get('/api/chat/admins', async (req, res) => {
+  try {
+    const admins = await dbOperations.chatAdmins.findAll();
+    res.json({ admins });
+  } catch (error) {
+    console.error('[API Error] /api/chat/admins:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/chat/sessions', async (req, res) => {
+  const { nickname, admin_id, service_type, user_id } = req.body || {};
+  const name = typeof nickname === 'string' ? nickname.trim() : '';
+  const aid = Number(admin_id);
+  const stype = service_type || 'support';
+  
+  // 如果用户已登录，使用其 user_id
+  const uid = (req.session && req.session.user) ? req.session.user.id : (Number(user_id) || null);
+  
+  if (!name || name.length < 1) {
+    return res.status(400).json({ error: 'Nickname required' });
+  }
+  if (!Number.isInteger(aid)) {
+    return res.status(400).json({ error: 'Invalid admin' });
+  }
+  
+  // 检查是否已有活跃会话
+  if (uid) {
+    const existingSessions = await dbOperations.chatSessions.findByUserId(uid);
+    if (existingSessions && existingSessions.length > 0) {
+      return res.json({ session: existingSessions[0] });
+    }
+  }
+  
+  const sessionId = uuidv4();
+  try {
+    const session = await dbOperations.chatSessions.create(sessionId, name, aid, stype, uid);
+    if (!session) {
+      return res.status(400).json({ error: 'Could not create session' });
+    }
+    return res.json({ session });
+  } catch (e) {
+    console.error('[API Error] POST /api/chat/sessions:', e.message);
+    return res.status(500).json({ error: 'Could not create session' });
+  }
+});
+
+app.get('/api/chat/sessions/:id', async (req, res) => {
+  try {
+    const session = await dbOperations.chatSessions.findById(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Not found' });
+    res.json({ session });
+  } catch (error) {
+    console.error('[API Error] /api/chat/sessions/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.get('/api/chat/sessions/:id/messages', async (req, res) => {
+  try {
+    const session = await dbOperations.chatSessions.findById(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Not found' });
+    
+    // Try to fetch messages from Telegram
+    const tgResult = await fetchMessagesFromTelegram(req.params.id);
+    console.info("tgResult:",tgResult)
+    if (tgResult.fromTelegram && tgResult.messages.length > 0) {
+      return res.json({ messages: tgResult.messages, fromTelegram: true });
+    }
+    
+    res.json({ messages: [], fromTelegram: false });
+  } catch (error) {
+    console.error('[API Error] /api/chat/sessions/:id/messages:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/chat/sessions/:id/messages', async (req, res) => {
+  const { body, sender } = req.body || {};
+  const sid = req.params.id;
+  try {
+    const session = await dbOperations.chatSessions.findById(sid);
+    if (!session) return res.status(404).json({ error: 'Not found' });
+    let who = 'user';
+    if (sender === 'admin') {
+      const tok = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+      if (!tok || !adminTokens.has(tok)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      who = 'admin';
+    }
+    
+    console.log('[Debug] POST message body:', body ? body.substring(0, 50) + '...' : 'EMPTY/NULL', 'sender:', sender, 'who:', who);
+    
+    // Get admin info for Telegram
+    const adminInfo = session.admin_id ? await dbOperations.chatAdmins.findById(session.admin_id) : null;
+    const useTelegram = adminInfo && (adminInfo.telegram_token || process.env.TELEGRAM_BOT_TOKEN) && 
+                        (adminInfo.telegram_chat_id || process.env.TELEGRAM_CHAT_ID);
+    
+    // Debug log for Telegram config
+    console.log('[Debug] Session:', session.id, 'admin_id:', session.admin_id);
+    console.log('[Debug] AdminInfo:', adminInfo ? { 
+      id: adminInfo.id, 
+      username: adminInfo.username, 
+      telegram_chat_id: adminInfo.telegram_chat_id ? 'set' : 'empty',
+      telegram_token: adminInfo.telegram_token ? 'set' : 'empty',
+      chatbot_enabled: adminInfo.chatbot_enabled
+    } : 'null');
+    console.log('[Debug] useTelegram:', useTelegram);
+    
+    // Validate body first
+    const messageBody = String(body || '').trim();
+    if (!messageBody) {
+      console.log('[Debug] Empty message body rejected');
+      return res.status(400).json({ error: 'Empty message' });
+    }
+    
+    // Save message to database first
+    const savedMsg = await dbOperations.chatMessages.create(sid, who, messageBody);
+    
+    const row = savedMsg || {
+      id: Date.now(),
+      session_id: sid,
+      sender: who,
+      body: messageBody,
+      created_at: new Date().toISOString(),
+    };
+    
+    console.log('[Debug] Created message row:', { id: row.id, body: row.body.substring(0, 50) + '...' });
+    
+    const payload = { type: 'message', message: row };
+    broadcastToChat(sid, payload);
+    
+    // Send to Telegram instead of storing locally
+    if (useTelegram) {
+      console.log('[Telegram] Sending message to Telegram for session:', session.id, 'sender:', who);
+      console.log('[Telegram] row.body:', row.body ? '"' + row.body.substring(0, 100) + '..."' : 'EMPTY/NULL');
+      if (who === 'user') {
+        console.log('[Telegram] Calling notifyUserMessage with row:', row ? { id: row.id, body: row.body } : 'NULL');
+        telegram.notifyUserMessage(session, row, adminInfo).catch((err) => {
+          console.error('[Telegram] notify:', err.message || err);
+        });
+      }
+      if (who === 'admin') {
+        telegram.notifyAdminReply(session, row, adminInfo).catch((err) => {
+          console.error('[Telegram] admin reply:', err.message || err);
+        });
+      }
+    } else {
+      console.log('[Telegram] Not sending to Telegram - useTelegram=false');
+    }
+    
+    res.json({ message: row });
+  } catch (error) {
+    console.error('[API Error] POST /api/chat/sessions/:id/messages:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/chat/admin/login', (req, res) => {
+  const { password } = req.body || {};
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+  if (password === ADMIN_PASSWORD) {
+    const token = uuidv4();
+    adminTokens.add(token);
+    return res.json({ token });
+  }
+  res.status(401).json({ error: 'Unauthorized' });
+});
+
+app.get('/api/chat/admin/conversations', async (req, res) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (!token || !adminTokens.has(token)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const conversations = await dbOperations.chatSessions.findConversationsForAdmin();
+    res.json({ conversations });
+  } catch (error) {
+    console.error('[API Error] /api/chat/admin/conversations:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// ==================== Admin Chat Settings ====================
+
+app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
+  const adminId = parseInt(req.params.id, 10);
+  const { display_name, bio, avatar_color, telegram_chat_id, telegram_token, chatbot_enabled } = req.body || {};
+  if (Number.isNaN(adminId)) {
+    return res.status(400).json({ error: 'Invalid admin ID' });
+  }
+  try {
+    await dbOperations.chatAdmins.update(
+      adminId,
+      display_name,
+      bio,
+      avatar_color,
+      telegram_chat_id,
+      telegram_token,
+      chatbot_enabled,
+    );
+    const updated = await dbOperations.chatAdmins.findById(adminId);
+    res.json({ admin: updated });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/chat-admins/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/chat-admins/:id/chatbot', requireAdmin, async (req, res) => {
+  const adminId = parseInt(req.params.id, 10);
+  const { enabled } = req.body || {};
+  if (Number.isNaN(adminId)) {
+    return res.status(400).json({ error: 'Invalid admin ID' });
+  }
+  try {
+    await dbOperations.chatAdmins.updateChatbotEnabled(adminId, Boolean(enabled));
+    const updated = await dbOperations.chatAdmins.findById(adminId);
+    res.json({ admin: updated });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/chat-admins/:id/chatbot:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// ==================== Popup Notices ====================
+
+app.get('/api/popup-notice', async (req, res) => {
+  try {
+    const notice = await dbOperations.popupNotices.findActive();
+    res.json({ notice });
+  } catch (error) {
+    console.error('[API Error] /api/popup-notice:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.get('/api/admin/popup-notices', requireAdmin, async (req, res) => {
+  try {
+    const notices = await dbOperations.popupNotices.findAll();
+    res.json({ notices });
+  } catch (error) {
+    console.error('[API Error] /api/admin/popup-notices:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
+  const { title, content, enabled } = req.body || {};
+  try {
+    const notice = await dbOperations.popupNotices.create(title, content, enabled !== false);
+    if (!notice) return res.status(400).json({ error: 'Invalid input' });
+    res.json({ notice });
+  } catch (error) {
+    console.error('[API Error] POST /api/admin/popup-notices:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
+  const { title, content, enabled } = req.body || {};
+  try {
+    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled !== false);
+    if (!notice) return res.status(404).json({ error: 'Not found' });
+    res.json({ notice });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/popup-notices/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.delete('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
+  try {
+    await dbOperations.popupNotices.delete(req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[API Error] DELETE /api/admin/popup-notices/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 // ==================== 前端路由回退 ====================
 // 所有非 API 请求返回 index.html，让 Vue Router 处理
 // 但静态资源文件除外
@@ -736,10 +1071,85 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// ==================== WebSocket 服务器 ====================
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+wss.on('connection', (ws) => {
+  ws.isAdmin = false;
+  ws.adminSubscribed = false;
+  ws.chatSessionId = null;
+
+  ws.on('message', (raw) => {
+    let data;
+    try {
+      data = JSON.parse(String(raw));
+    } catch {
+      return;
+    }
+    if (data.type === 'auth') {
+      if (data.role === 'admin' && data.token && adminTokens.has(data.token)) {
+        ws.isAdmin = true;
+        ws.adminSubscribed = true;
+        ws.send(JSON.stringify({ type: 'auth_ok', role: 'admin' }));
+        return;
+      }
+      if (data.role === 'user' && data.sessionId) {
+        dbOperations.chatSessions.findById(data.sessionId).then((session) => {
+          if (session) {
+            ws.isAdmin = false;
+            ws.chatSessionId = data.sessionId;
+            ws.send(JSON.stringify({ type: 'auth_ok', role: 'user' }));
+          } else {
+            ws.send(JSON.stringify({ type: 'auth_fail' }));
+          }
+        }).catch(() => {
+          ws.send(JSON.stringify({ type: 'auth_fail' }));
+        });
+        return;
+      }
+      ws.send(JSON.stringify({ type: 'auth_fail' }));
+      return;
+    }
+
+    if (data.type === 'ping') {
+      ws.send(JSON.stringify({ type: 'pong' }));
+      return;
+    }
+  });
+
+  ws.on('close', () => {
+    ws.chatSessionId = null;
+  });
+});
+
+// ==================== Telegram Webhook ====================
+
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+app.post('/telegram/webhook', express.json(), (req, res) => {
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const q = req.query && req.query.secret;
+    if (q !== TELEGRAM_WEBHOOK_SECRET) {
+      return res.status(403).send('forbidden');
+    }
+  }
+  res.status(200).send('ok');
+  telegram.handleUpdate(req.body).catch((err) => {
+    console.error('[Telegram] webhook:', err.message || err);
+  });
+});
+
 // 启动服务器
-app.listen(PORT, HOST, () => {
+server.listen(PORT, HOST, () => {
   logger.info('API server started', { port: PORT, host: HOST });
   logger.info(`Serving Vue frontend from: ${distPath}`);
   console.log(`API server running on http://${HOST}:${PORT}`);
+  console.log(`WebSocket server running on ws://${HOST}:${PORT}/ws`);
   console.log(`Serving Vue frontend from: ${distPath}`);
+  
+  // 启动 Telegram polling（如果启用）
+  // startPollingIfEnabled(); // 已改用 setupMultiBotPolling，避免重复
+  telegram.setupMultiBotPolling({ broadcastToChat });
 });

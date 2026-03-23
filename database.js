@@ -91,6 +91,59 @@ const dbOperations = {
     removeItem: (userId, productId) =>
       rpc('cart.removeItem', { userId, productId }),
     clear: (userId) => rpc('cart.clear', { userId })
+  },
+  chatAdmins: {
+    findAll: () => rpc('chatAdmins.findAll'),
+    findById: (id) => rpc('chatAdmins.findById', { id }),
+    create: (username, displayName, bio = '', avatarColor = '#07c160') =>
+      rpc('chatAdmins.create', { username, display_name: displayName, bio, avatar_color: avatarColor }),
+    update: (id, displayName, bio = '', avatarColor = '#07c160', telegramChatId = null, telegramToken = null, chatbotEnabled = false) =>
+      rpc('chatAdmins.update', { id, display_name: displayName, bio, avatar_color: avatarColor, telegram_chat_id: telegramChatId, telegram_token: telegramToken, chatbot_enabled: chatbotEnabled }),
+    updateChatbotEnabled: (id, enabled) =>
+      rpc('chatAdmins.updateChatbotEnabled', { id, enabled }),
+    delete: (id) => rpc('chatAdmins.delete', { id })
+  },
+  chatSessions: {
+    findAll: () => rpc('chatSessions.findAll'),
+    findById: (id) => rpc('chatSessions.findById', { id }),
+    findByUserId: (userId) => rpc('chatSessions.findByUserId', { user_id: userId }),
+    findConversationsForAdmin: () => rpc('chatSessions.findConversationsForAdmin'),
+    create: (id, nickname, adminId, serviceType = 'support', userId = null) =>
+      rpc('chatSessions.create', { id, nickname, admin_id: adminId, service_type: serviceType, user_id: userId }),
+    delete: (id) => rpc('chatSessions.delete', { id }),
+  },
+  chatMessages: {
+    findAll: () => rpc('chatMessages.findAll'),
+    findById: (id) => rpc('chatMessages.findById', { id }),
+    findBySessionId: (sessionId, limit = 200) =>
+      rpc('chatMessages.findBySessionId', { sessionId, limit }),
+    create: (sessionId, sender, body) =>
+      rpc('chatMessages.create', { sessionId, sender, body }),
+    delete: (id) => rpc('chatMessages.delete', { id })
+  },
+  chatTgLinks: {
+    create: (chatId, tgMessageId, sessionId, chatMessageId = null) =>
+      rpc('chatTgLinks.create', { chat_id: chatId, tg_message_id: tgMessageId, session_id: sessionId, chat_message_id: chatMessageId }),
+    findByTgMessage: (chatId, tgMessageId) =>
+      rpc('chatTgLinks.findByTgMessage', { chat_id: chatId, tg_message_id: tgMessageId }),
+    findBySession: (sessionId) =>
+      rpc('chatTgLinks.findBySession', { session_id: sessionId }),
+    findBySessionAndChatMessage: (sessionId, chatMessageId) =>
+      rpc('chatTgLinks.findBySessionAndChatMessage', { session_id: sessionId, chat_message_id: chatMessageId }),
+    findLatestUserTgMessage: (sessionId) =>
+      rpc('chatTgLinks.findLatestUserTgMessage', { session_id: sessionId }),
+    deleteBySession: (sessionId) =>
+      rpc('chatTgLinks.deleteBySession', { session_id: sessionId })
+  },
+  popupNotices: {
+    findAll: () => rpc('popupNotices.findAll'),
+    findById: (id) => rpc('popupNotices.findById', { id }),
+    findActive: () => rpc('popupNotices.findActive'),
+    create: (title, content, enabled = true) =>
+      rpc('popupNotices.create', { title, content, enabled }),
+    update: (id, title, content, enabled = true) =>
+      rpc('popupNotices.update', { id, title, content, enabled }),
+    delete: (id) => rpc('popupNotices.delete', { id })
   }
 };
 

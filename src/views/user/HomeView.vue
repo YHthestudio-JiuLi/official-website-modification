@@ -88,6 +88,7 @@
 
     </main>
     <AppFooter />
+    <PopupNotice />
   </div>
 </template>
 
@@ -96,6 +97,7 @@ import { ref, onMounted } from 'vue'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import PopupNotice from '@/components/common/PopupNotice.vue'
 
 const products = ref([])
 

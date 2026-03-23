@@ -64,6 +64,26 @@
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
+            <i class="fas fa-headset"></i> {{ $t('admin.chatService') || 'Customer Service' }}
+          </div>
+          <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" @click="closeMobileMenu">
+            <i class="fas fa-comments"></i>
+            <span>{{ $t('admin.chatWorkspace') || 'Chat Workspace' }}</span>
+          </router-link>
+          <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" @click="closeMobileMenu">
+            <i class="fas fa-robot"></i>
+            <span>{{ $t('admin.chatSettings.title') || 'Chat Settings' }}</span>
+          </router-link>
+        </div>
+        <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" v-show="collapsed" :title="$t('admin.chatWorkspace') || 'Chat Workspace'">
+          <i class="fas fa-comments"></i>
+        </router-link>
+        <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" v-show="collapsed" :title="$t('admin.chatSettings.title') || 'Chat Settings'">
+          <i class="fas fa-robot"></i>
+        </router-link>
+
+        <div class="nav-section" v-show="!collapsed">
+          <div class="nav-section-title">
             <i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}
           </div>
           <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" @click="closeMobileMenu">
@@ -81,15 +101,22 @@
           </div>
           <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" @click="closeMobileMenu">
             <i class="fas fa-wallet"></i>
-            <span>{{ $t('admin.paymentSettings') }}</span>
+            <span>{{ $t('admin.paymentSettings.title') }}</span>
+          </router-link>
+          <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" @click="closeMobileMenu">
+            <i class="fas fa-bullhorn"></i>
+            <span>{{ $t('admin.popupNotices.menu') || 'Popup Notices' }}</span>
           </router-link>
         </div>
         <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" :title="$t('admin.paymentSettings')">
           <i class="fas fa-wallet"></i>
         </router-link>
+        <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed" :title="$t('admin.popupNotices.menu') || 'Popup Notices'">
+          <i class="fas fa-bullhorn"></i>
+        </router-link>
       </nav>
 
-      <div class="sidebar-footer">
+      <footer class="sidebar-footer">
         <a href="/" class="nav-link" target="_blank" v-show="!collapsed">
           <i class="fas fa-external-link-alt"></i>
           <span>{{ $t('admin.viewSite') }}</span>
@@ -104,7 +131,7 @@
         <button @click="handleLogout" class="nav-link logout-link" v-show="collapsed" :title="$t('admin.logout')">
           <i class="fas fa-sign-out-alt"></i>
         </button>
-      </div>
+      </footer>
     </aside>
 
     <!-- Main Content -->
@@ -286,18 +313,13 @@ onUnmounted(() => {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  padding-bottom: 80px;
+  padding-bottom: 160px;
 }
 
 .sidebar-footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   padding: 0.75rem 0;
   border-top: 1px solid var(--border-color);
   background: var(--bg-card);
-  z-index: 10;
 }
 
 /* 移动端侧边栏优化 */
@@ -338,9 +360,18 @@ onUnmounted(() => {
   width: 6px;
 }
 
+.admin-sidebar::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
 .admin-sidebar::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: rgba(42, 47, 74, 0.6);
   border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.5);
 }
 
 .sidebar-brand {

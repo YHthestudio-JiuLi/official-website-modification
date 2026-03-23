@@ -265,4 +265,81 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "cart.clear":
         return db_manager.cart.clear_cart(args["userId"])
 
+    # Chat operations
+    if op == "chatAdmins.findAll":
+        return db_manager.chat_admins.find_all()
+    if op == "chatAdmins.findById":
+        return db_manager.chat_admins.find_by_id(args["id"])
+    if op == "chatAdmins.create":
+        return db_manager.chat_admins.create(
+            args["username"],
+            args["display_name"],
+            args.get("bio", ""),
+            args.get("avatar_color", "#07c160"),
+        )
+    if op == "chatAdmins.update":
+        return db_manager.chat_admins.update(
+            args["id"],
+            args["display_name"],
+            args.get("bio", ""),
+            args.get("avatar_color", "#07c160"),
+            args.get("telegram_chat_id"),
+            args.get("telegram_token"),
+            args.get("chatbot_enabled", False),
+        )
+    if op == "chatAdmins.updateChatbotEnabled":
+        return db_manager.chat_admins.update_chatbot_enabled(args["id"], bool(args["enabled"]))
+    if op == "chatAdmins.delete":
+        return db_manager.chat_admins.delete(args["id"])
+
+    if op == "chatSessions.findAll":
+        return db_manager.chat_sessions.find_all()
+    if op == "chatSessions.findById":
+        return db_manager.chat_sessions.find_by_id(args["id"])
+    if op == "chatSessions.findByUserId":
+        return db_manager.chat_sessions.find_by_user_id(int(args["user_id"]))
+    if op == "chatSessions.create":
+        return db_manager.chat_sessions.create(args["id"], args["nickname"], int(args["admin_id"]), args.get("service_type", "support"), args.get("user_id"))
+    if op == "chatSessions.delete":
+        return db_manager.chat_sessions.delete(args["id"])
+    if op == "chatSessions.findConversationsForAdmin":
+        return db_manager.chat_sessions.find_conversations_for_admin()
+
+    if op == "chatMessages.findAll":
+        return db_manager.chat_messages.find_all()
+    if op == "chatMessages.findById":
+        return db_manager.chat_messages.find_by_id(args["id"])
+    if op == "chatMessages.findBySessionId":
+        return db_manager.chat_messages.find_by_session_id(args["sessionId"], int(args.get("limit", 200)))
+    if op == "chatMessages.create":
+        return db_manager.chat_messages.create(args["sessionId"], args["sender"], args["body"])
+    if op == "chatMessages.delete":
+        return db_manager.chat_messages.delete(args["id"])
+
+    if op == "chatTgLinks.create":
+        return db_manager.chat_tg_links.create(args["chat_id"], args["tg_message_id"], args["session_id"], args.get("chat_message_id"))
+    if op == "chatTgLinks.findByTgMessage":
+        return db_manager.chat_tg_links.find_by_tg_message(args["chat_id"], args["tg_message_id"])
+    if op == "chatTgLinks.findBySession":
+        return db_manager.chat_tg_links.find_by_session(args["session_id"])
+    if op == "chatTgLinks.findBySessionAndChatMessage":
+        return db_manager.chat_tg_links.find_by_session_and_chat_message(args["session_id"], args["chat_message_id"])
+    if op == "chatTgLinks.findLatestUserTgMessage":
+        return db_manager.chat_tg_links.find_latest_user_tg_message(args["session_id"])
+    if op == "chatTgLinks.deleteBySession":
+        return db_manager.chat_tg_links.delete_by_session(args["session_id"])
+
+    if op == "popupNotices.findAll":
+        return db_manager.popup_notices.find_all()
+    if op == "popupNotices.findById":
+        return db_manager.popup_notices.find_by_id(args["id"])
+    if op == "popupNotices.findActive":
+        return db_manager.popup_notices.find_active()
+    if op == "popupNotices.create":
+        return db_manager.popup_notices.create(args["title"], args["content"], bool(args.get("enabled", True)))
+    if op == "popupNotices.update":
+        return db_manager.popup_notices.update(args["id"], args["title"], args["content"], bool(args.get("enabled", True)))
+    if op == "popupNotices.delete":
+        return db_manager.popup_notices.delete(args["id"])
+
     raise ValueError(f"Unknown op: {op}")

@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 
@@ -82,6 +82,18 @@ const routes = [
     component: () => import('@/views/user/ForumDetailView.vue'),
     meta: { title: 'Forum Post' }
   },
+  {
+    path: '/chat',
+    name: 'chat',
+    component: () => import('@/views/user/ChatView.vue'),
+    meta: { title: 'Chat' }
+  },
+  {
+    path: '/admin/chat',
+    name: 'admin-chat',
+    component: () => import('@/views/user/ChatAdminView.vue'),
+    meta: { title: 'Admin Chat', requiresAdmin: true, layout: 'admin' }
+  },
 
   // Admin routes
   {
@@ -155,11 +167,23 @@ const routes = [
     name: 'admin-payment-settings',
     component: () => import('@/views/admin/PaymentSettingsView.vue'),
     meta: { title: 'Payment Settings', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/popup-notices',
+    name: 'admin-popup-notices',
+    component: () => import('@/views/admin/PopupNoticesView.vue'),
+    meta: { title: 'Popup Notices', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/chat-settings',
+    name: 'admin-chat-settings',
+    component: () => import('@/views/admin/ChatSettingsView.vue'),
+    meta: { title: 'Chat Settings', requiresAdmin: true, layout: 'admin' }
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 })
 

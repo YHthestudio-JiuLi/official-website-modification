@@ -8,6 +8,10 @@ from .forum_replies import ForumReplyManager
 from .contact_messages import ContactMessageManager
 from .payment_settings import PaymentSettingsManager
 from .cart import CartManager
+from .chat_admins import ChatAdminManager
+from .chat_sessions import ChatSessionManager
+from .chat_messages import ChatMessageManager
+from .chat_tg_links import ChatTgLinkManager
 from .database_manager import DatabaseManager
 
 __all__ = [
@@ -19,5 +23,9 @@ __all__ = [
     "ContactMessageManager",
     "PaymentSettingsManager",
     "CartManager",
+    "ChatAdminManager",
+    "ChatSessionManager",
+    "ChatMessageManager",
+    "ChatTgLinkManager",
     "DatabaseManager",
 ]

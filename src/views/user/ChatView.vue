@@ -135,6 +135,11 @@
       </header>
 
       <div class="messages" ref="messagesContainer">
+        <div class="cache-notice">
+          <i class="fas fa-info-circle"></i>
+          {{ $t('chat.cacheNotice') || 'Chat history is kept for 3 hours' }}
+        </div>
+
         <div v-if="loadHistoryLoading" class="loading-history">
           <i class="fas fa-spinner fa-spin"></i>
           <span>Loading history...</span>
@@ -215,6 +220,7 @@ let reconnectTimer = null
 
 const admins = ref([])
 const selectedAdminId = ref(null)
+const userSessions = ref([])
 const sessionId = ref(null)
 const sessionMeta = ref(null)
 const serviceType = ref('support') // 'support' or 'sales'
@@ -346,6 +352,20 @@ async function loadAdmins() {
     error.value = t('chat.loadAdminsError') || 'Failed to load agents'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadUserSessions() {
+  try {
+    const res = await fetch('/api/chat/user-sessions', {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      userSessions.value = data.sessions || []
+    }
+  } catch (e) {
+    console.error('Failed to load user sessions:', e)
   }
 }
 
@@ -482,13 +502,10 @@ onMounted(async () => {
   
   await loadAdmins()
   
-  // 尝试恢复之前的会话
-  const savedSessionId = localStorage.getItem(STORAGE_KEY)
-  const savedServiceType = localStorage.getItem(SERVICE_TYPE_KEY)
-  if (savedSessionId) {
-    sessionId.value = savedSessionId
-    serviceType.value = savedServiceType || 'support'
-    await loadHistory()
+  // 尝试从后端恢复用户的活跃会话
+  const restored = await loadUserSession()
+  if (restored) {
+    console.log('[Chat] Restored user session from backend')
   }
 })
 
@@ -855,6 +872,24 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 1rem;
   background: var(--bg-dark);
+}
+
+.cache-notice {
+  text-align: center;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.cache-notice i {
+  color: var(--primary-color);
 }
 
 .messages::-webkit-scrollbar {

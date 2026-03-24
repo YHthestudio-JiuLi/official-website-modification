@@ -447,6 +447,7 @@
     "online": "在线",
     "connecting": "连接中",
     "emptyHint": "暂无消息，向客服打个招呼吧",
+    "cacheNotice": "聊天记录保留3小时，请及时保存重要信息",
     "inputPlaceholder": "发送消息…",
     "send": "发送",
     "loadAdminsError": "加载客服列表失败",

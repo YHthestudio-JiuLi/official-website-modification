@@ -373,27 +373,27 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
 app.put('/api/orders/:id/status', requireUser, async (req, res) => {
   const id = parseInt(req.params.id);
   const { status, cancelReason } = req.body;
-  
+
   // 只允许取消订单
   if (status !== 'cancelled') {
     return res.status(400).json({ error: 'Only cancellation is allowed via this endpoint' });
   }
-  
+
   const order = await dbOperations.orders.findById(id);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
-  
+
   // 验证订单所有权
   if (order.userId !== req.session.user.id) {
     return res.status(403).json({ error: 'Access denied' });
   }
-  
+
   // 只允许取消 pending 状态的订单
   if (order.status !== 'pending') {
     return res.status(400).json({ error: 'Only pending orders can be cancelled' });
   }
-  
+
   await dbOperations.orders.updateStatus(id, 'cancelled');
   logger.info(`Order ${id} cancelled by user ${req.session.user.username}`, {
     orderId: id,
@@ -771,6 +771,20 @@ app.get('/api/chat/user-session', async (req, res) => {
   }
 });
 
+// 获取当前用户的所有聊天会话
+app.get('/api/chat/user-sessions', async (req, res) => {
+  try {
+    if (!req.session || !req.session.user) {
+      return res.json({ sessions: [] });
+    }
+    const sessions = await dbOperations.chatSessions.findByUserId(req.session.user.id);
+    res.json({ sessions: sessions || [] });
+  } catch (error) {
+    console.error('[API Error] /api/chat/user-sessions:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 app.get('/api/chat/admins', async (req, res) => {
   try {
     const admins = await dbOperations.chatAdmins.findAll();
@@ -786,25 +800,25 @@ app.post('/api/chat/sessions', async (req, res) => {
   const name = typeof nickname === 'string' ? nickname.trim() : '';
   const aid = Number(admin_id);
   const stype = service_type || 'support';
-  
+
   // 如果用户已登录，使用其 user_id
   const uid = (req.session && req.session.user) ? req.session.user.id : (Number(user_id) || null);
-  
+
   if (!name || name.length < 1) {
     return res.status(400).json({ error: 'Nickname required' });
   }
   if (!Number.isInteger(aid)) {
     return res.status(400).json({ error: 'Invalid admin' });
   }
-  
-  // 检查是否已有活跃会话
+
+// 检查是否已有该客服的活跃会话
   if (uid) {
-    const existingSessions = await dbOperations.chatSessions.findByUserId(uid);
-    if (existingSessions && existingSessions.length > 0) {
-      return res.json({ session: existingSessions[0] });
+    const existingSession = await dbOperations.chatSessions.findByUserIdAndAdminId(uid, aid);
+    if (existingSession) {
+      return res.json({ session: existingSession });
     }
   }
-  
+
   const sessionId = uuidv4();
   try {
     const session = await dbOperations.chatSessions.create(sessionId, name, aid, stype, uid);
@@ -831,17 +845,18 @@ app.get('/api/chat/sessions/:id', async (req, res) => {
 
 app.get('/api/chat/sessions/:id/messages', async (req, res) => {
   try {
-    const session = await dbOperations.chatSessions.findById(req.params.id);
+    const sid = req.params.id;
+    console.log('[Chat] Loading messages for session:', sid);
+    
+    const session = await dbOperations.chatSessions.findById(sid);
     if (!session) return res.status(404).json({ error: 'Not found' });
+
+    let messages = await dbOperations.chatMessages.findBySessionId(sid);
+    if (!messages) messages = [];
     
-    // Try to fetch messages from Telegram
-    const tgResult = await fetchMessagesFromTelegram(req.params.id);
-    console.info("tgResult:",tgResult)
-    if (tgResult.fromTelegram && tgResult.messages.length > 0) {
-      return res.json({ messages: tgResult.messages, fromTelegram: true });
-    }
-    
-    res.json({ messages: [], fromTelegram: false });
+    console.log('[Chat] Loaded', messages.length, 'messages for session:', sid);
+
+    res.json({ messages, fromTelegram: false });
   } catch (error) {
     console.error('[API Error] /api/chat/sessions/:id/messages:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
@@ -862,35 +877,37 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
       }
       who = 'admin';
     }
-    
+
     console.log('[Debug] POST message body:', body ? body.substring(0, 50) + '...' : 'EMPTY/NULL', 'sender:', sender, 'who:', who);
-    
+
     // Get admin info for Telegram
     const adminInfo = session.admin_id ? await dbOperations.chatAdmins.findById(session.admin_id) : null;
-    const useTelegram = adminInfo && (adminInfo.telegram_token || process.env.TELEGRAM_BOT_TOKEN) && 
-                        (adminInfo.telegram_chat_id || process.env.TELEGRAM_CHAT_ID);
-    
+    const useTelegram = adminInfo && (adminInfo.telegram_token || process.env.TELEGRAM_BOT_TOKEN) &&
+      (adminInfo.telegram_chat_id || process.env.TELEGRAM_CHAT_ID);
+
     // Debug log for Telegram config
     console.log('[Debug] Session:', session.id, 'admin_id:', session.admin_id);
-    console.log('[Debug] AdminInfo:', adminInfo ? { 
-      id: adminInfo.id, 
-      username: adminInfo.username, 
+    console.log('[Debug] AdminInfo:', adminInfo ? {
+      id: adminInfo.id,
+      username: adminInfo.username,
       telegram_chat_id: adminInfo.telegram_chat_id ? 'set' : 'empty',
       telegram_token: adminInfo.telegram_token ? 'set' : 'empty',
       chatbot_enabled: adminInfo.chatbot_enabled
     } : 'null');
     console.log('[Debug] useTelegram:', useTelegram);
-    
+
     // Validate body first
     const messageBody = String(body || '').trim();
     if (!messageBody) {
       console.log('[Debug] Empty message body rejected');
       return res.status(400).json({ error: 'Empty message' });
     }
-    
-    // Save message to database first
+
+// Save message to database first
+    console.log('[Chat] Creating message for session:', sid, 'sender:', who);
     const savedMsg = await dbOperations.chatMessages.create(sid, who, messageBody);
-    
+    console.log('[Chat] Message saved:', savedMsg ? 'success' : 'failed');
+
     const row = savedMsg || {
       id: Date.now(),
       session_id: sid,
@@ -898,12 +915,12 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
       body: messageBody,
       created_at: new Date().toISOString(),
     };
-    
+
     console.log('[Debug] Created message row:', { id: row.id, body: row.body.substring(0, 50) + '...' });
-    
+
     const payload = { type: 'message', message: row };
     broadcastToChat(sid, payload);
-    
+
     // Send to Telegram instead of storing locally
     if (useTelegram) {
       console.log('[Telegram] Sending message to Telegram for session:', session.id, 'sender:', who);
@@ -922,7 +939,7 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
     } else {
       console.log('[Telegram] Not sending to Telegram - useTelegram=false');
     }
-    
+
     res.json({ message: row });
   } catch (error) {
     console.error('[API Error] POST /api/chat/sessions/:id/messages:', error.message);
@@ -1148,7 +1165,7 @@ server.listen(PORT, HOST, () => {
   console.log(`API server running on http://${HOST}:${PORT}`);
   console.log(`WebSocket server running on ws://${HOST}:${PORT}/ws`);
   console.log(`Serving Vue frontend from: ${distPath}`);
-  
+
   // 启动 Telegram polling（如果启用）
   // startPollingIfEnabled(); // 已改用 setupMultiBotPolling，避免重复
   telegram.setupMultiBotPolling({ broadcastToChat });

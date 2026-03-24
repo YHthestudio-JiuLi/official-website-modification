@@ -447,6 +447,7 @@
     "online": "Online",
     "connecting": "Connecting",
     "emptyHint": "No messages yet, say hello!",
+    "cacheNotice": "Chat history is kept for 3 hours. Please save important info.",
     "inputPlaceholder": "Type a message…",
     "send": "Send",
     "loadAdminsError": "Failed to load agent list",

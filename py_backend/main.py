@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sqlite3
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -63,19 +64,31 @@ class RpcRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 初始化数据库连接（使用单例模式，连接由应用生命周期管理）
     conn = connect()
     try:
         db_manager = DatabaseManager(conn)
         db_manager.init_db()
         logger.info("Python backend initialized successfully")
+        
+        async def chat_cleanup_task():
+            while True:
+                await asyncio.sleep(60 * 60)
+                try:
+                    logger.info("Running scheduled chat cleanup task")
+                    db_manager.chat_messages.cleanup_expired(3)
+                except Exception as e:
+                    logger.error(f"Chat cleanup task error: {e}")
+                    
+        app.state.chat_cleanup = asyncio.create_task(chat_cleanup_task())
+        
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
     yield
-    # 应用关闭时关闭数据库连接
     from .utils import DatabaseConnection
     DatabaseConnection.close()
+    if hasattr(app.state, 'chat_cleanup'):
+        app.state.chat_cleanup.cancel()
     logger.info("Python backend shutdown complete")
 
 
@@ -90,8 +103,6 @@ def health() -> Dict[str, Any]:
 
 @app.post("/rpc")
 def rpc(req: RpcRequest) -> Dict[str, Any]:
-    # 注意：connect() 返回的是单例连接实例，由应用生命周期统一管理
-    # 不需要在每次 RPC 调用后关闭连接
     conn = connect()
     try:
         logger.info(f"RPC call: {req.op}", extra={"extra_data": {"op": req.op, "args": req.args}})
@@ -298,6 +309,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return db_manager.chat_sessions.find_by_id(args["id"])
     if op == "chatSessions.findByUserId":
         return db_manager.chat_sessions.find_by_user_id(int(args["user_id"]))
+    if op == "chatSessions.findByUserIdAndAdminId":
+        return db_manager.chat_sessions.find_by_user_id_and_admin_id(int(args["user_id"]), int(args["admin_id"]))
     if op == "chatSessions.create":
         return db_manager.chat_sessions.create(args["id"], args["nickname"], int(args["admin_id"]), args.get("service_type", "support"), args.get("user_id"))
     if op == "chatSessions.delete":

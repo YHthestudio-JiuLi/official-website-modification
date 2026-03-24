@@ -107,6 +107,7 @@ const dbOperations = {
     findAll: () => rpc('chatSessions.findAll'),
     findById: (id) => rpc('chatSessions.findById', { id }),
     findByUserId: (userId) => rpc('chatSessions.findByUserId', { user_id: userId }),
+    findByUserIdAndAdminId: (userId, adminId) => rpc('chatSessions.findByUserIdAndAdminId', { user_id: userId, admin_id: adminId }),
     findConversationsForAdmin: () => rpc('chatSessions.findConversationsForAdmin'),
     create: (id, nickname, adminId, serviceType = 'support', userId = null) =>
       rpc('chatSessions.create', { id, nickname, admin_id: adminId, service_type: serviceType, user_id: userId }),

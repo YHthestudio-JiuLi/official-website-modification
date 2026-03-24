@@ -76,6 +76,22 @@ class ChatSessionManager:
         )
         return [dict(row) for row in self.cur.fetchall()]
 
+    def find_by_user_id_and_admin_id(self, user_id: int, admin_id: int) -> Optional[Dict[str, Any]]:
+        self.cur.execute(
+            """
+            SELECT s.id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
+                   a.display_name AS admin_display_name, a.avatar_color AS admin_avatar_color
+            FROM chat_sessions s
+            JOIN chat_admins a ON a.id = s.admin_id
+            WHERE s.user_id = ? AND s.admin_id = ?
+            ORDER BY s.created_at DESC
+            LIMIT 1
+            """,
+            (user_id, admin_id),
+        )
+        row = self.cur.fetchone()
+        return dict(row) if row else None
+
     def create(self, session_id: str, nickname: str, admin_id: int, service_type: str = 'support', user_id: int = None) -> Optional[Dict[str, Any]]:
         # Check if admin exists
         self.cur.execute("SELECT id FROM chat_admins WHERE id = ?", (admin_id,))

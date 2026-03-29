@@ -14,7 +14,7 @@ const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
-const { createTelegramIntegration } = require('./telegram');
+const { createTelegramIntegration, notifyForumNewPost, notifyForumNewReply } = require('./telegram');
 const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegram-fetcher');
 
 // 加载环境变量
@@ -423,6 +423,23 @@ app.post('/api/forum/posts', requireUser, async (req, res) => {
   const { title, content } = req.body;
   const date = new Date().toISOString().split('T')[0];
   await dbOperations.forumPosts.create(title, req.session.user.username, content, date, 0);
+  
+  // 发送 Telegram 通知
+  try {
+    const post = {
+      id: await dbOperations.forumPosts.findAll().then(posts => posts[posts.length - 1]?.id),
+      title,
+      author: req.session.user.username,
+      content,
+      date
+    };
+    notifyForumNewPost(post).catch((err) => {
+      console.error('[Forum Telegram] Post notification error:', err.message || err);
+    });
+  } catch (err) {
+    console.error('[Forum Telegram] Get post info error:', err.message || err);
+  }
+  
   res.json({ success: true });
 });
 
@@ -451,6 +468,27 @@ app.post('/api/forum/posts/:id/replies', requireUser, async (req, res) => {
 
   // ForumReplyManager.create() 已经处理了回复计数，无需再次调用 incrementReplies
   await dbOperations.forumReplies.create(postId, req.session.user.username, content.trim(), parentReplyIdInt);
+  
+  // 发送 Telegram 通知
+  try {
+    const post = await dbOperations.forumPosts.findById(postId);
+    const replies = await dbOperations.forumReplies.findByPostId(postId);
+    const newReply = replies[replies.length - 1];
+    
+    let parentReply = null;
+    if (parentReplyIdInt) {
+      parentReply = await dbOperations.forumReplies.findById(parentReplyIdInt);
+    }
+    
+    if (post && newReply) {
+      notifyForumNewReply(newReply, post, parentReply).catch((err) => {
+        console.error('[Forum Telegram] Reply notification error:', err.message || err);
+      });
+    }
+  } catch (err) {
+    console.error('[Forum Telegram] Get reply info error:', err.message || err);
+  }
+  
   res.json({ success: true });
 });
 

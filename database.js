@@ -145,6 +145,33 @@ const dbOperations = {
     update: (id, title, content, enabled = true) =>
       rpc('popupNotices.update', { id, title, content, enabled }),
     delete: (id) => rpc('popupNotices.delete', { id })
+  },
+  deviceVerification: {
+    findAll: () => rpc('deviceVerification.findAll'),
+    findById: (id) => rpc('deviceVerification.findById', { id }),
+    findByDeviceId: (deviceId) => rpc('deviceVerification.findByDeviceId', { device_id: deviceId }),
+    create: (deviceId, maxVerifications = 10) =>
+      rpc('deviceVerification.create', { device_id: deviceId, max_verifications: maxVerifications }),
+    updateMaxVerifications: (deviceId, maxVerifications) =>
+      rpc('deviceVerification.updateMaxVerifications', { device_id: deviceId, max_verifications: maxVerifications }),
+    addMaxVerifications: (deviceId, addCount) =>
+      rpc('deviceVerification.addMaxVerifications', { device_id: deviceId, add_count: addCount }),
+    delete: (deviceId) => rpc('deviceVerification.delete', { device_id: deviceId }),
+    verify: (deviceId, ipAddress = null, userAgent = null) =>
+      rpc('deviceVerification.verify', { device_id: deviceId, ip_address: ipAddress, user_agent: userAgent }),
+    resetCount: (deviceId) => rpc('deviceVerification.resetCount', { device_id: deviceId }),
+    getPublicKey: (deviceId) => rpc('deviceVerification.getPublicKey', { device_id: deviceId }),
+    getPrivateKey: (deviceId) => rpc('deviceVerification.getPrivateKey', { device_id: deviceId }),
+    getKeys: (deviceId) => rpc('deviceVerification.getKeys', { device_id: deviceId }),
+    verifySignature: (deviceId, signature, issuedAt) =>
+      rpc('deviceVerification.verifySignature', { device_id: deviceId, signature, issued_at: issuedAt }),
+    findLogsByDeviceId: (deviceId, limit = 100, offset = 0) =>
+      rpc('deviceVerification.findLogsByDeviceId', { device_id: deviceId, limit, offset }),
+    countLogsByDeviceId: (deviceId) =>
+      rpc('deviceVerification.countLogsByDeviceId', { device_id: deviceId }),
+    findAllLogs: (limit = 100, offset = 0) =>
+      rpc('deviceVerification.findAllLogs', { limit, offset }),
+    countAllLogs: () => rpc('deviceVerification.countAllLogs')
   }
 };
 

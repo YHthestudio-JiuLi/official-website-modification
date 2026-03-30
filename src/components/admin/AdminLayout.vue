@@ -107,12 +107,19 @@
             <i class="fas fa-bullhorn"></i>
             <span>{{ $t('admin.popupNotices.menu') || 'Popup Notices' }}</span>
           </router-link>
+          <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" @click="closeMobileMenu">
+            <i class="fas fa-shield-alt"></i>
+            <span>{{ $t('admin.deviceVerification.menu') || 'Device Verification' }}</span>
+          </router-link>
         </div>
         <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" :title="$t('admin.paymentSettings')">
           <i class="fas fa-wallet"></i>
         </router-link>
         <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed" :title="$t('admin.popupNotices.menu') || 'Popup Notices'">
           <i class="fas fa-bullhorn"></i>
+        </router-link>
+        <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" v-show="collapsed" :title="$t('admin.deviceVerification.menu') || 'Device Verification'">
+          <i class="fas fa-shield-alt"></i>
         </router-link>
       </nav>
 

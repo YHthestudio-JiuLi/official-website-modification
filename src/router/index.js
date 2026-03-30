@@ -179,6 +179,12 @@ const routes = [
     name: 'admin-chat-settings',
     component: () => import('@/views/admin/ChatSettingsView.vue'),
     meta: { title: 'Chat Settings', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/device-verification',
+    name: 'admin-device-verification',
+    component: () => import('@/views/admin/DeviceVerificationView.vue'),
+    meta: { title: 'Device Verification', requiresAdmin: true, layout: 'admin' }
   }
 ]
 

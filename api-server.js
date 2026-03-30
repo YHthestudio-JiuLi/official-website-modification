@@ -103,8 +103,7 @@ const csrfProtection = csrf({
 
 // 应用 CSRF 保护中间件到所有 API 路由（除了聊天 API、管理员 API 和认证 API）
 app.use('/api', (req, res, next) => {
-  // 跳过聊天 API、管理员 API 和认证 API - 使用路径前缀匹配
-  if (req.path.startsWith('/chat/') || req.path.startsWith('/admin/') || req.path.startsWith('/auth/')) {
+  if (req.path.startsWith('/chat/') || req.path.startsWith('/admin/') || req.path.startsWith('/auth/') || req.path.startsWith('/device/')) {
     return next()
   }
   csrfProtection(req, res, next)
@@ -1104,6 +1103,203 @@ app.delete('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     console.error('[API Error] DELETE /api/admin/popup-notices/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// ==================== 设备验证 API ====================
+
+// 设备验证（用户端）
+app.post('/api/device/verify', async (req, res) => {
+  const { device_id } = req.body || {};
+  if (!device_id || typeof device_id !== 'string' || device_id.trim().length < 4) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const deviceId = device_id.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || null;
+  const userAgent = req.headers['user-agent'] || null;
+  try {
+    const result = await dbOperations.deviceVerification.verify(deviceId, ipAddress, userAgent);
+    res.json(result);
+  } catch (error) {
+    if (error.message.includes('quota exhausted')) {
+      return res.status(403).json({ error: 'Verification quota exhausted; contact administrator.' });
+    }
+    console.error('[API Error] POST /api/device/verify:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 获取设备公钥（用户端）
+app.get('/api/device/:deviceId/public-key', async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  try {
+    const publicKey = await dbOperations.deviceVerification.getPublicKey(deviceId);
+    if (!publicKey) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json({ device_id: deviceId, public_key: publicKey });
+  } catch (error) {
+    console.error('[API Error] GET /api/device/:deviceId/public-key:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 管理端获取设备密钥
+app.get('/api/admin/devices/:deviceId/keys', requireAdmin, async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  try {
+    const keys = await dbOperations.deviceVerification.getKeys(deviceId);
+    if (!keys) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json({ device_id: deviceId, ...keys });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/devices/:deviceId/keys:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 管理端设备验证管理
+app.get('/api/admin/devices', requireAdmin, async (req, res) => {
+  try {
+    const devices = await dbOperations.deviceVerification.findAll();
+    res.json({ devices });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/devices:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.get('/api/admin/devices/:id', requireAdmin, async (req, res) => {
+  try {
+    const device = await dbOperations.deviceVerification.findById(parseInt(req.params.id));
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    res.json({ device });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/devices/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/admin/devices', requireAdmin, async (req, res) => {
+  const { device_id, max_verifications } = req.body || {};
+  if (!device_id || typeof device_id !== 'string' || device_id.trim().length < 4) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const deviceId = device_id.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const maxV = parseInt(max_verifications) || 10;
+  if (maxV < 0 || maxV > 1000000) {
+    return res.status(400).json({ error: 'Invalid max_verifications' });
+  }
+  try {
+    const device = await dbOperations.deviceVerification.create(deviceId, maxV);
+    res.json({ ok: true, device });
+  } catch (error) {
+    console.error('[API Error] POST /api/admin/devices:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/devices/:deviceId', requireAdmin, async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const { max_verifications, add_max_verifications } = req.body || {};
+  try {
+    const existing = await dbOperations.deviceVerification.findByDeviceId(deviceId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    let newMax = existing.max_verifications;
+    if (max_verifications !== undefined) {
+      newMax = parseInt(max_verifications);
+    }
+    if (add_max_verifications !== undefined) {
+      newMax += parseInt(add_max_verifications);
+    }
+    if (newMax < 0 || newMax > 1000000) {
+      return res.status(400).json({ error: 'Invalid max_verifications' });
+    }
+    await dbOperations.deviceVerification.updateMaxVerifications(deviceId, newMax);
+    res.json({ ok: true, device_id: deviceId, max_verifications: newMax });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/devices/:deviceId:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.delete('/api/admin/devices/:deviceId', requireAdmin, async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  try {
+    await dbOperations.deviceVerification.delete(deviceId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[API Error] DELETE /api/admin/devices/:deviceId:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/admin/devices/:deviceId/reset-count', requireAdmin, async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  try {
+    await dbOperations.deviceVerification.resetCount(deviceId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[API Error] POST /api/admin/devices/:deviceId/reset-count:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 获取设备验证日志
+app.get('/api/admin/devices/:deviceId/logs', requireAdmin, async (req, res) => {
+  const deviceId = req.params.deviceId.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const limit = parseInt(req.query.limit) || 100;
+  const offset = parseInt(req.query.offset) || 0;
+  try {
+    const logs = await dbOperations.deviceVerification.findLogsByDeviceId(deviceId, limit, offset);
+    const total = await dbOperations.deviceVerification.countLogsByDeviceId(deviceId);
+    res.json({ logs, total });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/devices/:deviceId/logs:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 获取所有验证日志
+app.get('/api/admin/verification-logs', requireAdmin, async (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  const offset = parseInt(req.query.offset) || 0;
+  try {
+    const logs = await dbOperations.deviceVerification.findAllLogs(limit, offset);
+    const total = await dbOperations.deviceVerification.countAllLogs();
+    res.json({ logs, total });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/verification-logs:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
   }
 });

@@ -355,4 +355,50 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "popupNotices.delete":
         return db_manager.popup_notices.delete(args["id"])
 
+    if op == "deviceVerification.findAll":
+        return db_manager.device_verification.find_all()
+    if op == "deviceVerification.findById":
+        return db_manager.device_verification.find_by_id(args["id"])
+    if op == "deviceVerification.findByDeviceId":
+        return db_manager.device_verification.find_by_device_id(args["device_id"])
+    if op == "deviceVerification.create":
+        return db_manager.device_verification.create(args["device_id"], int(args.get("max_verifications", 10)))
+    if op == "deviceVerification.updateMaxVerifications":
+        return db_manager.device_verification.update_max_verifications(args["device_id"], int(args["max_verifications"]))
+    if op == "deviceVerification.addMaxVerifications":
+        return db_manager.device_verification.add_max_verifications(args["device_id"], int(args["add_count"]))
+    if op == "deviceVerification.delete":
+        return db_manager.device_verification.delete(args["device_id"])
+    if op == "deviceVerification.verify":
+        return db_manager.device_verification.verify_device(
+            args["device_id"],
+            args.get("ip_address"),
+            args.get("user_agent")
+        )
+    if op == "deviceVerification.resetCount":
+        return db_manager.device_verification.reset_verification_count(args["device_id"])
+    if op == "deviceVerification.getPublicKey":
+        return db_manager.device_verification.get_public_key(args["device_id"])
+    if op == "deviceVerification.getPrivateKey":
+        return db_manager.device_verification.get_private_key(args["device_id"])
+    if op == "deviceVerification.getKeys":
+        return db_manager.device_verification.get_keys(args["device_id"])
+    if op == "deviceVerification.verifySignature":
+        return db_manager.device_verification.verify_signature(args["device_id"], args["signature"], int(args["issued_at"]))
+    if op == "deviceVerification.findLogsByDeviceId":
+        return db_manager.device_verification.find_logs_by_device_id(
+            args["device_id"],
+            int(args.get("limit", 100)),
+            int(args.get("offset", 0))
+        )
+    if op == "deviceVerification.countLogsByDeviceId":
+        return db_manager.device_verification.count_logs_by_device_id(args["device_id"])
+    if op == "deviceVerification.findAllLogs":
+        return db_manager.device_verification.find_all_logs(
+            int(args.get("limit", 100)),
+            int(args.get("offset", 0))
+        )
+    if op == "deviceVerification.countAllLogs":
+        return db_manager.device_verification.count_all_logs()
+
     raise ValueError(f"Unknown op: {op}")

@@ -167,7 +167,7 @@ async function handleReply() {
     replyContent.value = ''
     await fetchData()
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to post reply'
+    error.value = err.response?.data?.message || err.response?.data?.error || 'Failed to post reply'
   } finally {
     submitting.value = false
   }

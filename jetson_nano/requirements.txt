@@ -1,0 +1,2 @@
+# Jetson / 树莓派等：pip3 install -r requirements.txt
+cryptography>=42.0.0

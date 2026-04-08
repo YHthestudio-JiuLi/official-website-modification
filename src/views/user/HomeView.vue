@@ -61,7 +61,7 @@
           <div class="products-grid">
             <div v-for="product in products" :key="product.id" class="product-card">
               <div class="product-image">
-                <img :src="product.image" :alt="product.name" @error="handleImageError" />
+                <img :src="getProductImage(product)" :alt="product.name" @error="handleImageError" />
                 <div class="product-overlay">
                   <router-link :to="`/products/${product.id}`" class="btn btn-primary">View Details</router-link>
                 </div>
@@ -98,6 +98,7 @@ import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import PopupNotice from '@/components/common/PopupNotice.vue'
+import { primaryProductImage } from '@/utils/productImages'
 
 const products = ref([])
 
@@ -122,6 +123,10 @@ function handleImageError(e) {
 function truncateDescription(description) {
   if (!description) return ''
   return description.length > 100 ? description.substring(0, 100) + '...' : description
+}
+
+function getProductImage(product) {
+  return primaryProductImage(product)
 }
 
 function truncateContent(content) {

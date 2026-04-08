@@ -60,7 +60,7 @@
                 <td>
                   <div class="product-cell">
                     <div class="product-image-small">
-                      <img :src="product.image" :alt="product.name" @error="handleImageError" />
+                      <img :src="getProductImage(product)" :alt="product.name" @error="handleImageError" />
                     </div>
                     <span class="product-name">{{ product.name }}</span>
                   </div>
@@ -128,7 +128,7 @@
             <p>Are you sure you want to delete this product:</p>
             <div class="product-info-box">
               <div class="product-preview">
-                <img v-if="productToDelete?.image" :src="productToDelete.image" alt="Product" @error="handleImageError" />
+                <img v-if="getProductImage(productToDelete)" :src="getProductImage(productToDelete)" alt="Product" @error="handleImageError" />
                 <div v-else class="no-image">
                   <i class="fas fa-image"></i>
                 </div>
@@ -173,6 +173,7 @@
 import { ref, onMounted } from 'vue'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { primaryProductImage } from '@/utils/productImages'
 
 const products = ref([])
 const loading = ref(true)
@@ -251,6 +252,10 @@ function handleImageError(e) {
     '<text x="50%" y="50%" fill="#00d4ff" font-family="Arial" font-size="24" text-anchor="middle" dy=".35em">📦</text>' +
     '</svg>'
   )
+}
+
+function getProductImage(product) {
+  return primaryProductImage(product)
 }
 </script>
 

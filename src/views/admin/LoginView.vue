@@ -75,7 +75,14 @@ async function handleLogin() {
     await adminStore.login(form.value)
     router.push('/admin')
   } catch (err) {
-    error.value = err.response?.data?.message || t('admin.login.error')
+    const status = err.response?.status
+    if (status === 429) {
+      error.value = t('admin.login.tooManyRequests')
+    } else if (status >= 500) {
+      error.value = t('admin.login.serverUnavailable')
+    } else {
+      error.value = err.response?.data?.message || err.response?.data?.error || t('admin.login.error')
+    }
   } finally {
     loading.value = false
   }

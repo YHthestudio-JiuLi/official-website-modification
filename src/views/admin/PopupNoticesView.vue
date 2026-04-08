@@ -47,13 +47,13 @@
               <i class="fas fa-clock"></i> {{ formatDate(notice.updated_at) }}
             </span>
             <div class="notice-actions">
-              <button class="btn-icon" @click="toggleStatus(notice)" :title="notice.enabled ? $t('common.deactivate') : $t('common.activate')">
-                <i :class="notice.enabled ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+              <button class="btn-icon" @click.stop="toggleStatus(notice)" :title="$t('admin.popupNotices.toggleVisibility') || 'Toggle visibility'">
+                <i :class="notice.enabled ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
               </button>
-              <button class="btn-icon" @click="editNotice(notice)" :title="$t('common.edit')">
+              <button class="btn-icon" @click.stop="editNotice(notice)" :title="$t('common.edit')">
                 <i class="fas fa-edit"></i>
               </button>
-              <button class="btn-icon btn-danger" @click="deleteNotice(notice)" :title="$t('common.delete')">
+              <button class="btn-icon btn-danger" @click.stop="deleteNotice(notice)" :title="$t('common.delete')">
                 <i class="fas fa-trash"></i>
               </button>
             </div>
@@ -180,12 +180,19 @@ const form = ref({
   enabled: true
 })
 
+function isNoticeEnabled(value) {
+  return value === true || value === 1 || value === '1' || value === 'true'
+}
+
 async function fetchNotices() {
   loading.value = true
   error.value = ''
   try {
     const res = await api.get('/api/admin/popup-notices')
-    notices.value = res.data.notices || []
+    notices.value = (res.data.notices || []).map((n) => ({
+      ...n,
+      enabled: isNoticeEnabled(n.enabled)
+    }))
   } catch (err) {
     error.value = err.response?.data?.error || 'Failed to load notices'
     if (err.response?.status === 401) {
@@ -207,7 +214,7 @@ function editNotice(notice) {
     id: notice.id,
     title: notice.title,
     content: notice.content,
-    enabled: notice.enabled === 1 || notice.enabled === true
+    enabled: isNoticeEnabled(notice.enabled)
   }
   isEditing.value = true
   showModal.value = true
@@ -229,7 +236,7 @@ async function saveNotice() {
       await api.post('/api/admin/popup-notices', form.value)
     }
     closeModal()
-    fetchNotices()
+    await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to save')
   } finally {
@@ -242,19 +249,19 @@ async function toggleStatus(notice) {
     await api.put(`/api/admin/popup-notices/${notice.id}`, {
       title: notice.title,
       content: notice.content,
-      enabled: !(notice.enabled === 1 || notice.enabled === true)
+      enabled: !isNoticeEnabled(notice.enabled)
     })
-    fetchNotices()
+    await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to update status')
   }
 }
 
 async function deleteNotice(notice) {
-  if (!confirm($t('admin.popupNotices.deleteConfirm'))) return
   try {
     await api.delete(`/api/admin/popup-notices/${notice.id}`)
-    fetchNotices()
+    notices.value = notices.value.filter((n) => n.id !== notice.id)
+    await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to delete')
   }

@@ -147,6 +147,9 @@ const dbOperations = {
     delete: (id) => rpc('popupNotices.delete', { id })
   },
   deviceVerification: {
+    getSettings: () => rpc('deviceVerification.getSettings'),
+    updateSettings: (verifyCooldownSeconds) =>
+      rpc('deviceVerification.updateSettings', { verify_cooldown_seconds: verifyCooldownSeconds }),
     findAll: () => rpc('deviceVerification.findAll'),
     findById: (id) => rpc('deviceVerification.findById', { id }),
     findByDeviceId: (deviceId) => rpc('deviceVerification.findByDeviceId', { device_id: deviceId }),

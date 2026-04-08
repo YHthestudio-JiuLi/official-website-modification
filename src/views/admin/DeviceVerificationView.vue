@@ -3,6 +3,32 @@
     <template #header-title>{{ $t('admin.deviceVerification.title') }}</template>
 
     <div class="device-page">
+      <!-- 防重复消耗：同一设备在设定秒数内重复 /api/device/verify 不增加验证次数 -->
+      <div class="settings-card">
+        <div class="settings-header">
+          <h3>
+            <i class="fas fa-clock"></i>
+            {{ $t('admin.deviceVerification.cooldownTitle') }}
+          </h3>
+          <p class="settings-desc">{{ $t('admin.deviceVerification.cooldownHint') }}</p>
+        </div>
+        <div class="settings-row">
+          <label class="settings-label">{{ $t('admin.deviceVerification.cooldownHours') }}</label>
+          <input
+            v-model.number="cooldownHours"
+            type="number"
+            min="0"
+            max="8760"
+            step="0.1"
+            class="form-input cooldown-input"
+          />
+          <button type="button" class="btn btn-primary" :disabled="settingsSaving" @click="saveCooldownSettings">
+            <i class="fas fa-save"></i>
+            {{ settingsSaving ? $t('common.loading') : $t('common.save') }}
+          </button>
+        </div>
+      </div>
+
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -504,7 +530,45 @@ const toast = ref({
   message: ''
 })
 
-onMounted(fetchDevices)
+// 全局：多少秒内重复验证不消耗次数（秒，0=关闭）
+const cooldownHours = ref(0)
+const settingsSaving = ref(false)
+
+onMounted(async () => {
+  await Promise.all([fetchCooldownSettings(), fetchDevices()])
+})
+
+async function fetchCooldownSettings() {
+  try {
+    const response = await api.get('/api/admin/device-verification/settings')
+    const sec = response.data?.verify_cooldown_seconds
+    const secNum = typeof sec === 'number' ? sec : parseInt(sec, 10) || 0
+    cooldownHours.value = Number((secNum / 3600).toFixed(2))
+  } catch (error) {
+    showToast(t('admin.deviceVerification.loadSettingsError'), 'error')
+  }
+}
+
+async function saveCooldownSettings() {
+  const hours = parseFloat(cooldownHours.value)
+  if (Number.isNaN(hours) || hours < 0 || hours > 8760) {
+    showToast(t('admin.deviceVerification.cooldownInvalid'), 'error')
+    return
+  }
+  const sec = Math.round(hours * 3600)
+  settingsSaving.value = true
+  try {
+    await api.put('/api/admin/device-verification/settings', {
+      verify_cooldown_seconds: sec
+    })
+    await fetchCooldownSettings()
+    showToast(t('admin.deviceVerification.cooldownSaved'), 'success')
+  } catch (error) {
+    showToast(error.response?.data?.error || t('admin.deviceVerification.cooldownSaveError'), 'error')
+  } finally {
+    settingsSaving.value = false
+  }
+}
 
 async function fetchDevices() {
   loading.value = true
@@ -658,7 +722,9 @@ async function fetchLogs() {
 
 function formatDateTime(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('en-US', {
+  const parsed = parseServerDate(dateStr)
+  if (!parsed) return dateStr
+  return parsed.toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -747,7 +813,9 @@ function getRemainingClass(device) {
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  const parsed = parseServerDate(dateStr)
+  if (!parsed) return dateStr
+  return parsed.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
@@ -756,7 +824,22 @@ function formatDate(dateStr) {
 
 function formatFullDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('en-US')
+  const parsed = parseServerDate(dateStr)
+  if (!parsed) return dateStr
+  return parsed.toLocaleString('en-US')
+}
+
+function parseServerDate(dateStr) {
+  if (typeof dateStr !== 'string') return null
+  const raw = dateStr.trim()
+  if (!raw) return null
+
+  // 兼容 SQLite 的 "YYYY-MM-DD HH:MM:SS"（默认 UTC）与 ISO 格式
+  const hasTimezone = /[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)
+  const isoLike = raw.replace(' ', 'T')
+  const normalized = hasTimezone ? isoLike : `${isoLike}Z`
+  const d = new Date(normalized)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 function showToast(message, type = 'success') {
@@ -771,6 +854,51 @@ function showToast(message, type = 'success') {
 .device-page {
   animation: fadeIn 0.5s ease;
   position: relative;
+}
+
+.settings-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+}
+
+.settings-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.settings-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  min-width: 6rem;
+}
+
+.cooldown-input {
+  max-width: 160px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-darker);
+  color: var(--text-primary);
 }
 
 .page-header {

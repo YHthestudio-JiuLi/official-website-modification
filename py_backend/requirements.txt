@@ -1,0 +1,5 @@
+# Python 数据库后端（FastAPI + uvicorn），与 ESP-IDF 等虚拟环境无关时请单独安装
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+cryptography>=42.0.0

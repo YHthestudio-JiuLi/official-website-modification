@@ -18,7 +18,7 @@
 
           <div v-else class="product-detail-grid">
             <div class="product-detail-image">
-              <img :src="product.image" :alt="product.name" @error="handleImageError" />
+              <img :src="currentImage" :alt="product.name" @error="handleImageError" />
             </div>
             <div class="product-detail-info">
               <h2>{{ product.name }}</h2>
@@ -54,27 +54,50 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import { parseProductImages } from '@/utils/productImages'
 
 const route = useRoute()
 const router = useRouter()
 const product = ref(null)
 const loading = ref(true)
+const currentImage = ref('')
+const imageTimer = ref(null)
 
 onMounted(async () => {
   try {
     const response = await api.get(`/api/products/${route.params.id}`)
     product.value = response.data
+    startImageRotation()
   } catch (error) {
     console.error('Failed to fetch product:', error)
   } finally {
     loading.value = false
   }
 })
+
+onBeforeUnmount(() => {
+  if (imageTimer.value) clearInterval(imageTimer.value)
+})
+
+function startImageRotation() {
+  if (imageTimer.value) {
+    clearInterval(imageTimer.value)
+    imageTimer.value = null
+  }
+  const images = parseProductImages(product.value?.image, product.value?.images)
+  currentImage.value = images[0] || ''
+  if (images.length <= 1) return
+  let idx = 0
+  imageTimer.value = setInterval(() => {
+    idx = (idx + 1) % images.length
+    currentImage.value = images[idx]
+  }, 2500)
+}
 
 function handleImageError(e) {
   e.target.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(

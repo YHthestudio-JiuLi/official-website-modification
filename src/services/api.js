@@ -69,10 +69,17 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+    const errorCode = error.response?.data?.code
+    const errorText = String(
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      ''
+    ).toLowerCase()
 
     // If we get a CSRF token error, try to get a new token and retry
-    if (error.response?.status === 403 && 
-        (error.response?.data?.code === 'INVALID_CSRF_TOKEN' || error.response?.data?.error?.includes('CSRF')) &&
+    if (error.response?.status === 403 &&
+        (errorCode === 'INVALID_CSRF_TOKEN' || errorText.includes('csrf')) &&
         !originalRequest._retry) {
       
       if (isRefreshingToken) {

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create vite@latest client -- --template vue)",
+      "Bash(cd /Users/luojiang/Desktop/official-website-modification/client && npm install && npm install vue-router@4 pinia vue-i18n@9 axios)",
+      "Bash(npm install cors --save)",
+      "Bash(npm run build 2>&1 | head -50)",
+      "Bash(npm run client)",
+      "Bash(npm run dev)",
+      "Bash(pkill -f \"vite\" 2>/dev/null; pkill -f \"node.*api-server\" 2>/dev/null; sleep 1; echo \"Processes killed\")",
+      "Bash(npm run build 2>&1)",
+      "Bash(npm start)",
+      "Bash(cd /Users/luojiang/Desktop/official-website-modification && node api-server.js)",
+      "Bash(node api-server.js)",
+      "Bash(npm run py)",
+      "Bash(cd /Users/luojiang/Desktop/official-website-modification && ./.venv/bin/python -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100)",
+      "Bash(python3 -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100)"
+    ]
+  }
+}

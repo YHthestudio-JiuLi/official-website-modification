@@ -23,29 +23,35 @@ YHthestudio 是一个现代化的双语（中文/英文）电子商务网站，�
 
 ```
 official-website-modification/
-├── src/               # Vue 3 前端源码
-│   ├── components/    # 可复用组件
-│   │   ├── common/    # 通用组件
-│   │   ├── user/      # 用户端组件
-│   │   └── admin/     # 管理端组件
-│   ├── views/         # 页面组件
-│   │   ├── user/      # 用户前端页面
-│   │   └── admin/     # 管理后台页面
-│   ├── stores/        # Pinia 状态管理
-│   ├── router/        # Vue Router 配置
-│   ├── i18n/          # 国际化文件
-│   ├── services/      # API 服务
-│   └── styles/        # 全局样式
-├── dist/              # 构建产物 (生产环境)
-├── py_backend/        # Python FastAPI 后端
-│   └── main.py       # FastAPI 应用入口
-├── data/              # 数据文件目录
-├── api-server.js      # Node.js API 服务器
-├── database.js        # RPC 客户端 (连接 Python 后端)
-├── translate.js       # 中文转英文翻译工具
-├── index.html         # HTML 入口
-├── vite.config.js     # Vite 配置
-└── package.json       # 项目依赖配置
+├── src/                   # Vue 3 前端源码
+│   ├── components/        # 可复用组件（用户端/管理端）
+│   ├── views/             # 页面组件（user/admin）
+│   ├── stores/            # Pinia 状态管理
+│   ├── router/            # Vue Router 配置
+│   ├── i18n/              # 国际化文件
+│   ├── services/          # API 请求封装
+│   ├── utils/             # 前端工具函数
+│   └── style.css          # 全局样式
+├── py_backend/            # Python FastAPI 后端
+│   ├── main.py            # FastAPI 应用入口
+│   └── modules/           # 数据管理模块（订单/论坛/聊天等）
+├── data/                  # SQLite 数据文件目录
+├── uploads/               # 上传资源（如商品图片）
+├── tests/                 # Node 侧测试脚本
+├── scripts/               # 辅助脚本
+├── plans/                 # 规划文档
+├── logs/                  # 运行日志
+├── jetson_nano/           # 设备验签相关脚本与依赖
+├── dist/                  # 前端构建产物（生产环境）
+├── api-server.js          # Node.js API 服务器
+├── database.js            # RPC 客户端（连接 Python 后端）
+├── telegram.js            # Telegram 推送与回调处理
+├── telegram-fetcher.js    # Telegram 抓取脚本
+├── translate.js           # 中文转英文翻译工具
+├── index.html             # HTML 入口
+├── vite.config.js         # Vite 配置
+├── package.json           # 项目依赖与脚本
+└── README.md              # 项目说明文档
 ```
 
 ## 开发命令
@@ -119,4 +125,4 @@ pm2 start api-server.js --name yhthestudio-api
 - ✅ 论坛帖子折叠/展开
 
 ## 更新日期
-2026 年 3 月
+2026 年 4 月

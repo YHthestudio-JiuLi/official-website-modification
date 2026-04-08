@@ -18,7 +18,7 @@
 
           <div v-else class="product-detail-grid">
             <div class="product-detail-image">
-              <img :src="product.image" :alt="product.name" @error="handleImageError" />
+              <img :src="currentImage" :alt="product.name" @error="handleImageError" />
             </div>
             <div class="product-detail-info">
               <h2>{{ product.name }}</h2>
@@ -101,11 +101,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import { parseProductImages } from '@/utils/productImages'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,6 +116,8 @@ const paymentSettings = ref(null)
 const quantity = ref(1)
 const loading = ref(true)
 const submitting = ref(false)
+const currentImage = ref('')
+const imageTimer = ref(null)
 
 const totalAmount = computed(() => {
   const price = product.value?.priceUsdt || product.value?.price || 0
@@ -128,6 +131,7 @@ onMounted(async () => {
       api.get('/api/payment-settings')
     ])
     product.value = productRes.data
+    startImageRotation()
     paymentSettings.value = settingsRes.data
   } catch (error) {
     console.error('Failed to fetch data:', error)
@@ -135,6 +139,25 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+onBeforeUnmount(() => {
+  if (imageTimer.value) clearInterval(imageTimer.value)
+})
+
+function startImageRotation() {
+  if (imageTimer.value) {
+    clearInterval(imageTimer.value)
+    imageTimer.value = null
+  }
+  const images = parseProductImages(product.value?.image, product.value?.images)
+  currentImage.value = images[0] || ''
+  if (images.length <= 1) return
+  let idx = 0
+  imageTimer.value = setInterval(() => {
+    idx = (idx + 1) % images.length
+    currentImage.value = images[idx]
+  }, 2500)
+}
 
 async function handleCreateOrder() {
   submitting.value = true

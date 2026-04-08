@@ -119,6 +119,21 @@ def rpc(req: RpcRequest) -> Dict[str, Any]:
 
 def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     conn = db_manager.conn
+    def parse_bool(value: Any, default: bool = True) -> bool:
+        # 兼容前端/第三方请求中的字符串布尔值，避免 bool("false") 被误判为 True
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            v = value.strip().lower()
+            if v in {"true", "1", "yes", "y", "on"}:
+                return True
+            if v in {"false", "0", "no", "n", "off", ""}:
+                return False
+        return default
 
     if op == "meta.listTables":
         cur = conn.cursor()
@@ -349,11 +364,27 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "popupNotices.findActive":
         return db_manager.popup_notices.find_active()
     if op == "popupNotices.create":
-        return db_manager.popup_notices.create(args["title"], args["content"], bool(args.get("enabled", True)))
+        return db_manager.popup_notices.create(
+            args["title"],
+            args["content"],
+            parse_bool(args.get("enabled", True), True),
+        )
     if op == "popupNotices.update":
-        return db_manager.popup_notices.update(args["id"], args["title"], args["content"], bool(args.get("enabled", True)))
+        return db_manager.popup_notices.update(
+            args["id"],
+            args["title"],
+            args["content"],
+            parse_bool(args.get("enabled", True), True),
+        )
     if op == "popupNotices.delete":
         return db_manager.popup_notices.delete(args["id"])
+
+    if op == "deviceVerification.getSettings":
+        return db_manager.device_verification.get_settings()
+    if op == "deviceVerification.updateSettings":
+        return db_manager.device_verification.update_verify_cooldown_seconds(
+            int(args.get("verify_cooldown_seconds", 0))
+        )
 
     if op == "deviceVerification.findAll":
         return db_manager.device_verification.find_all()

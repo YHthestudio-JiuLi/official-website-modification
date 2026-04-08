@@ -100,6 +100,14 @@
                       <i class="fas fa-trash"></i>
                       <span class="action-label">Delete</span>
                     </button>
+                    <button
+                      @click="openRepliesModal(post)"
+                      class="btn-icon action-btn btn-replies"
+                      title="Manage replies"
+                    >
+                      <i class="fas fa-comments"></i>
+                      <span class="action-label">Replies</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -146,6 +154,42 @@
           </div>
         </div>
       </div>
+
+      <div v-if="showRepliesModal" class="modal-overlay" @click="closeRepliesModal">
+        <div class="modal-container replies-modal" @click.stop>
+          <div class="modal-header">
+            <i class="fas fa-comments"></i>
+            <h3>Manage Replies</h3>
+          </div>
+          <div class="modal-body">
+            <p class="post-title"><strong>{{ repliesPost?.title || '-' }}</strong></p>
+            <div v-if="repliesLoading" class="loading-inline">
+              <i class="fas fa-spinner fa-spin"></i> Loading replies...
+            </div>
+            <div v-else-if="replies.length === 0" class="empty-replies">
+              No replies for this post.
+            </div>
+            <div v-else class="replies-list">
+              <div v-for="reply in replies" :key="reply.id" class="reply-item">
+                <div class="reply-meta">
+                  <span>#{{ reply.id }} · {{ reply.author }}</span>
+                  <span>{{ reply.createdAt }}</span>
+                </div>
+                <div class="reply-content">{{ reply.content }}</div>
+                <button class="btn-icon action-btn btn-delete" @click="deleteReply(reply.id)">
+                  <i class="fas fa-trash"></i>
+                  <span class="action-label">Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="closeRepliesModal" class="btn btn-secondary">
+              <i class="fas fa-times"></i> Close
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </AdminLayout>
 </template>
@@ -162,6 +206,10 @@ const loading = ref(true)
 
 const showDeleteModal = ref(false)
 const postToDelete = ref(null)
+const showRepliesModal = ref(false)
+const repliesPost = ref(null)
+const replies = ref([])
+const repliesLoading = ref(false)
 
 onMounted(fetchPosts)
 
@@ -207,6 +255,41 @@ async function executeDelete() {
     closeDeleteModal()
   } catch (error) {
     console.error('Failed to delete post:', error)
+  }
+}
+
+async function openRepliesModal(post) {
+  repliesPost.value = post
+  showRepliesModal.value = true
+  repliesLoading.value = true
+  replies.value = []
+  try {
+    const response = await api.get(`/api/admin/posts/${post.id}/replies`)
+    replies.value = response.data?.replies || []
+  } catch (error) {
+    console.error('Failed to fetch replies:', error)
+  } finally {
+    repliesLoading.value = false
+  }
+}
+
+function closeRepliesModal() {
+  showRepliesModal.value = false
+  repliesPost.value = null
+  replies.value = []
+}
+
+async function deleteReply(replyId) {
+  try {
+    await api.delete(`/api/admin/replies/${replyId}`)
+    replies.value = replies.value.filter((r) => r.id !== replyId)
+    if (repliesPost.value) {
+      await fetchPosts()
+      const latest = posts.value.find((p) => p.id === repliesPost.value.id)
+      if (latest) repliesPost.value = latest
+    }
+  } catch (error) {
+    console.error('Failed to delete reply:', error)
   }
 }
 
@@ -648,6 +731,16 @@ function truncateTitle(title) {
   color: white;
 }
 
+.btn-replies {
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--primary-color);
+}
+
+.btn-replies:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem !important;
@@ -686,6 +779,47 @@ function truncateTitle(title) {
   max-width: 500px;
   width: 90%;
   animation: slideUp 0.3s ease;
+}
+
+.replies-modal {
+  max-width: 760px;
+}
+
+.loading-inline {
+  color: var(--text-secondary);
+}
+
+.empty-replies {
+  color: var(--text-secondary);
+}
+
+.replies-list {
+  max-height: 50vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reply-item {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: var(--bg-darker);
+}
+
+.reply-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.reply-content {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  margin-bottom: 0.75rem;
 }
 
 .modal-header {

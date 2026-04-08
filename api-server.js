@@ -9,12 +9,13 @@ const rateLimit = require('express-rate-limit');
 const csrf = require('csurf');
 const winston = require('winston');
 const fs = require('fs');
+const multer = require('multer');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
-const { createTelegramIntegration, notifyForumNewPost, notifyForumNewReply } = require('./telegram');
+const { createTelegramIntegration, notifyForumNewPost, notifyForumNewReply, canSendTelegramForAdmin, notifyOrderPaid } = require('./telegram');
 const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegram-fetcher');
 
 // 加载环境变量
@@ -66,7 +67,7 @@ if (process.env.NODE_ENV !== 'production') {
 // 启用压缩中间件
 app.use(compression());
 
-// API 限流配置
+// API 通用限流配置
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 分钟
   max: 100, // 每个 IP 最多 100 个请求
@@ -75,8 +76,25 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 应用限流中间件到 API 路由
-app.use('/api', limiter);
+// 登录单独限流，避免被全站轮询流量挤占
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 分钟
+  max: 20, // 登录接口单独限制
+  message: { error: 'Too many login attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 应用限流中间件到 API 路由（排除登录接口；管理后台全站不参与通用限流，避免列表/轮询触发 429）
+app.use('/api', (req, res, next) => {
+  if (req.path === '/auth/login' || req.path === '/admin/auth/login') {
+    return next();
+  }
+  if (req.path.startsWith('/admin/')) {
+    return next();
+  }
+  return limiter(req, res, next);
+});
 
 // 中间件配置
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
@@ -136,6 +154,12 @@ app.get('/api/csrf-token', (req, res) => {
 
 // 静态文件服务 - 提供 Vue 构建后的前端
 const distPath = path.join(__dirname, 'dist');
+const uploadsPath = path.join(__dirname, 'uploads');
+const productUploadsPath = path.join(uploadsPath, 'products');
+
+if (!fs.existsSync(productUploadsPath)) {
+  fs.mkdirSync(productUploadsPath, { recursive: true });
+}
 
 // 对于静态资源文件（JS、CSS 等），如果文件不存在则返回 404，不回退到 index.html
 app.use('/assets', express.static(distPath + '/assets', {
@@ -150,6 +174,36 @@ app.use(express.static(distPath, {
   etag: true,
   lastModified: true
 }));
+
+// 上传文件静态访问
+app.use('/uploads', express.static(uploadsPath, {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true
+}));
+
+const productImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, productUploadsPath);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'].includes(ext) ? ext : '.jpg';
+      cb(null, `product_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${safeExt}`);
+    }
+  }),
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Only image files are allowed'));
+  }
+});
 
 // 支付设置缓存
 let paymentSettingsCache = null;
@@ -175,16 +229,41 @@ function clearPaymentSettingsCache() {
   paymentSettingsCacheTime = 0;
 }
 
+function parseProductImages(imageField) {
+  if (!imageField) return [];
+  if (Array.isArray(imageField)) return imageField.filter(Boolean);
+  if (typeof imageField !== 'string') return [];
+  const raw = imageField.trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch (_e) {}
+  }
+  return [raw];
+}
+
+function normalizeProductRecord(product) {
+  if (!product) return product;
+  const images = parseProductImages(product.image);
+  return {
+    ...product,
+    images,
+    image: images[0] || ''
+  };
+}
+
 async function getUsdtWalletAddress() {
   const settings = await getPaymentSettings();
   return settings ? settings.wallet_address : 'TXYZabcdefghijklmnopqrstuvwxyz123456';
 }
 
-// 定时任务：自动删除超时未支付的订单
+// 定时任务：自动删除超时未支付的订单（直连 DB，避免支付设置 5 分钟缓存导致后台刚改的分钟数迟迟不生效）
 setInterval(async () => {
   try {
-    const settings = await getPaymentSettings();
-    const autoDeleteMinutes = settings ? (settings.autoDeleteMinutes || 30) : 30;
+    const settings = await dbOperations.paymentSettings.get();
+    const autoDeleteMinutes = settings != null ? (settings.autoDeleteMinutes ?? 30) : 30;
     const deletedCount = await dbOperations.orders.deleteExpiredPending(autoDeleteMinutes);
     if (deletedCount > 0) {
       console.log(`[Auto Cleanup] Deleted ${deletedCount} expired unpaid orders`);
@@ -225,7 +304,7 @@ app.get('/api/auth/me', (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const user = await dbOperations.users.findByUsername(username);
 
@@ -267,7 +346,7 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const products = await dbOperations.products.findAll();
-    const translatedProducts = translateProducts(products);
+    const translatedProducts = translateProducts(products).map(normalizeProductRecord);
     res.json(translatedProducts);
   } catch (error) {
     console.error('[API Error] /api/products:', error.message);
@@ -282,7 +361,7 @@ app.get('/api/products/:id', async (req, res) => {
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    const translatedProduct = translateProduct(product);
+    const translatedProduct = normalizeProductRecord(translateProduct(product));
     res.json(translatedProduct);
   } catch (error) {
     console.error('[API Error] /api/products/:id:', error.message);
@@ -352,6 +431,9 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
   if (!order || order.userId !== req.session.user.id) {
     return res.status(404).json({ error: 'Order not found' });
   }
+  if (order.status !== 'pending') {
+    return res.status(400).json({ error: 'Order is already confirmed or not payable' });
+  }
 
   const { txHash, shippingAddress } = req.body;
   if (!shippingAddress || !shippingAddress.trim()) {
@@ -362,6 +444,16 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
     await dbOperations.orders.updateShippingAddress(id, shippingAddress.trim());
     await dbOperations.orders.updateTxHash(id, txHash.trim());
     await dbOperations.orders.updateStatus(id, 'paid');
+    try {
+      const updatedOrder = await dbOperations.orders.findById(id);
+      if (updatedOrder) {
+        notifyOrderPaid(updatedOrder).catch((err) => {
+          console.error('[Order Telegram] notify error:', err.message || err);
+        });
+      }
+    } catch (err) {
+      console.error('[Order Telegram] fetch order error:', err.message || err);
+    }
     res.json({ success: true, message: 'Payment successful!' });
   } else {
     res.status(400).json({ error: 'Transaction hash required' });
@@ -512,7 +604,7 @@ app.delete('/api/forum/replies/:id', requireUser, async (req, res) => {
 app.get('/api/cart', requireUser, async (req, res) => {
   try {
     const cart = await dbOperations.cart.get(req.session.user.id)
-    res.json(cart);
+    res.json((cart || []).map(normalizeProductRecord));
   } catch (error) {
     console.error('[API Error] /api/cart:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
@@ -574,7 +666,7 @@ app.get('/api/admin/auth/me', (req, res) => {
   }
 });
 
-app.post('/api/admin/auth/login', async (req, res) => {
+app.post('/api/admin/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const user = await dbOperations.users.findByUsername(username);
 
@@ -639,8 +731,13 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
     return res.status(400).json({ message: 'Email already in use' });
   }
 
+  const parseAdminFlag = (value) => {
+    if (value === true || value === 1 || value === '1' || value === 'true') return 1;
+    return 0;
+  };
+
   const hashedPassword = await bcrypt.hash(password, 10);
-  await dbOperations.users.create(username, email, hashedPassword, parseInt(isAdmin) || 0);
+  await dbOperations.users.create(username, email, hashedPassword, parseAdminFlag(isAdmin));
   res.json({ success: true });
 });
 
@@ -658,12 +755,23 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     return res.status(400).json({ message: 'Email already in use' });
   }
 
+  const parseAdminFlag = (value) => {
+    if (value === true || value === 1 || value === '1' || value === 'true') return 1;
+    return 0;
+  };
+  const nextIsAdmin = parseAdminFlag(isAdmin);
+
+  // 防止管理员修改资料/密码时误把自己降级，导致立刻无法登录后台
+  if (req.session?.admin?.id === userId && nextIsAdmin !== 1) {
+    return res.status(400).json({ message: 'Cannot remove your own admin role' });
+  }
+
   let hashedPassword = null;
   if (password && password.trim() !== '') {
     hashedPassword = await bcrypt.hash(password, 10);
   }
 
-  await dbOperations.users.update(userId, email, hashedPassword, parseInt(isAdmin) || 0);
+  await dbOperations.users.update(userId, email, hashedPassword, nextIsAdmin);
   res.json({ success: true });
 });
 
@@ -674,7 +782,7 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/products', requireAdmin, async (req, res) => {
   const products = await dbOperations.products.findAll();
-  res.json(products);
+  res.json(products.map(normalizeProductRecord));
 });
 
 app.get('/api/admin/products/:id', requireAdmin, async (req, res) => {
@@ -682,7 +790,47 @@ app.get('/api/admin/products/:id', requireAdmin, async (req, res) => {
   if (!product) {
     return res.status(404).json({ error: 'Product not found' });
   }
-  res.json(product);
+  res.json(normalizeProductRecord(product));
+});
+
+app.post('/api/admin/upload/product-image', requireAdmin, (req, res) => {
+  productImageUpload.single('image')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Image is too large (max 5MB)' });
+      }
+      return res.status(400).json({ error: err.message || 'Image upload failed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image uploaded' });
+    }
+    const imageUrl = `/uploads/products/${req.file.filename}`;
+    res.json({
+      ok: true,
+      image: imageUrl
+    });
+  });
+});
+
+app.delete('/api/admin/upload/product-image', requireAdmin, (req, res) => {
+  const imagePath = req.body?.image || '';
+  if (typeof imagePath !== 'string' || !imagePath.startsWith('/uploads/products/')) {
+    return res.status(400).json({ error: 'Invalid image path' });
+  }
+  const filename = path.basename(imagePath);
+  const target = path.join(productUploadsPath, filename);
+  if (!target.startsWith(productUploadsPath)) {
+    return res.status(400).json({ error: 'Invalid image path' });
+  }
+  if (!fs.existsSync(target)) {
+    return res.json({ ok: true });
+  }
+  fs.unlink(target, (err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to delete image' });
+    }
+    return res.json({ ok: true });
+  });
 });
 
 app.post('/api/admin/products', requireAdmin, async (req, res) => {
@@ -743,6 +891,35 @@ app.post('/api/admin/posts/:id/pin', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/posts/:id', requireAdmin, async (req, res) => {
   await dbOperations.forumPosts.delete(parseInt(req.params.id));
+  res.json({ success: true });
+});
+
+app.get('/api/admin/posts/:id/replies', requireAdmin, async (req, res) => {
+  const postId = parseInt(req.params.id);
+  if (Number.isNaN(postId)) {
+    return res.status(400).json({ error: 'Invalid post id' });
+  }
+  const post = await dbOperations.forumPosts.findById(postId);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  const replies = await dbOperations.forumReplies.findByPostId(postId);
+  res.json({ replies });
+});
+
+app.delete('/api/admin/replies/:id', requireAdmin, async (req, res) => {
+  const replyId = parseInt(req.params.id);
+  if (Number.isNaN(replyId)) {
+    return res.status(400).json({ error: 'Invalid reply id' });
+  }
+  const reply = await dbOperations.forumReplies.findById(replyId);
+  if (!reply) {
+    return res.status(404).json({ error: 'Reply not found' });
+  }
+  const ok = await dbOperations.forumReplies.delete(replyId);
+  if (!ok) {
+    return res.status(404).json({ error: 'Reply not found' });
+  }
   res.json({ success: true });
 });
 
@@ -919,8 +1096,7 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
 
     // Get admin info for Telegram
     const adminInfo = session.admin_id ? await dbOperations.chatAdmins.findById(session.admin_id) : null;
-    const useTelegram = adminInfo && (adminInfo.telegram_token || process.env.TELEGRAM_BOT_TOKEN) &&
-      (adminInfo.telegram_chat_id || process.env.TELEGRAM_CHAT_ID);
+    const useTelegram = adminInfo && canSendTelegramForAdmin(adminInfo);
 
     // Debug log for Telegram config
     console.log('[Debug] Session:', session.id, 'admin_id:', session.admin_id);
@@ -1088,8 +1264,8 @@ app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 app.put('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
   const { title, content, enabled } = req.body || {};
   try {
-    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled !== false);
-    if (!notice) return res.status(404).json({ error: 'Not found' });
+    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled);
+    if (!notice) return res.status(404).json({ error: 'Not found or invalid input' });
     res.json({ notice });
   } catch (error) {
     console.error('[API Error] PUT /api/admin/popup-notices/:id:', error.message);
@@ -1165,6 +1341,35 @@ app.get('/api/admin/devices/:deviceId/keys', requireAdmin, async (req, res) => {
     res.json({ device_id: deviceId, ...keys });
   } catch (error) {
     console.error('[API Error] GET /api/admin/devices/:deviceId/keys:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 管理端设备验证：全局设置（防重复消耗间隔）
+app.get('/api/admin/device-verification/settings', requireAdmin, async (req, res) => {
+  try {
+    const settings = await dbOperations.deviceVerification.getSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/device-verification/settings:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/device-verification/settings', requireAdmin, async (req, res) => {
+  const raw = req.body?.verify_cooldown_seconds;
+  const sec = parseInt(raw, 10);
+  if (Number.isNaN(sec) || sec < 0 || sec > 365 * 24 * 3600) {
+    return res.status(400).json({ error: 'Invalid verify_cooldown_seconds (0-31536000)' });
+  }
+  try {
+    const settings = await dbOperations.deviceVerification.updateSettings(sec);
+    res.json({ ok: true, ...settings });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/device-verification/settings:', error.message);
+    if (error.message && error.message.includes('verify_cooldown_seconds')) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(503).json({ error: 'Database service unavailable' });
   }
 });
@@ -1318,6 +1523,12 @@ app.get('*', (req, res) => {
 
 // 全局错误处理
 app.use((err, req, res, next) => {
+  if (err && err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({
+      code: 'INVALID_CSRF_TOKEN',
+      error: 'Invalid CSRF token'
+    });
+  }
   logger.error('Unhandled error:', { error: err.message, stack: err.stack, url: req.url });
   res.status(500).json({ error: 'Internal server error' });
 });

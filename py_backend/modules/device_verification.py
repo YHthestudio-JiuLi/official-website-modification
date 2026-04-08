@@ -97,6 +97,52 @@ class DeviceVerificationManager:
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_verification_logs_created_at ON device_verification_logs(created_at)"
         )
+        # 全局策略：同一 device_id 在 N 秒内重复调用 /verify 不增加 verification_count（返回最近一次签名）
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS device_verification_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                verify_cooldown_seconds INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        self.conn.execute(
+            "INSERT OR IGNORE INTO device_verification_settings (id, verify_cooldown_seconds) VALUES (1, 0)"
+        )
+
+    def get_settings(self) -> Dict[str, Any]:
+        """读取设备验证全局设置（单行）。"""
+        self.cur.execute(
+            "SELECT verify_cooldown_seconds FROM device_verification_settings WHERE id = 1"
+        )
+        row = self.cur.fetchone()
+        if row is None:
+            return {"verify_cooldown_seconds": 0}
+        return {"verify_cooldown_seconds": int(row["verify_cooldown_seconds"])}
+
+    def update_verify_cooldown_seconds(self, seconds: int) -> Dict[str, Any]:
+        """更新防重复消耗间隔（秒）。0 表示关闭。"""
+        if seconds < 0 or seconds > 365 * 24 * 3600:
+            raise ValueError("verify_cooldown_seconds must be between 0 and 31536000")
+        self.cur.execute(
+            "UPDATE device_verification_settings SET verify_cooldown_seconds = ? WHERE id = 1",
+            (int(seconds),),
+        )
+        self.conn.commit()
+        return self.get_settings()
+
+    def find_latest_log_by_device_id(self, device_id: str) -> Optional[Dict[str, Any]]:
+        """该设备最近一次验证日志（按 issued_at 最新）。"""
+        self.cur.execute(
+            """
+            SELECT issued_at, signature FROM device_verification_logs
+            WHERE device_id = ?
+            ORDER BY issued_at DESC, id DESC
+            LIMIT 1
+            """,
+            (device_id,),
+        )
+        return row_to_dict(self.cur.fetchone())
 
     def _derive_key_from_device_id(self, device_id: str) -> bytes:
         import hashlib
@@ -214,20 +260,38 @@ class DeviceVerificationManager:
             )
         
         row = self.find_by_device_id(device_id)
-        
+
         if row is None:
             default_max = 10
-            row = self.create(device_id, default_max)
-        
+            self.create(device_id, default_max)
+            row = self.find_by_device_id(device_id)
+
         count = row["verification_count"]
         max_v = row["max_verifications"]
-        
+
         if count >= max_v:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Verification quota exhausted; contact administrator.",
             )
-        
+
+        # 冷却时间内重复请求：不增加次数、不写新日志，直接返回上次签名
+        cooldown = int(self.get_settings()["verify_cooldown_seconds"])
+        if cooldown > 0:
+            latest = self.find_latest_log_by_device_id(device_id)
+            if latest:
+                now_ts = int(time.time())
+                issued_prev = int(latest["issued_at"])
+                if now_ts - issued_prev < cooldown:
+                    public_bytes = self._decrypt_key(row["public_key"], device_id)
+                    public_key = base64.b64encode(public_bytes).decode("ascii")
+                    return {
+                        "device_id": device_id,
+                        "issued_at": issued_prev,
+                        "signature": latest["signature"],
+                        "public_key": public_key,
+                    }
+
         issued_at = int(time.time())
         
         private_bytes = self._decrypt_key(row["private_key"], device_id)

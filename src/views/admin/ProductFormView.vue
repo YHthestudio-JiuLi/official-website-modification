@@ -93,35 +93,40 @@
 
             <div class="form-group">
               <label for="image">
-                <i class="fas fa-link"></i> Image URL
+                <i class="fas fa-upload"></i> Upload Images
                 <span class="required">*</span>
               </label>
               <input
-                type="url"
+                type="file"
                 id="image"
-                v-model="form.image"
-                required
+                accept="image/*"
                 class="form-input"
-                placeholder="https://example.com/product-image.jpg"
+                multiple
+                @change="handleImageSelect"
               />
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                Enter a valid image URL. Supported formats: JPG, PNG, SVG, WebP
+                支持多张图片。格式：JPG、PNG、GIF、WebP、SVG；单张最大 5MB
               </p>
+              <div v-if="uploadingImage" class="uploading-text">
+                <i class="fas fa-spinner fa-spin"></i> Uploading image...
+              </div>
             </div>
 
-            <div v-if="form.image || previewUrl" class="image-preview-section">
-              <label class="preview-label">Image Preview</label>
-              <div class="image-preview-container">
-                <img
-                  :src="previewUrl"
-                  alt="Product preview"
-                  class="preview-image"
-                  @error="handleImageError"
-                />
-                <div v-if="imageError" class="image-error">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  <span>Failed to load image. Please check the URL.</span>
+            <div v-if="imageList.length" class="image-preview-section">
+              <label class="preview-label">Image Preview ({{ imageList.length }})</label>
+              <div class="image-preview-grid">
+                <div v-for="(img, idx) in imageList" :key="img + idx" class="image-preview-item">
+                  <img
+                    :src="img"
+                    alt="Product preview"
+                    class="preview-image"
+                    @error="handleImageError"
+                  />
+                  <button type="button" class="btn-delete-image" @click="removeImage(idx)">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                  <span v-if="idx === 0" class="cover-badge">封面</span>
                 </div>
               </div>
             </div>
@@ -163,7 +168,7 @@
             <router-link to="/admin/products" class="btn btn-secondary">
               <i class="fas fa-times"></i> Cancel
             </router-link>
-            <button type="submit" class="btn btn-primary" :disabled="submitting || !isValid">
+            <button type="submit" class="btn btn-primary" :disabled="submitting || uploadingImage || !isValid">
               <i :class="submitting ? 'fas fa-spinner fa-spin' : 'fas fa-save'"></i>
               {{ submitting ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product' }}
             </button>
@@ -199,8 +204,8 @@ const form = ref({
   date: new Date().toISOString().split('T')[0]
 })
 
-const previewUrl = ref('')
-const imageError = ref(false)
+const imageList = ref([])
+const uploadingImage = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
@@ -214,17 +219,26 @@ const toast = ref({
 // Form validation
 const isValid = computed(() => {
   if (!form.value.name || !form.value.description) return false
-  if (!form.value.image) return false
+  if (!imageList.value.length) return false
   if (!form.value.date) return false
   if (form.value.priceUsdt < 0) return false
   return true
 })
 
-// Watch for image changes
-watch(() => form.value.image, (newVal) => {
-  previewUrl.value = newVal
-  imageError.value = false
-}, { immediate: true })
+function parseImageList(rawImage) {
+  if (!rawImage) return []
+  if (Array.isArray(rawImage)) return rawImage.filter(Boolean)
+  if (typeof rawImage !== 'string') return []
+  const raw = rawImage.trim()
+  if (!raw) return []
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.filter(Boolean)
+    } catch (_e) {}
+  }
+  return [raw]
+}
 
 // Clear error on form change
 watch(form, () => {
@@ -243,7 +257,7 @@ onMounted(async () => {
         priceUsdt: response.data.priceUsdt || response.data.price || 0,
         date: response.data.date || new Date().toISOString().split('T')[0]
       }
-      previewUrl.value = form.value.image
+      imageList.value = parseImageList(response.data.images?.length ? response.data.images : response.data.image)
     } catch (err) {
       error.value = 'Failed to load product data: ' + (err.response?.data?.message || err.message)
       setTimeout(() => {
@@ -256,7 +270,53 @@ onMounted(async () => {
 })
 
 function handleImageError() {
-  imageError.value = true
+  // 占位：预览失败时不影响提交流程
+}
+
+async function handleImageSelect(event) {
+  const files = Array.from(event.target.files || [])
+  if (!files.length) return
+
+  uploadingImage.value = true
+  error.value = ''
+
+  try {
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Image is too large. Max size is 5MB.')
+      }
+      const formData = new FormData()
+      formData.append('image', file)
+      const response = await api.post('/api/admin/upload/product-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      const imageUrl = response.data?.image
+      if (!imageUrl) {
+        throw new Error('Invalid upload response')
+      }
+      imageList.value.push(imageUrl)
+    }
+    form.value.image = imageList.value[0] || ''
+  } catch (err) {
+    error.value = err.response?.data?.error || err.message || 'Failed to upload image'
+  } finally {
+    uploadingImage.value = false
+    event.target.value = ''
+  }
+}
+
+async function removeImage(index) {
+  const target = imageList.value[index]
+  if (!target) return
+  imageList.value.splice(index, 1)
+  form.value.image = imageList.value[0] || ''
+  if (typeof target === 'string' && target.startsWith('/uploads/products/')) {
+    try {
+      await api.delete('/api/admin/upload/product-image', { data: { image: target } })
+    } catch (_e) {}
+  }
 }
 
 async function handleSubmit() {
@@ -269,8 +329,10 @@ async function handleSubmit() {
   error.value = ''
 
   try {
+    const normalizedImages = imageList.value.filter(Boolean)
     const submitData = {
       ...form.value,
+      image: normalizedImages.length > 1 ? JSON.stringify(normalizedImages) : (normalizedImages[0] || ''),
       priceUsdt: parseFloat(form.value.priceUsdt) || 0
     }
 
@@ -501,6 +563,15 @@ function showToast(message, type = 'success') {
   flex-shrink: 0;
 }
 
+.uploading-text {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* Image Preview */
 .image-preview-section {
   margin-top: 1rem;
@@ -514,9 +585,14 @@ function showToast(message, type = 'success') {
   font-size: 0.9rem;
 }
 
-.image-preview-container {
+.image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.image-preview-item {
   position: relative;
-  display: inline-block;
   border-radius: 10px;
   overflow: hidden;
   background: var(--bg-darker);
@@ -524,8 +600,9 @@ function showToast(message, type = 'success') {
 }
 
 .preview-image {
-  max-width: 100%;
-  max-height: 300px;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
   display: block;
 }
 
@@ -542,6 +619,30 @@ function showToast(message, type = 'success') {
   align-items: center;
   gap: 0.5rem;
   text-align: center;
+}
+
+.btn-delete-image {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(245, 87, 108, 0.95);
+  color: #fff;
+  cursor: pointer;
+}
+
+.cover-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
 /* Price Input */

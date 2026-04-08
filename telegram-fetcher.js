@@ -7,6 +7,7 @@
 
 const https = require('https');
 const { dbOperations } = require('./database');
+const { resolveTelegramForAdmin } = require('./telegram');
 
 function botApiBase(token) {
   const cleanToken = String(token)
@@ -94,8 +95,7 @@ async function getSessionTelegramInfo(sessionId) {
   const admin = await dbOperations.chatAdmins.findById(session.admin_id);
   if (!admin) return null;
   
-  const token = admin.telegram_token || process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = admin.telegram_chat_id || process.env.TELEGRAM_CHAT_ID;
+  const { token, chatId } = resolveTelegramForAdmin(admin);
   
   if (!token || !chatId) return null;
   

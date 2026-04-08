@@ -235,10 +235,26 @@ const inputEl = ref(null)
 
 const seenMessageIds = new Set()
 
+// 售前/售后与数据库 chat_admins.username（support / sales）对应，避免选了「售前」却仍绑定官方客服导致 Telegram 走错账号
 const filteredAdmins = computed(() => {
-  if (!serviceType.value) return admins.value
-  return admins.value.filter(admin => !admin.type || admin.type === serviceType.value || admin.type === 'all')
+  if (!admins.value.length) return []
+  const want = serviceType.value === 'sales' ? 'sales' : 'support'
+  const byUsername = admins.value.filter((a) => a.username === want)
+  if (byUsername.length) return byUsername
+  return admins.value.filter((admin) => !admin.type || admin.type === serviceType.value || admin.type === 'all')
 })
+
+function syncSelectedAdminForServiceType() {
+  const want = serviceType.value === 'sales' ? 'sales' : 'support'
+  const match = admins.value.find((a) => a.username === want)
+  if (match) {
+    selectedAdminId.value = match.id
+    return
+  }
+  if (admins.value.length === 1) {
+    selectedAdminId.value = admins.value[0].id
+  }
+}
 
 const canStart = computed(() => {
   return selectedAdminId.value != null && filteredAdmins.value.length > 0
@@ -345,9 +361,7 @@ async function loadAdmins() {
     const res = await fetch('/api/chat/admins')
     const data = await res.json()
     admins.value = data.admins || []
-    if (admins.value.length === 1) {
-      selectedAdminId.value = admins.value[0].id
-    }
+    syncSelectedAdminForServiceType()
   } catch (e) {
     error.value = t('chat.loadAdminsError') || 'Failed to load agents'
   } finally {
@@ -487,12 +501,17 @@ function backToSetup() {
   wsConnected.value = false
   selectedAdminId.value = null
   serviceType.value = 'support'
+  syncSelectedAdminForServiceType()
 }
 
 watch(() => authStore.isLoggedIn, (newVal) => {
   if (!newVal && sessionId.value) {
     backToSetup()
   }
+})
+
+watch(serviceType, () => {
+  syncSelectedAdminForServiceType()
 })
 
 onMounted(async () => {

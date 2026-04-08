@@ -115,15 +115,24 @@ class ChatSessionManager:
             SELECT s.id AS session_id, s.nickname, s.admin_id, s.user_id, s.service_type, s.created_at,
                    a.display_name AS admin_display_name,
                    a.avatar_color AS admin_avatar_color,
-                   (SELECT body FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_body,
-                   (SELECT created_at FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_at,
-                   (SELECT sender FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_sender
+                   lm.last_body,
+                   lm.last_at,
+                   lm.last_sender
             FROM chat_sessions s
             JOIN chat_admins a ON a.id = s.admin_id
-            ORDER BY datetime(COALESCE(
-              (SELECT created_at FROM chat_messages m2 WHERE m2.session_id = s.id ORDER BY m2.id DESC LIMIT 1),
-              s.created_at
-            )) DESC
+            JOIN (
+              SELECT m1.session_id,
+                     m1.body AS last_body,
+                     m1.created_at AS last_at,
+                     m1.sender AS last_sender
+              FROM chat_messages m1
+              JOIN (
+                SELECT session_id, MAX(id) AS max_id
+                FROM chat_messages
+                GROUP BY session_id
+              ) x ON x.session_id = m1.session_id AND x.max_id = m1.id
+            ) lm ON lm.session_id = s.id
+            ORDER BY datetime(lm.last_at) DESC
             """
         )
         return [dict(row) for row in self.cur.fetchall()]

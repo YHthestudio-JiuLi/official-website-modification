@@ -43,7 +43,7 @@
                   </span>
                 </div>
                 <div v-if="order.shippingAddress && order.status !== 'pending'" class="info-item">
-                  <span>Address: </span>
+                  <span>Recipient Info: </span>
                   <span>{{ order.shippingAddress }}</span>
                 </div>
               </div>
@@ -54,7 +54,7 @@
                   <label>Wallet Address ({{ order.network || 'TRC20' }}): </label>
                   <div class="address-box">
                     <code id="wallet-address">{{ order.usdtWallet }}</code>
-                    <button @click="copyAddress" class="btn-copy">
+                    <button type="button" @click="copyAddress" class="btn-copy">
                       <i class="fas fa-copy"></i> {{ copied ? 'Copied!' : 'Copy' }}
                     </button>
                   </div>
@@ -75,17 +75,41 @@
               <h3><i class="fas fa-check-circle"></i> Confirm Payment</h3>
               <form @submit.prevent="handleConfirmPayment" class="payment-form">
                 <div class="form-group">
-                  <label for="shippingAddress">
-                    <i class="fas fa-map-marker-alt"></i> Address *
+                  <label for="recipientName">
+                    <i class="fas fa-user"></i> Recipient Name *
                   </label>
                   <input
                     type="text"
-                    id="shippingAddress"
-                    v-model="shippingAddress"
+                    id="recipientName"
+                    v-model="recipientName"
                     required
-                    placeholder="Please enter your shipping address"
+                    placeholder="Please enter recipient name"
                   />
-                  <small>Please ensure the address is correct, otherwise the order cannot be confirmed</small>
+                </div>
+                <div class="form-group">
+                  <label for="recipientPhone">
+                    <i class="fas fa-phone"></i> Recipient Phone *
+                  </label>
+                  <input
+                    type="text"
+                    id="recipientPhone"
+                    v-model="recipientPhone"
+                    required
+                    placeholder="Please enter recipient phone number"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="shippingAddressDetail">
+                    <i class="fas fa-map-marker-alt"></i> Recipient Address *
+                  </label>
+                  <input
+                    type="text"
+                    id="shippingAddressDetail"
+                    v-model="shippingAddressDetail"
+                    required
+                    placeholder="Please enter full recipient address"
+                  />
+                  <small>Please ensure recipient info is correct, otherwise the order cannot be confirmed</small>
                 </div>
                 <div class="form-group">
                   <label for="txHash">
@@ -117,6 +141,7 @@
               <router-link to="/orders" class="btn btn-primary">View My Orders</router-link>
             </div>
           </div>
+
         </div>
       </div>
     </main>
@@ -138,7 +163,9 @@ const { t } = useI18n()
 
 const order = ref(null)
 const txHash = ref('')
-const shippingAddress = ref('')
+const recipientName = ref('')
+const recipientPhone = ref('')
+const shippingAddressDetail = ref('')
 const loading = ref(true)
 const submitting = ref(false)
 const copied = ref(false)
@@ -165,29 +192,115 @@ function getStatusText(status) {
 }
 
 async function copyAddress() {
-  try {
-    await navigator.clipboard.writeText(order.value.usdtWallet)
+  // 先尝试复制地址，失败时使用兼容回退
+  const copiedOk = await copyText(order.value.usdtWallet || '')
+  if (copiedOk) {
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
+  } else {
+    console.error('Failed to copy wallet address')
+  }
+
+  // 再执行跳转，尽量保持点击手势链路
+  openOkxAfterCopy()
+}
+
+async function copyText(text) {
+  if (!text) return false
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // 忽略并进入回退方案
+  }
+
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
   }
 }
 
+function openOkxAfterCopy() {
+  const { deepLink, universalLink } = buildOkxLinks()
+  if (isMobileBrowser()) {
+    // 手机端：只拉起 App，不再跳转网页兜底
+    // Android 上先用 iframe 触发 deeplink，iOS 用 location.href
+    if (/Android/i.test(navigator.userAgent || '')) {
+      const iframe = document.createElement('iframe')
+      iframe.style.display = 'none'
+      iframe.src = deepLink
+      document.body.appendChild(iframe)
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+      }, 1000)
+    } else {
+      window.location.href = deepLink
+    }
+    return
+  }
+  // 桌面端：不弹二维码，直接打开 OKX 网页
+  window.open(universalLink, '_blank', 'noopener,noreferrer')
+}
+
+function buildOkxLinks() {
+  const address = order.value?.usdtWallet || ''
+  const amount = order.value?.totalAmount || ''
+  const network = (order.value?.network || 'TRC20').toUpperCase()
+  const params = new URLSearchParams({
+    toAddress: address,
+    amount: String(amount),
+    chain: network,
+    token: 'USDT'
+  })
+  const query = params.toString()
+  return {
+    deepLink: `okx://wallet/transfer?${query}`,
+    universalLink: `https://www.okx.com/web3?open=wallet/transfer&${query}`
+  }
+}
+
+function isMobileBrowser() {
+  const ua = navigator.userAgent || ''
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
+}
+
 async function handleConfirmPayment() {
-  if (!shippingAddress.value || !shippingAddress.value.trim()) {
-    alert('Please enter your address')
+  if (!recipientName.value || !recipientName.value.trim()) {
+    alert('Please enter recipient name')
+    return
+  }
+  if (!recipientPhone.value || !recipientPhone.value.trim()) {
+    alert('Please enter recipient phone number')
+    return
+  }
+  if (!shippingAddressDetail.value || !shippingAddressDetail.value.trim()) {
+    alert('Please enter recipient address')
     return
   }
   if (!txHash.value || !txHash.value.trim()) {
     alert('Please enter your transaction hash')
     return
   }
+  const shippingAddress = `Name: ${recipientName.value.trim()} | Phone: ${recipientPhone.value.trim()} | Address: ${shippingAddressDetail.value.trim()}`
   submitting.value = true
   try {
     await api.post(`/api/orders/${route.params.id}/confirm`, {
       txHash: txHash.value,
-      shippingAddress: shippingAddress.value.trim()
+      shippingAddress
     })
     // Reload order data after successful payment
     try {

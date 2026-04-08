@@ -85,7 +85,14 @@ async function handleLogin() {
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (err) {
-    error.value = err.response?.data?.message || t('auth.login.error.invalidCredentials')
+    const status = err.response?.status
+    if (status === 429) {
+      error.value = t('auth.login.error.tooManyRequests')
+    } else if (status >= 500) {
+      error.value = t('auth.login.error.serverUnavailable')
+    } else {
+      error.value = err.response?.data?.message || err.response?.data?.error || t('auth.login.error.invalidCredentials')
+    }
   } finally {
     loading.value = false
   }

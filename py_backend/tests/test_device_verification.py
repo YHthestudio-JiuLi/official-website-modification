@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import sqlite3
 import tempfile
 import unittest
+from fastapi import HTTPException
+
 from py_backend.modules.device_verification import DeviceVerificationManager
 
 
@@ -98,10 +100,11 @@ class TestDeviceVerification(unittest.TestCase):
         self.manager.verify_device("test-quota")
         self.manager.verify_device("test-quota")
         
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(HTTPException) as context:
             self.manager.verify_device("test-quota")
-        
-        self.assertIn("quota exhausted", str(context.exception))
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIn("quota", str(context.exception.detail).lower())
         print(f"✓ 配额耗尽正确触发异常")
 
     def test_08_reset_count(self):
@@ -110,6 +113,19 @@ class TestDeviceVerification(unittest.TestCase):
         device = self.manager.find_by_device_id("test-device-001")
         self.assertEqual(device["verification_count"], 0)
         print(f"✓ 验证次数重置成功")
+
+    def test_08b_cooldown_no_extra_count(self):
+        """冷却窗口内重复验证不增加 verification_count"""
+        did = "test-cooldown-dedup"
+        self.manager.create(did, 100)
+        self.manager.update_verify_cooldown_seconds(3600)
+        r1 = self.manager.verify_device(did)
+        r2 = self.manager.verify_device(did)
+        self.assertEqual(r1["issued_at"], r2["issued_at"])
+        self.assertEqual(r1["signature"], r2["signature"])
+        device = self.manager.find_by_device_id(did)
+        self.assertEqual(device["verification_count"], 1)
+        self.manager.update_verify_cooldown_seconds(0)
 
     def test_09_verification_logs(self):
         """测试验证日志"""

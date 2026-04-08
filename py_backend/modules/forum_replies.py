@@ -65,13 +65,17 @@ class ForumReplyManager:
             self.cur.execute("UPDATE forum_posts SET replies = replies + 1 WHERE id = ?", (post_id,))
         return reply_id
 
-    def delete(self, reply_id: int) -> None:
-        """
-        删除论坛回复
-        
-        注意：删除回复时不会减少帖子回复计数，
-        因为删除回复可能导致级联删除，计数逻辑复杂。
-        如需精确计数，应定期同步或使用触发器。
-        """
+    def delete(self, reply_id: int) -> bool:
+        """删除论坛回复，并同步帖子回复计数。"""
+        self.cur.execute("SELECT postId FROM forum_replies WHERE id = ?", (reply_id,))
+        row = self.cur.fetchone()
+        if not row:
+            return False
+        post_id = int(row["postId"])
         with self.conn:
             self.cur.execute("DELETE FROM forum_replies WHERE id = ?", (reply_id,))
+            self.cur.execute(
+                "UPDATE forum_posts SET replies = (SELECT COUNT(*) FROM forum_replies WHERE postId = ?) WHERE id = ?",
+                (post_id, post_id),
+            )
+        return True

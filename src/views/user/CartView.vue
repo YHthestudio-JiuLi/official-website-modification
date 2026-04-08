@@ -23,7 +23,7 @@
               <h2>{{ $t('cart.items') }}</h2>
               <div v-for="item in cartItems" :key="item.productId" class="cart-item">
                 <div class="cart-item-image">
-                  <img :src="item.image" :alt="item.name" @error="handleImageError" />
+                  <img :src="getProductImage(item)" :alt="item.name" @error="handleImageError" />
                 </div>
                 <div class="cart-item-info">
                   <h3>{{ item.name }}</h3>
@@ -89,6 +89,7 @@ import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import { primaryProductImage } from '@/utils/productImages'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -141,6 +142,10 @@ function removeItem(productId) {
 
 function getItemTotal(item) {
   return ((item.priceUsdt || item.price || 0) * item.quantity).toFixed(2)
+}
+
+function getProductImage(item) {
+  return primaryProductImage(item)
 }
 
 function continueShopping() {

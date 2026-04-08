@@ -2,7 +2,7 @@
   <div class="product-card">
     <div class="product-image">
       <img
-        :src="product.image"
+        :src="currentImage"
         :alt="product.name"
         @error="handleImageError"
       />
@@ -43,10 +43,11 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
+import { parseProductImages } from '@/utils/productImages'
 
 const props = defineProps({
   product: {
@@ -62,10 +63,32 @@ const authStore = useAuthStore()
 
 const showAddedToast = ref(false)
 const isInCart = computed(() => cartStore.isInCart(props.product.id))
+const imageIndex = ref(0)
+const imageTimer = ref(null)
+const imageList = computed(() => parseProductImages(props.product?.image, props.product?.images))
+const currentImage = computed(() => imageList.value[imageIndex.value] || '')
 
 const truncatedDescription = computed(() => {
   const desc = props.product.description
   return desc && desc.length > 100 ? desc.substring(0, 100) + '...' : desc
+})
+
+function startImageRotation() {
+  if (imageTimer.value) {
+    clearInterval(imageTimer.value)
+    imageTimer.value = null
+  }
+  imageIndex.value = 0
+  if (imageList.value.length <= 1) return
+  imageTimer.value = setInterval(() => {
+    imageIndex.value = (imageIndex.value + 1) % imageList.value.length
+  }, 2500)
+}
+
+watch(imageList, startImageRotation, { immediate: true })
+onMounted(startImageRotation)
+onBeforeUnmount(() => {
+  if (imageTimer.value) clearInterval(imageTimer.value)
 })
 
 async function addToCart() {

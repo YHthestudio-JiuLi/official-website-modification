@@ -1,9 +1,33 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from ..utils import row_to_dict, rows_to_dict, now_iso
+
+
+def _parse_order_created_at(raw: str) -> Optional[datetime]:
+    """将订单 createdAt 字符串解析为 UTC 时间；无法解析时返回 None。"""
+    if not raw or not isinstance(raw, str):
+        return None
+    s = raw.strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    elif "T" not in s and len(s) >= 19 and s[4] == "-" and s[7] == "-":
+        # SQLite 常见 'YYYY-MM-DD HH:MM:SS' 形式
+        s = f"{s[:10]}T{s[11:]}"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt
 
 
 class OrderManager:
@@ -137,13 +161,31 @@ class OrderManager:
         self.conn.commit()
 
     def delete_expired_pending(self, minutes: int) -> int:
+        # 不用 SQLite datetime() 拼字符串：ISO 含微秒/Z 时易解析失败导致永远不删
+        try:
+            minutes_val = int(minutes)
+        except (TypeError, ValueError):
+            minutes_val = 30
+        minutes_val = max(1, min(minutes_val, 525600))
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes_val)
         self.cur.execute(
-            """
-            DELETE FROM orders
-            WHERE status = 'pending'
-            AND datetime(replace(replace(createdAt,'T',' '),'Z',''), '+' || ? || ' minutes') < datetime('now')
-            """,
-            (minutes,),
+            "SELECT id, createdAt FROM orders WHERE status = 'pending'"
+        )
+        to_delete: List[int] = []
+        for row in self.cur.fetchall():
+            rid = row["id"]
+            ca = row["createdAt"]
+            if ca is None:
+                continue
+            parsed = _parse_order_created_at(str(ca))
+            if parsed is not None and parsed < cutoff:
+                to_delete.append(int(rid))
+        if not to_delete:
+            return 0
+        placeholders = ",".join(["?"] * len(to_delete))
+        self.cur.execute(
+            f"DELETE FROM orders WHERE id IN ({placeholders})",
+            to_delete,
         )
         self.conn.commit()
         return int(self.cur.rowcount if self.cur.rowcount is not None else 0)

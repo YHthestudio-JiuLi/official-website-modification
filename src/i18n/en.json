@@ -61,7 +61,9 @@
       "noAccount": "Don't have an account?",
       "registerNow": "Register Now",
       "error": {
-        "invalidCredentials": "Invalid username or password"
+        "invalidCredentials": "Invalid username or password",
+        "tooManyRequests": "Too many login attempts, please try again later",
+        "serverUnavailable": "Server is temporarily unavailable, please try again later"
       }
     },
     "register": {
@@ -335,7 +337,9 @@
       "password": "Password",
       "submit": "Login",
       "defaultAccount": "",
-      "error": "Username or password incorrect"
+      "error": "Username or password incorrect",
+      "tooManyRequests": "Too many login attempts, please try again later",
+      "serverUnavailable": "Server is temporarily unavailable, please try again later"
     },
     "popupNotices": {
       "menu": "Popup Notices",
@@ -358,7 +362,8 @@
       "createDesc": "Create a new popup notice for homepage",
       "contentHint": "Use line breaks to format your message",
       "enabledHint": "Only one enabled notice will be shown on homepage",
-      "content": "Content"
+      "content": "Content",
+      "toggleVisibility": "Toggle visibility"
     },
     "chatSettings": {
       "title": "Chat Settings",
@@ -409,6 +414,13 @@
       "registeredDevices": "registered devices",
       "selectAll": "Select All",
       "deleteSelected": "Delete Selected",
+      "cooldownTitle": "Duplicate verification cooldown",
+      "cooldownHint": "Within this many hours, repeat calls for the same device do not increase the verification count and return the same signature as last time. Use 0 to disable.",
+      "cooldownHours": "Interval (hours)",
+      "cooldownSaved": "Cooldown settings saved",
+      "cooldownSaveError": "Failed to save cooldown settings",
+      "cooldownInvalid": "Enter a number from 0 to 8760 (hours)",
+      "loadSettingsError": "Failed to load device verification settings",
       "infoText": "Manage device verification quotas. Public and private keys are encrypted with device ID.",
       "empty": "No devices registered",
       "emptyHint": "Add a new device to start managing verification quotas",

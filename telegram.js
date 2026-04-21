@@ -283,7 +283,9 @@ async function notifyUserMessage(session, messageRow, admin) {
         const parsed = JSON.parse(data);
         console.log('[Telegram] API response:', parsed.ok ? 'OK' : 'FAILED', parsed.description || '');
         if (parsed.ok && parsed.result && parsed.result.message_id != null) {
-          dbOperations.chatTgLinks.create(parsed.result.chat.id, parsed.result.message_id, session.id, messageRow.id).catch(() => {});
+          dbOperations.chatTgLinks.create(parsed.result.chat.id, parsed.result.message_id, session.id, messageRow.id).catch((e) => {
+            console.error('[Telegram] chatTgLinks.create 失败（将无法在 TG 用「回复」同步到网站）:', e.message || e);
+          });
         }
       } catch (e) {
         console.error('[Telegram] Parse response error:', e.message);
@@ -340,7 +342,9 @@ async function notifyAdminReply(session, messageRow, admin) {
         const parsed = JSON.parse(data);
         console.log('[Telegram] Admin reply API response:', parsed.ok ? 'OK' : 'FAILED', parsed.description || '');
         if (parsed.ok && parsed.result && parsed.result.message_id != null) {
-          dbOperations.chatTgLinks.create(parsed.result.chat.id, parsed.result.message_id, session.id, messageRow.id).catch(() => {});
+          dbOperations.chatTgLinks.create(parsed.result.chat.id, parsed.result.message_id, session.id, messageRow.id).catch((e) => {
+            console.error('[Telegram] chatTgLinks.create(客服回复) 失败:', e.message || e);
+          });
         }
       } catch (e) {
         console.error('[Telegram] Parse response error:', e.message);
@@ -370,7 +374,7 @@ function createTelegramIntegration({ broadcastToChat }) {
     if (reply && reply.message_id != null) {
       console.log('[Telegram] This is a reply to message_id:', reply.message_id);
       // 查找对应的 session
-      const link = await dbOperations.chatTgLinks.findByTgMessage(String(chatId), reply.message_id);
+      const link = await dbOperations.chatTgLinks.findByTgMessage(Number(chatId), Number(reply.message_id));
       if (link && link.session_id) {
         console.log('[Telegram] Found session:', link.session_id);
         const body = text.trim();
@@ -425,6 +429,9 @@ function createTelegramIntegration({ broadcastToChat }) {
 // 为多个客服 Bot 启动长轮询（从数据库读取配置）
 // 跟踪已经开始 polling 的 bot，防止重复启动
 const activePollingBots = new Set();
+// 首次拉取客服列表失败（常见：Python 5100 未起）时防抖重试，避免 _started 锁死导致永不轮询
+let setupMultiBotPollingRetryTimer = null;
+let setupMultiBotPollingInProgress = false;
 
 async function setupMultiBotPolling({ broadcastToChat }) {
   if (process.env.TELEGRAM_USE_POLLING !== 'true') return;
@@ -433,7 +440,11 @@ async function setupMultiBotPolling({ broadcastToChat }) {
     console.log('[Telegram Multi-Bot] Already started, skipping');
     return;
   }
-  setupMultiBotPolling._started = true;
+  if (setupMultiBotPollingInProgress) {
+    console.log('[Telegram Multi-Bot] 初始化进行中，跳过重复调用');
+    return;
+  }
+  setupMultiBotPollingInProgress = true;
   
   try {
     const admins = await dbOperations.chatAdmins.findAll();
@@ -489,8 +500,20 @@ async function setupMultiBotPolling({ broadcastToChat }) {
       console.log('[Telegram Multi-Bot] Starting polling for token (listeners:', labels, ')');
       startPollingForTokenGroup(token, entries, broadcastToChat);
     }
+    setupMultiBotPolling._started = true;
   } catch (e) {
     console.error('[Telegram Multi-Bot] Setup error:', e.message);
+    const delayMs = Number(process.env.TELEGRAM_POLLING_SETUP_RETRY_MS) || 15000;
+    if (setupMultiBotPollingRetryTimer) clearTimeout(setupMultiBotPollingRetryTimer);
+    setupMultiBotPollingRetryTimer = setTimeout(() => {
+      setupMultiBotPollingRetryTimer = null;
+      setupMultiBotPolling({ broadcastToChat });
+    }, delayMs);
+    console.error(
+      `[Telegram Multi-Bot] ${delayMs / 1000}s 后将重试（请确认 Python 后端已监听 PY_DB_URL，默认同机 127.0.0.1:5100）`
+    );
+  } finally {
+    setupMultiBotPollingInProgress = false;
   }
 }
 
@@ -666,37 +689,51 @@ async function handleUpdateForBot(update, expectedChatId, admin, broadcastToChat
   }
   
   const reply = msg.reply_to_message;
-  if (reply && reply.message_id != null) {
-    console.log('[Telegram Multi-Bot]', admin.username, 'is reply to:', reply.message_id);
-    const link = await dbOperations.chatTgLinks.findByTgMessage(String(chatId), reply.message_id);
-    if (link && link.session_id) {
-      console.log('[Telegram Multi-Bot]', admin.username, 'found session:', link.session_id);
-      const body = text.trim();
-      if (!body) return;
-      
-      // Save to database for history
-      try {
-        const savedMsg = await dbOperations.chatMessages.create(link.session_id, 'admin', body);
-        const row = savedMsg || {
-          id: Date.now(),
-          session_id: link.session_id,
-          sender: 'admin',
-          body: body,
-          created_at: new Date().toISOString(),
-          fromTelegram: true,
-        };
-        
-        // Save tg link
-        if (savedMsg && savedMsg.id) {
-          await dbOperations.chatTgLinks.create(String(chatId), msg.message_id, link.session_id, savedMsg.id);
-        }
-        
-        broadcastToChat(link.session_id, { type: 'message', message: row });
-        console.log('[Telegram Multi-Bot]', admin.username, 'broadcasted to session:', link.session_id);
-      } catch (e) {
-        console.error('[Telegram Multi-Bot] save error:', e.message);
-      }
+  if (!reply || reply.message_id == null) {
+    if (text.trim()) {
+      console.warn(
+        '[Telegram Multi-Bot] 收到群消息但未使用「回复」引用用户通知：无法匹配会话。请在 Telegram 里对网站推送的那条消息点「回复」再输入内容。',
+        { chatId, admin: admin.username },
+      );
     }
+    return;
+  }
+
+  console.log('[Telegram Multi-Bot]', admin.username, 'is reply to:', reply.message_id);
+  const link = await dbOperations.chatTgLinks.findByTgMessage(Number(chatId), Number(reply.message_id));
+  if (!link || !link.session_id) {
+    console.warn('[Telegram Multi-Bot] 未找到 chat_tg_links 记录（请确认是对「网站推送的用户消息」点回复，且推送已成功写入关联）', {
+      chatId,
+      replyToMessageId: reply.message_id,
+    });
+    return;
+  }
+
+  console.log('[Telegram Multi-Bot]', admin.username, 'found session:', link.session_id);
+  const body = text.trim();
+  if (!body) return;
+
+  try {
+    const savedMsg = await dbOperations.chatMessages.create(link.session_id, 'admin', body);
+    const row = savedMsg
+      ? { ...savedMsg, session_id: savedMsg.session_id || link.session_id }
+      : {
+        id: Date.now(),
+        session_id: link.session_id,
+        sender: 'admin',
+        body,
+        created_at: new Date().toISOString(),
+        fromTelegram: true,
+      };
+
+    if (savedMsg && savedMsg.id) {
+      await dbOperations.chatTgLinks.create(Number(chatId), msg.message_id, link.session_id, savedMsg.id);
+    }
+
+    broadcastToChat(link.session_id, { type: 'message', message: row });
+    console.log('[Telegram Multi-Bot]', admin.username, 'broadcasted to session:', link.session_id);
+  } catch (e) {
+    console.error('[Telegram Multi-Bot] save error:', e.message);
   }
 }
 
@@ -708,6 +745,53 @@ async function handleTelegramCallbackQuery(query, expectedChatId, token) {
   const messageId = message?.message_id;
   if (!callbackId || !data || !messageId) return;
   if (chatId !== String(expectedChatId)) return;
+
+  // 论坛新帖推送：删除网站帖子并移除 Telegram 消息
+  if (data.startsWith('forum_del_post:')) {
+    const postId = parseInt(data.split(':')[1], 10);
+    if (Number.isNaN(postId)) {
+      await telegramRequestWithToken(token, 'answerCallbackQuery', {
+        callback_query_id: callbackId,
+        text: '参数错误',
+        show_alert: false,
+      });
+      return;
+    }
+    try {
+      const post = await dbOperations.forumPosts.findById(postId);
+      if (!post) {
+        await telegramRequestWithToken(token, 'answerCallbackQuery', {
+          callback_query_id: callbackId,
+          text: '帖子不存在或已删除',
+          show_alert: false,
+        });
+        await telegramRequestWithToken(token, 'deleteMessage', {
+          chat_id: chatId,
+          message_id: messageId,
+        });
+        return;
+      }
+      await dbOperations.forumPosts.delete(postId);
+      await telegramRequestWithToken(token, 'answerCallbackQuery', {
+        callback_query_id: callbackId,
+        text: `已删除帖子 #${postId}`,
+        show_alert: false,
+      });
+      await telegramRequestWithToken(token, 'deleteMessage', {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+    } catch (e) {
+      console.error('[Forum Telegram] callback delete post error:', e.message);
+      await telegramRequestWithToken(token, 'answerCallbackQuery', {
+        callback_query_id: callbackId,
+        text: '删除异常，请稍后重试',
+        show_alert: false,
+      });
+    }
+    return;
+  }
+
   if (data.startsWith('forum_del_reply:')) {
     const parts = data.split(':');
     const replyId = parseInt(parts[1], 10);
@@ -931,6 +1015,14 @@ async function notifyForumNewPost(post) {
     chat_id: String(chatId),
     text: formatForumPostMessage(post),
     parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: '🗑 删除此帖',
+          callback_data: `forum_del_post:${String(post.id || '')}`,
+        },
+      ]],
+    },
   };
   
   const payloadStr = JSON.stringify(payload);

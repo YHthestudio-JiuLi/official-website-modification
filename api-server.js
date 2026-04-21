@@ -22,6 +22,9 @@ const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegra
 dotenv.config();
 
 const app = express();
+// 部署在 Nginx 等反向代理后时必须开启，否则带 X-Forwarded-For 的请求会触发 express-rate-limit 的 ValidationError
+const trustProxyHops = process.env.TRUST_PROXY_HOPS;
+app.set('trust proxy', trustProxyHops === '0' || trustProxyHops === 'false' ? false : Number(trustProxyHops) || 1);
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-here';
@@ -168,11 +171,18 @@ app.use('/assets', express.static(distPath + '/assets', {
   lastModified: true
 }));
 
-// 其他静态文件
+// 其他静态文件（index.html 不可长期缓存，否则部署后浏览器仍引用旧 script 文件名）
 app.use(express.static(distPath, {
   maxAge: '1y',
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders(res, absPath) {
+    if (path.basename(absPath) === 'index.html') {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
 }));
 
 // 上传文件静态访问
@@ -244,11 +254,192 @@ function parseProductImages(imageField) {
   return [raw];
 }
 
+/** 功能卡图标：仅允许 fa- 前缀的类名片段，防止注入 */
+function sanitizeFeatureIcon(icon) {
+  if (!icon || typeof icon !== 'string') return 'fa-star';
+  const parts = icon.trim().split(/\s+/).filter(Boolean);
+  const last = parts.length ? parts[parts.length - 1] : '';
+  if (/^fa-[a-z0-9-]+$/i.test(last)) return last.toLowerCase();
+  if (/^[a-z0-9-]+$/i.test(last)) return `fa-${last.toLowerCase()}`;
+  return 'fa-star';
+}
+
+/** 解析 JSON 功能卡列表（featuresJson / specsJson，最多 12 条） */
+function parseFeatureCardsJson(featuresJson) {
+  if (featuresJson == null || featuresJson === '') return [];
+  if (typeof featuresJson !== 'string') return [];
+  const raw = featuresJson.trim();
+  if (!raw) return [];
+  let arr;
+  try {
+    arr = JSON.parse(raw);
+  } catch (_e) {
+    return [];
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const item of arr.slice(0, 12)) {
+    if (!item || typeof item !== 'object') continue;
+    const title = String(item.title ?? '').trim();
+    const description = String(item.description ?? '').trim();
+    if (!title && !description) continue;
+    out.push({
+      title: title || '—',
+      description,
+      icon: sanitizeFeatureIcon(item.icon)
+    });
+  }
+  return out;
+}
+
+/** 将请求体中的功能卡规范为可入库的 JSON 字符串或 null */
+function coerceFeaturesJsonForDb(body) {
+  const v = body.featuresJson !== undefined ? body.featuresJson : body.featureCards;
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return null;
+    try {
+      const parsed = JSON.parse(s);
+      if (!Array.isArray(parsed)) return null;
+      return JSON.stringify(parsed.slice(0, 12));
+    } catch (_e) {
+      return null;
+    }
+  }
+  if (Array.isArray(v)) {
+    const slim = v.slice(0, 12).map((row) => ({
+      title: String(row.title || '').trim(),
+      description: String(row.description || '').trim(),
+      icon: sanitizeFeatureIcon(row.icon)
+    })).filter((row) => row.title || row.description);
+    return slim.length ? JSON.stringify(slim) : null;
+  }
+  return null;
+}
+
+/** 详情页「重要说明」：最多 20 条，每项 { text, mode?: 'check'|'ban' } */
+const USAGE_NOTICE_MAX_ROWS = 20;
+
+function parseUsageNoticeJson(raw) {
+  if (raw == null || raw === '') return [];
+  let arr;
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s) return [];
+    try {
+      arr = JSON.parse(s);
+    } catch (_e) {
+      return [];
+    }
+  } else if (Array.isArray(raw)) {
+    arr = raw;
+  } else {
+    return [];
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const item of arr.slice(0, USAGE_NOTICE_MAX_ROWS)) {
+    if (!item || typeof item !== 'object') continue;
+    const text = String(item.text ?? '').trim();
+    if (!text) continue;
+    const modeRaw = String(item.mode ?? 'check').toLowerCase();
+    const mode = modeRaw === 'ban' || modeRaw === 'warn' ? 'ban' : 'check';
+    out.push({ text, mode });
+  }
+  return out;
+}
+
+function coerceUsageNoticeJsonForDb(body) {
+  const v = body.usageNoticeJson !== undefined ? body.usageNoticeJson : body.usageNoticeLines;
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return null;
+    try {
+      const parsed = JSON.parse(s);
+      if (!Array.isArray(parsed)) return null;
+      const slim = parseUsageNoticeJson(parsed);
+      return slim.length ? JSON.stringify(slim) : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+  if (Array.isArray(v)) {
+    const slim = parseUsageNoticeJson(v);
+    return slim.length ? JSON.stringify(slim) : null;
+  }
+  return null;
+}
+
+/** 规格卡入库 JSON（与功能卡结构相同） */
+function coerceSpecsJsonForDb(body) {
+  const v = body.specsJson !== undefined ? body.specsJson : body.specCards;
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return null;
+    try {
+      const parsed = JSON.parse(s);
+      if (!Array.isArray(parsed)) return null;
+      return JSON.stringify(parsed.slice(0, 12));
+    } catch (_e) {
+      return null;
+    }
+  }
+  if (Array.isArray(v)) {
+    const slim = v.slice(0, 12).map((row) => ({
+      title: String(row.title || '').trim(),
+      description: String(row.description || '').trim(),
+      icon: sanitizeFeatureIcon(row.icon)
+    })).filter((row) => row.title || row.description);
+    return slim.length ? JSON.stringify(slim) : null;
+  }
+  return null;
+}
+
 function normalizeProductRecord(product) {
   if (!product) return product;
   const images = parseProductImages(product.image);
+  let featureCards = [];
+  if (Array.isArray(product.featureCards) && product.featureCards.length) {
+    featureCards = product.featureCards
+      .map((c) => ({
+        title: String(c.title ?? '').trim(),
+        description: String(c.description ?? '').trim(),
+        icon: sanitizeFeatureIcon(c.icon)
+      }))
+      .filter((c) => c.title || c.description)
+      .map((c) => ({ ...c, title: c.title || '—' }))
+      .slice(0, 12);
+  } else {
+    featureCards = parseFeatureCardsJson(product.featuresJson);
+  }
+  let specCards = [];
+  if (Array.isArray(product.specCards) && product.specCards.length) {
+    specCards = product.specCards
+      .map((c) => ({
+        title: String(c.title ?? '').trim(),
+        description: String(c.description ?? '').trim(),
+        icon: sanitizeFeatureIcon(c.icon)
+      }))
+      .filter((c) => c.title || c.description)
+      .map((c) => ({ ...c, title: c.title || '—' }))
+      .slice(0, 12);
+  } else {
+    specCards = parseFeatureCardsJson(product.specsJson);
+  }
+  let usageNoticeLines = [];
+  if (Array.isArray(product.usageNoticeLines) && product.usageNoticeLines.length) {
+    usageNoticeLines = parseUsageNoticeJson(product.usageNoticeLines);
+  } else {
+    usageNoticeLines = parseUsageNoticeJson(product.usageNoticeJson);
+  }
   return {
     ...product,
+    featureCards,
+    specCards,
+    usageNoticeLines,
     images,
     image: images[0] || ''
   };
@@ -350,7 +541,7 @@ app.get('/api/products', async (req, res) => {
     res.json(translatedProducts);
   } catch (error) {
     console.error('[API Error] /api/products:', error.message);
-    res.status(503).json({ error: 'Database service unavailable. Please start Python backend with: npm run py' });
+    res.status(503).json({ error: 'Database service unavailable' });
   }
 });
 
@@ -513,16 +704,17 @@ app.get('/api/forum/posts/:id', async (req, res) => {
 app.post('/api/forum/posts', requireUser, async (req, res) => {
   const { title, content } = req.body;
   const date = new Date().toISOString().split('T')[0];
-  await dbOperations.forumPosts.create(title, req.session.user.username, content, date, 0);
-  
+  // create 返回 SQLite lastrowid，不可再用 findAll 最后一项推断 ID（列表按置顶/日期/id 排序，末项未必是新帖）
+  const postId = await dbOperations.forumPosts.create(title, req.session.user.username, content, date, 0);
+
   // 发送 Telegram 通知
   try {
     const post = {
-      id: await dbOperations.forumPosts.findAll().then(posts => posts[posts.length - 1]?.id),
+      id: postId,
       title,
       author: req.session.user.username,
       content,
-      date
+      date,
     };
     notifyForumNewPost(post).catch((err) => {
       console.error('[Forum Telegram] Post notification error:', err.message || err);
@@ -530,8 +722,8 @@ app.post('/api/forum/posts', requireUser, async (req, res) => {
   } catch (err) {
     console.error('[Forum Telegram] Get post info error:', err.message || err);
   }
-  
-  res.json({ success: true });
+
+  res.json({ success: true, id: postId });
 });
 
 app.get('/api/forum/posts/:id/replies', async (req, res) => {
@@ -837,7 +1029,10 @@ app.post('/api/admin/products', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  await dbOperations.products.create(name, description, image, productDate, price, price);
+  const featuresJson = coerceFeaturesJsonForDb(req.body);
+  const specsJson = coerceSpecsJsonForDb(req.body);
+  const usageNoticeJson = coerceUsageNoticeJsonForDb(req.body);
+  await dbOperations.products.create(name, description, image, productDate, price, price, featuresJson, specsJson, usageNoticeJson);
   res.json({ success: true });
 });
 
@@ -845,7 +1040,30 @@ app.put('/api/admin/products/:id', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  await dbOperations.products.update(parseInt(req.params.id), name, description, image, productDate, price, price);
+  const id = parseInt(req.params.id);
+  const existing = await dbOperations.products.findById(id);
+  let featuresJson = null;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'featureCards') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'featuresJson')) {
+    featuresJson = coerceFeaturesJsonForDb(req.body);
+  } else {
+    featuresJson = existing && existing.featuresJson != null ? existing.featuresJson : null;
+  }
+  let specsJson = null;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'specCards') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'specsJson')) {
+    specsJson = coerceSpecsJsonForDb(req.body);
+  } else {
+    specsJson = existing && existing.specsJson != null ? existing.specsJson : null;
+  }
+  let usageNoticeJson = null;
+  if (Object.prototype.hasOwnProperty.call(req.body, 'usageNoticeLines') ||
+      Object.prototype.hasOwnProperty.call(req.body, 'usageNoticeJson')) {
+    usageNoticeJson = coerceUsageNoticeJsonForDb(req.body);
+  } else {
+    usageNoticeJson = existing && existing.usageNoticeJson != null ? existing.usageNoticeJson : null;
+  }
+  await dbOperations.products.update(id, name, description, image, productDate, price, price, featuresJson, specsJson, usageNoticeJson);
   res.json({ success: true });
 });
 
@@ -1518,6 +1736,10 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/assets/') || req.path.startsWith('/dist/assets/')) {
     return res.status(404).send('File not found');
   }
+  // SPA 回退的 index 同样禁止强缓存，避免线上更新后仍加载旧入口
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

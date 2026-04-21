@@ -28,16 +28,20 @@
 
 <style scoped>
 .footer {
-  background: linear-gradient(135deg, #0f1222 0%, #1a1f3a 100%);
-  border-top: 1px solid rgba(0, 212, 255, 0.1);
+  /* 上沿与商品详情主底色 #0b0f15 同色衔接，再向下过渡到深蓝，避免与主内容之间「断层」 */
+  background: linear-gradient(180deg, #0b0f15 0%, #0b0f15 12%, #0f1222 38%, #1a1f3a 100%);
+  border-top: none;
   padding: 2rem 0;
   margin-top: auto;
 }
 
+/* 与全站 .container 同宽同边距，与顶栏、正文列对齐 */
 .container {
-  max-width: 1200px;
+  max-width: var(--layout-content-max);
   margin: 0 auto;
-  padding: 0 2rem;
+  padding-left: var(--layout-content-pad-x);
+  padding-right: var(--layout-content-pad-x);
+  box-sizing: border-box;
 }
 
 .footer-content {
@@ -122,8 +126,5 @@
     padding: 1.5rem 0;
   }
 
-  .container {
-    padding: 0 1rem;
-  }
 }
 </style>

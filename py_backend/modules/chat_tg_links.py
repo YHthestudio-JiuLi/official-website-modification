@@ -64,17 +64,31 @@ class ChatTgLinkManager:
         except Exception as e:
             print(f"[Migration] Skip rename: {e}")
 
-    def create(self, chat_id: int, tg_message_id: int, session_id: str, chat_message_id: int = None) -> None:
+    def create(self, chat_id, tg_message_id: int, session_id: str, chat_message_id: int = None) -> None:
+        try:
+            cid = int(chat_id)
+            tid = int(tg_message_id)
+        except (TypeError, ValueError):
+            return
         self.cur.execute(
             "INSERT OR REPLACE INTO chat_tg_links (chat_id, tg_message_id, session_id, chat_message_id) VALUES (?, ?, ?, ?)",
-            (chat_id, tg_message_id, session_id, chat_message_id),
+            (cid, tid, session_id, chat_message_id),
         )
         self.conn.commit()
 
-    def find_by_tg_message(self, chat_id: int, tg_message_id: int) -> Optional[Dict[str, Any]]:
+    def find_by_tg_message(self, chat_id, tg_message_id) -> Optional[Dict[str, Any]]:
+        # 统一为整数：Node/JSON 可能传字符串，避免 SQLite 比较不到行导致「TG 已回复但网页不同步」
+        try:
+            cid = int(chat_id)
+        except (TypeError, ValueError):
+            return None
+        try:
+            mid = int(tg_message_id)
+        except (TypeError, ValueError):
+            return None
         self.cur.execute(
             "SELECT chat_id, tg_message_id, session_id, chat_message_id, created_at FROM chat_tg_links WHERE chat_id = ? AND tg_message_id = ?",
-            (chat_id, tg_message_id),
+            (cid, mid),
         )
         row = self.cur.fetchone()
         return dict(row) if row else None

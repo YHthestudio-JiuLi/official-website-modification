@@ -36,9 +36,77 @@ function translateToEnglish(text) {
         return translationMap[text];
     }
     
-    // 如果没有映射，返回英文占位符
-    // 可以根据需要扩展，比如使用翻译API
-    return '[English Translation] ' + text;
+    // 无映射时保持原文，不添加任何前缀（否则功能卡/规格卡标题会出现 […] 占位文案）
+    return text;
+}
+
+/** 解析并翻译详情页功能卡（后台 JSON） */
+function translateFeatureCards(product) {
+    let raw = [];
+    if (product.featureCards && Array.isArray(product.featureCards)) {
+        raw = product.featureCards;
+    } else if (product.featuresJson && typeof product.featuresJson === 'string') {
+        try {
+            const v = JSON.parse(product.featuresJson);
+            if (Array.isArray(v)) raw = v;
+        } catch (_e) {}
+    }
+    return raw.slice(0, 12).map((c) => {
+        const title = String(c.title || '').trim();
+        const description = String(c.description || '').trim();
+        const icon = typeof c.icon === 'string' && c.icon.trim() ? c.icon.trim() : 'fa-star';
+        return {
+            title: title ? translateToEnglish(title) : '',
+            description: description ? translateToEnglish(description) : '',
+            icon
+        };
+    }).filter((c) => c.title || c.description);
+}
+
+/** 解析并翻译详情页技术规格卡（后台 specsJson） */
+function translateSpecCards(product) {
+    let raw = [];
+    if (product.specCards && Array.isArray(product.specCards)) {
+        raw = product.specCards;
+    } else if (product.specsJson && typeof product.specsJson === 'string') {
+        try {
+            const v = JSON.parse(product.specsJson);
+            if (Array.isArray(v)) raw = v;
+        } catch (_e) {}
+    }
+    return raw.slice(0, 12).map((c) => {
+        const title = String(c.title || '').trim();
+        const description = String(c.description || '').trim();
+        const icon = typeof c.icon === 'string' && c.icon.trim() ? c.icon.trim() : 'fa-star';
+        return {
+            title: title ? translateToEnglish(title) : '',
+            description: description ? translateToEnglish(description) : '',
+            icon
+        };
+    }).filter((c) => c.title || c.description);
+}
+
+/** 解析并翻译详情页「重要说明」行（usageNoticeJson） */
+function translateUsageNoticeLines(product) {
+    let raw = [];
+    if (product.usageNoticeLines && Array.isArray(product.usageNoticeLines)) {
+        raw = product.usageNoticeLines;
+    } else if (product.usageNoticeJson && typeof product.usageNoticeJson === 'string') {
+        try {
+            const v = JSON.parse(product.usageNoticeJson);
+            if (Array.isArray(v)) raw = v;
+        } catch (_e) {}
+    }
+    const out = [];
+    for (const item of raw.slice(0, 20)) {
+        if (!item || typeof item !== 'object') continue;
+        const text = String(item.text ?? '').trim();
+        if (!text) continue;
+        const modeRaw = String(item.mode ?? 'check').toLowerCase();
+        const mode = modeRaw === 'ban' || modeRaw === 'warn' ? 'ban' : 'check';
+        out.push({ text: translateToEnglish(text), mode });
+    }
+    return out;
 }
 
 // 翻译产品对象
@@ -56,7 +124,11 @@ function translateProduct(product) {
     if (product.description) {
         translated.description = translateToEnglish(product.description);
     }
-    
+
+    translated.featureCards = translateFeatureCards(product);
+    translated.specCards = translateSpecCards(product);
+    translated.usageNoticeLines = translateUsageNoticeLines(product);
+
     return translated;
 }
 
@@ -73,6 +145,7 @@ module.exports = {
     translateToEnglish,
     translateProduct,
     translateProducts,
+    translateUsageNoticeLines,
     containsChinese,
     translationMap
 };

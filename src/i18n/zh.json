@@ -100,7 +100,8 @@
       "dateDesc": "最新上架"
     },
     "results": "个产品",
-    "noResults": "未找到相关产品"
+    "noResults": "未找到相关产品",
+    "loadFailed": "无法加载产品，请稍后重试。"
   },
   "orders": {
     "title": "我的订单",

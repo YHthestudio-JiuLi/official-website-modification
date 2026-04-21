@@ -21,6 +21,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // 宝塔会在网站目录下自动生成 dist/.user.ini（常带不可变属性），Vite 默认会先清空 outDir，rm 该文件会 EPERM
+    emptyOutDir: false,
     sourcemap: false,
     rollupOptions: {
       output: {

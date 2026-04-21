@@ -85,6 +85,128 @@
             </div>
           </div>
 
+          <!-- 详情页「核心功能」卡片，与描述独立，存库为 JSON -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <i class="fas fa-th-large"></i> 产品功能卡（详情页）
+            </h3>
+            <p class="form-hint feature-intro">
+              <i class="fas fa-info-circle"></i>
+              配置后展示在商品详情「核心功能」区块，最多 12 条；标题与副标题至少填一项。图标点击下拉格即可选择（悬停可看名称）。
+            </p>
+            <div v-for="(row, idx) in featureRows" :key="idx" class="feature-row">
+              <div class="feature-row-head">
+                <span class="feature-row-label">卡片 {{ idx + 1 }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeFeatureRow(idx)" title="删除">
+                  <i class="fas fa-times" />
+                </button>
+              </div>
+              <div class="form-row form-row-3">
+                <div class="form-group">
+                  <label>标题</label>
+                  <input v-model="row.title" type="text" class="form-input" placeholder="如：500万像素摄像头" />
+                </div>
+                <div class="form-group">
+                  <label>图标</label>
+                  <FaIconPicker v-model="row.icon" :options="iconOptions" />
+                </div>
+                <div class="form-group">
+                  <label>说明</label>
+                  <input v-model="row.description" type="text" class="form-input" placeholder="一句话说明" />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-add-feature"
+              :disabled="featureRows.length >= 12"
+              @click="addFeatureRow"
+            >
+              <i class="fas fa-plus" /> 添加功能卡（{{ featureRows.length }}/12）
+            </button>
+          </div>
+
+          <!-- 详情页「技术规格」卡片，存库 specsJson，结构与功能卡相同 -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <i class="fas fa-microchip"></i> 产品规格卡（详情页）
+            </h3>
+            <p class="form-hint feature-intro">
+              <i class="fas fa-info-circle"></i>
+              配置后展示在商品详情「技术规格」区块（如摄像头、续航、重量等），最多 12 条；标题与说明至少填一项。
+            </p>
+            <div v-for="(row, idx) in specCardRows" :key="'s' + idx" class="feature-row">
+              <div class="feature-row-head">
+                <span class="feature-row-label">规格 {{ idx + 1 }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeSpecCardRow(idx)" title="删除">
+                  <i class="fas fa-times" />
+                </button>
+              </div>
+              <div class="form-row form-row-3">
+                <div class="form-group">
+                  <label>标题</label>
+                  <input v-model="row.title" type="text" class="form-input" placeholder="如：摄像头" />
+                </div>
+                <div class="form-group">
+                  <label>图标</label>
+                  <FaIconPicker v-model="row.icon" :options="iconOptions" />
+                </div>
+                <div class="form-group">
+                  <label>规格值 / 说明</label>
+                  <input v-model="row.description" type="text" class="form-input" placeholder="如：500万像素" />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-add-feature"
+              :disabled="specCardRows.length >= 12"
+              @click="addSpecCardRow"
+            >
+              <i class="fas fa-plus" /> 添加规格卡（{{ specCardRows.length }}/12）
+            </button>
+          </div>
+
+          <!-- 详情页「重要说明」，存库 usageNoticeJson -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <i class="fas fa-info-circle"></i> 重要说明（详情页）
+            </h3>
+            <p class="form-hint feature-intro">
+              <i class="fas fa-info-circle"></i>
+              未添加任何行时，前端不展示「重要说明」区块。类型选禁止符号时为警示样式（适合免责声明）。
+            </p>
+            <div v-for="(row, idx) in usageNoticeRows" :key="'u' + idx" class="feature-row">
+              <div class="feature-row-head">
+                <span class="feature-row-label">重要说明 {{ idx + 1 }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeUsageNoticeRow(idx)" title="删除">
+                  <i class="fas fa-times" />
+                </button>
+              </div>
+              <div class="form-row form-row-usage-notice">
+                <div class="form-group form-group-usage-notice-type">
+                  <label title="对勾为普通说明；禁止为警示">类型</label>
+                  <select v-model="row.mode" class="form-input usage-notice-type-select" title="普通 ✓ / 警示 ⛔">
+                    <option value="check" title="普通说明">✓</option>
+                    <option value="ban" title="警示">⛔</option>
+                  </select>
+                </div>
+                <div class="form-group form-group-usage-notice-text">
+                  <label>文案</label>
+                  <input v-model="row.text" type="text" class="form-input" placeholder="输入一行说明文字" />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-add-feature"
+              :disabled="usageNoticeRows.length >= 20"
+              @click="addUsageNoticeRow"
+            >
+              <i class="fas fa-plus" /> 添加重要说明（{{ usageNoticeRows.length }}/20）
+            </button>
+          </div>
+
           <!-- Image -->
           <div class="form-section">
             <h3 class="section-title">
@@ -190,6 +312,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import FaIconPicker from '@/components/admin/FaIconPicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -205,6 +328,12 @@ const form = ref({
 })
 
 const imageList = ref([])
+/** 详情页功能卡行，提交时序列化为 featuresJson */
+const featureRows = ref([])
+/** 详情页技术规格卡行，提交时序列化为 specsJson */
+const specCardRows = ref([])
+/** 详情页重要说明行，提交时序列化为 usageNoticeJson */
+const usageNoticeRows = ref([])
 const uploadingImage = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
@@ -215,6 +344,125 @@ const toast = ref({
   type: 'success',
   message: ''
 })
+
+/** 可选图标（Font Awesome 6 + fas） */
+/** label 仅用于图标选择器悬停提示，界面只显示图标 */
+const iconOptions = [
+  { value: 'fa-star', label: '星标' },
+  { value: 'fa-camera', label: '相机' },
+  { value: 'fa-brain', label: 'AI' },
+  { value: 'fa-bolt', label: '闪电' },
+  { value: 'fa-chart-line', label: '图表' },
+  { value: 'fa-shield-halved', label: '安全' },
+  { value: 'fa-microchip', label: '芯片' },
+  { value: 'fa-plug', label: '连接' },
+  { value: 'fa-database', label: '数据' },
+  { value: 'fa-battery-three-quarters', label: '续航' },
+  { value: 'fa-weight-hanging', label: '重量' },
+  { value: 'fa-headset', label: '客服' },
+  { value: 'fa-coins', label: '支付' },
+  { value: 'fa-wand-magic-sparkles', label: '智能' }
+]
+
+function loadFeatureRowsFromProduct(data) {
+  if (data.featureCards && Array.isArray(data.featureCards)) {
+    featureRows.value = data.featureCards.map((r) => ({
+      title: r.title || '',
+      description: r.description || '',
+      icon: r.icon || 'fa-star'
+    }))
+    return
+  }
+  if (data.featuresJson && typeof data.featuresJson === 'string') {
+    try {
+      const v = JSON.parse(data.featuresJson)
+      if (Array.isArray(v)) {
+        featureRows.value = v.map((r) => ({
+          title: r.title || '',
+          description: r.description || '',
+          icon: r.icon || 'fa-star'
+        }))
+        return
+      }
+    } catch (_e) {}
+  }
+  featureRows.value = []
+}
+
+function addFeatureRow() {
+  if (featureRows.value.length >= 12) return
+  featureRows.value.push({ title: '', description: '', icon: 'fa-star' })
+}
+
+function removeFeatureRow(index) {
+  featureRows.value.splice(index, 1)
+}
+
+function loadSpecCardRowsFromProduct(data) {
+  if (data.specCards && Array.isArray(data.specCards)) {
+    specCardRows.value = data.specCards.map((r) => ({
+      title: r.title || '',
+      description: r.description || '',
+      icon: r.icon || 'fa-star'
+    }))
+    return
+  }
+  if (data.specsJson && typeof data.specsJson === 'string') {
+    try {
+      const v = JSON.parse(data.specsJson)
+      if (Array.isArray(v)) {
+        specCardRows.value = v.map((r) => ({
+          title: r.title || '',
+          description: r.description || '',
+          icon: r.icon || 'fa-star'
+        }))
+        return
+      }
+    } catch (_e) {}
+  }
+  specCardRows.value = []
+}
+
+function addSpecCardRow() {
+  if (specCardRows.value.length >= 12) return
+  specCardRows.value.push({ title: '', description: '', icon: 'fa-microchip' })
+}
+
+function removeSpecCardRow(index) {
+  specCardRows.value.splice(index, 1)
+}
+
+function loadUsageNoticeRowsFromProduct(data) {
+  if (data.usageNoticeLines && Array.isArray(data.usageNoticeLines)) {
+    usageNoticeRows.value = data.usageNoticeLines.map((r) => ({
+      text: r.text || '',
+      mode: r.mode === 'ban' || r.mode === 'warn' ? 'ban' : 'check'
+    }))
+    return
+  }
+  if (data.usageNoticeJson && typeof data.usageNoticeJson === 'string') {
+    try {
+      const v = JSON.parse(data.usageNoticeJson)
+      if (Array.isArray(v)) {
+        usageNoticeRows.value = v.map((r) => ({
+          text: (r && r.text) || '',
+          mode: r && (r.mode === 'ban' || r.mode === 'warn') ? 'ban' : 'check'
+        }))
+        return
+      }
+    } catch (_e) {}
+  }
+  usageNoticeRows.value = []
+}
+
+function addUsageNoticeRow() {
+  if (usageNoticeRows.value.length >= 20) return
+  usageNoticeRows.value.push({ text: '', mode: 'check' })
+}
+
+function removeUsageNoticeRow(index) {
+  usageNoticeRows.value.splice(index, 1)
+}
 
 // Form validation
 const isValid = computed(() => {
@@ -258,6 +506,9 @@ onMounted(async () => {
         date: response.data.date || new Date().toISOString().split('T')[0]
       }
       imageList.value = parseImageList(response.data.images?.length ? response.data.images : response.data.image)
+      loadFeatureRowsFromProduct(response.data)
+      loadSpecCardRowsFromProduct(response.data)
+      loadUsageNoticeRowsFromProduct(response.data)
     } catch (err) {
       error.value = 'Failed to load product data: ' + (err.response?.data?.message || err.message)
       setTimeout(() => {
@@ -330,10 +581,33 @@ async function handleSubmit() {
 
   try {
     const normalizedImages = imageList.value.filter(Boolean)
+    const featureCards = featureRows.value
+      .map((r) => ({
+        title: (r.title || '').trim(),
+        description: (r.description || '').trim(),
+        icon: (r.icon || 'fa-star').trim()
+      }))
+      .filter((r) => r.title || r.description)
+    const specCards = specCardRows.value
+      .map((r) => ({
+        title: (r.title || '').trim(),
+        description: (r.description || '').trim(),
+        icon: (r.icon || 'fa-star').trim()
+      }))
+      .filter((r) => r.title || r.description)
+    const usageNoticeLines = usageNoticeRows.value
+      .map((r) => ({
+        text: (r.text || '').trim(),
+        mode: r.mode === 'ban' ? 'ban' : 'check'
+      }))
+      .filter((r) => r.text)
     const submitData = {
       ...form.value,
       image: normalizedImages.length > 1 ? JSON.stringify(normalizedImages) : (normalizedImages[0] || ''),
-      priceUsdt: parseFloat(form.value.priceUsdt) || 0
+      priceUsdt: parseFloat(form.value.priceUsdt) || 0,
+      featureCards,
+      specCards,
+      usageNoticeLines
     }
 
     if (isEdit.value) {
@@ -497,6 +771,78 @@ function showToast(message, type = 'success') {
 
 .form-row-2 {
   grid-template-columns: 2fr 1fr;
+}
+
+/* 重要说明：类型列窄（图标下拉）、文案列占满剩余宽度 */
+.form-row-usage-notice {
+  grid-template-columns: minmax(3.75rem, 4.75rem) minmax(0, 1fr);
+  gap: 0.75rem 1rem;
+  align-items: end;
+}
+
+.form-row-usage-notice .form-group {
+  margin-bottom: 0;
+}
+
+.usage-notice-type-select {
+  text-align: center;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  min-height: 2.75rem;
+}
+
+.form-row-3 {
+  grid-template-columns: 1.15fr 0.95fr 1.9fr;
+  align-items: end;
+}
+
+.feature-intro {
+  margin-bottom: 1rem;
+}
+
+.feature-row {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.feature-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.feature-row-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.btn-icon-remove {
+  border: none;
+  background: rgba(245, 87, 108, 0.15);
+  color: #f5576c;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-icon-remove:hover {
+  background: rgba(245, 87, 108, 0.28);
+}
+
+.btn-add-feature {
+  margin-top: 0.25rem;
 }
 
 .form-group {
@@ -753,6 +1099,10 @@ function showToast(message, type = 'success') {
   }
 
   .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row-3 {
     grid-template-columns: 1fr;
   }
 

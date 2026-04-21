@@ -69,7 +69,12 @@ async def lifespan(app: FastAPI):
         db_manager = DatabaseManager(conn)
         db_manager.init_db()
         logger.info("Python backend initialized successfully")
-        
+        # 启动时清理过期聊天（修复「仅清内存、SQLite 仍显示旧会话」）
+        try:
+            db_manager.chat_messages.cleanup_expired(3)
+        except Exception as e:
+            logger.warning(f"Startup chat cleanup skipped: {e}")
+
         async def chat_cleanup_task():
             while True:
                 await asyncio.sleep(60 * 60)
@@ -192,6 +197,9 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
+            args.get("featuresJson"),
+            args.get("specsJson"),
+            args.get("usageNoticeJson"),
         )
     if op == "products.update":
         return db_manager.products.update(
@@ -202,6 +210,9 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
+            args.get("featuresJson"),
+            args.get("specsJson"),
+            args.get("usageNoticeJson"),
         )
     if op == "products.delete":
         return db_manager.products.delete(args["id"])

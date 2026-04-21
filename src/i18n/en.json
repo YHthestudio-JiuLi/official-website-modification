@@ -100,7 +100,8 @@
       "dateDesc": "Newest First"
     },
     "results": "products",
-    "noResults": "No products found"
+    "noResults": "No products found",
+    "loadFailed": "Could not load products. Please try again later."
   },
   "orders": {
     "title": "My Orders",

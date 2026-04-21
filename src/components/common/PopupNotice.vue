@@ -3,9 +3,6 @@
     <div class="popup-modal" @click.stop>
       <div class="popup-header">
         <h3 class="popup-title">{{ notice.title }}</h3>
-        <button class="popup-close" @click="closePopup">
-          <i class="fas fa-times"></i>
-        </button>
       </div>
       <div class="popup-content">
         <div class="popup-body" v-html="formattedContent"></div>
@@ -21,10 +18,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
-
-const { t } = useI18n()
 
 const visible = ref(false)
 const notice = ref(null)
@@ -90,40 +84,23 @@ onMounted(() => {
   animation: slideIn 0.3s ease;
 }
 
+/* 标题区用块级铺满整行，避免旧版 flex+右侧子项在部分环境下留下圆形背景残影 */
 .popup-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  overflow: hidden;
 }
 
 .popup-title {
+  display: block;
+  width: 100%;
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
-  padding-right: 1rem;
-}
-
-.popup-close {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.popup-close:hover {
-  background: rgba(255, 255, 255, 0.3);
+  padding: 0;
+  line-height: 1.35;
 }
 
 .popup-content {

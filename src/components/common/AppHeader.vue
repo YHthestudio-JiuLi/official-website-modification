@@ -11,6 +11,24 @@
         <li><router-link to="/products" class="nav-link">{{ $t('nav.products') }}</router-link></li>
         <li><router-link to="/forum" class="nav-link">{{ $t('nav.forum') }}</router-link></li>
         <li><router-link to="/chat" class="nav-link">{{ $t('nav.chat') }}</router-link></li>
+        <!-- 产品页：搜索放在主导航与购物车之间（桌面）；移动端用顶栏第二行副本，避免藏在 fixed 抽屉里 -->
+        <li v-if="showProductsSearch" class="nav-products-search-li nav-products-search-desktop">
+          <div class="nav-products-search-wrap">
+            <div class="nav-products-search">
+              <i class="fas fa-search" aria-hidden="true" />
+              <input
+                type="search"
+                enterkeyhint="search"
+                autocomplete="off"
+                :placeholder="productsSearchPlaceholder"
+                :value="productsSearchLocal"
+                @input="onProductsSearchInput"
+              />
+            </div>
+          </div>
+        </li>
+        <!-- 桌面端弹性占位：主导航靠左、工具区靠右，避免整栏菜单挤在极右侧 -->
+        <li class="nav-menu-spacer" aria-hidden="true" />
         <li>
           <router-link to="/cart" class="nav-link cart-link">
             <i class="fas fa-shopping-cart"></i>
@@ -60,21 +78,76 @@
         <span></span>
         <span></span>
       </div>
+
+      <div v-if="showProductsSearch" class="nav-products-search-bar">
+        <div class="nav-products-search-wrap">
+          <div class="nav-products-search">
+            <i class="fas fa-search" aria-hidden="true" />
+            <input
+              type="search"
+              enterkeyhint="search"
+              autocomplete="off"
+              :placeholder="productsSearchPlaceholder"
+              :value="productsSearchLocal"
+              @input="onProductsSearchInput"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { setLanguage } from '@/i18n'
 
 const authStore = useAuthStore()
 const cartStore = useCartStore()
-const { locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const { locale, t } = useI18n()
 const menuOpen = ref(false)
+
+const showProductsSearch = computed(() => route.name === 'products')
+const productsSearchPlaceholder = computed(() => t('products.searchPlaceholder'))
+const productsSearchLocal = ref('')
+
+watch(
+  () => [route.name, route.query.q],
+  () => {
+    if (route.name === 'products') {
+      const q = route.query.q
+      productsSearchLocal.value = typeof q === 'string' ? q : Array.isArray(q) ? q[0] || '' : ''
+    } else {
+      productsSearchLocal.value = ''
+    }
+  },
+  { immediate: true }
+)
+
+let productsSearchDebounce = null
+function onProductsSearchInput(e) {
+  const v = e.target.value
+  productsSearchLocal.value = v
+  clearTimeout(productsSearchDebounce)
+  productsSearchDebounce = setTimeout(() => {
+    if (route.name !== 'products') return
+    const q = v.trim()
+    const nextQuery = { ...route.query }
+    if (q) nextQuery.q = q
+    else delete nextQuery.q
+    router.replace({ name: 'products', query: nextQuery })
+  }, 280)
+}
+
+onBeforeUnmount(() => {
+  clearTimeout(productsSearchDebounce)
+})
 
 const currentLang = computed(() => locale.value)
 
@@ -138,5 +211,71 @@ async function handleLogout() {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* 产品页顶栏搜索：桌面在「聊天」与购物车之间；移动端为顶栏第二行 */
+.nav-products-search-desktop {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  flex: 0 1 260px;
+  min-width: 120px;
+  max-width: 280px;
+}
+
+.nav-products-search-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.nav-products-search-bar {
+  display: none;
+}
+
+@media (max-width: 992px) {
+  .nav-products-search-desktop {
+    display: none;
+  }
+
+  .nav-products-search-bar {
+    display: block;
+  }
+}
+
+.nav-products-search {
+  position: relative;
+  width: 100%;
+}
+
+.nav-products-search i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8892b0;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.nav-products-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.42rem 0.5rem 0.42rem 2rem;
+  font-size: 13px;
+  line-height: 1.35;
+  border-radius: 6px;
+  border: 1px solid #233554;
+  background: rgba(26, 31, 58, 0.9);
+  color: #e6f1ff;
+}
+
+.nav-products-search input:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.12);
+}
+
+.nav-products-search input::placeholder {
+  color: #6b7289;
 }
 </style>

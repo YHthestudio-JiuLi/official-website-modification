@@ -2,12 +2,6 @@
   <div>
     <AppHeader />
     <main>
-      <div class="page-header">
-        <div class="container">
-          <h1><i class="fas fa-credit-card"></i> {{ $t('payment.title') }} #{{ order?.id }}</h1>
-        </div>
-      </div>
-
       <div class="payment-page">
         <div class="container">
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>

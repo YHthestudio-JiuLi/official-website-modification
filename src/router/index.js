@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
+import { isSafeInternalRedirect } from '@/utils/productCheckout'
 
 const routes = [
   // User routes
@@ -36,9 +37,11 @@ const routes = [
   },
   {
     path: '/products/:id/buy',
-    name: 'buy',
-    component: () => import('@/views/user/BuyView.vue'),
-    meta: { title: 'Buy Product', requiresAuth: true }
+    redirect: (to) => ({
+      name: 'product-detail',
+      params: { id: to.params.id },
+      query: { checkout: '1' }
+    })
   },
   {
     path: '/cart',
@@ -221,6 +224,10 @@ router.beforeEach(async (to, from, next) => {
   // Logged in users accessing guest pages
   if (to.meta.guest) {
     if (authStore.isLoggedIn && to.name === 'login') {
+      const redir = to.query.redirect
+      if (typeof redir === 'string' && isSafeInternalRedirect(redir)) {
+        return next(redir)
+      }
       return next({ name: 'home' })
     }
     if (adminStore.isLoggedIn && to.name === 'admin-login') {

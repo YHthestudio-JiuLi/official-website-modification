@@ -3,6 +3,9 @@
     --primary-color: #00d4ff;
     --secondary-color: #7b2ff7;
     --accent-color: #f72585;
+    /* 顶栏与商品详情等主列共用：最大宽度与左右内边距一致，避免导航与正文错列 */
+    --layout-content-max: min(1200px, 92vw);
+    --layout-content-pad-x: clamp(16px, 4vw, 40px);
     --bg-dark: #0a0e27;
     --bg-darker: #050810;
     --bg-card: #1a1f3a;
@@ -36,10 +39,12 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: var(--layout-content-max);
     margin: 0 auto;
-    padding: 0 20px;
+    padding-left: var(--layout-content-pad-x);
+    padding-right: var(--layout-content-pad-x);
     width: 100%;
+    box-sizing: border-box;
 }
 
 /* 确保图片和媒体元素响应式 */
@@ -48,21 +53,22 @@ img {
     height: auto;
 }
 
-/* 导航栏 */
+/* 导航栏（底色与商品详情主区 #0b0f15 同系，与正文衔接无跳色） */
 .navbar {
-    background: rgba(10, 14, 39, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-color);
+    background: rgba(11, 15, 21, 0.94);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(42, 47, 74, 0.4);
     position: sticky;
     top: 0;
     z-index: 1000;
     padding: 1rem 0;
 }
 
+/* 顶栏内层继承 .container 宽度与左右 padding，仅补充横向 flex 布局 */
 .navbar .container {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 1rem;
 }
 
 .nav-brand {
@@ -84,8 +90,29 @@ img {
 .nav-menu {
     display: flex;
     list-style: none;
-    gap: 2rem;
+    gap: clamp(0.75rem, 2vw, 1.35rem);
     align-items: center;
+}
+
+@media (min-width: 993px) {
+    .nav-menu {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+/* 主导航与账户/购物车之间的弹性分隔（仅桌面端生效，移动端由媒体查询隐藏） */
+@media (min-width: 993px) {
+    .nav-menu-spacer {
+        flex: 1 1 auto;
+        min-width: 0.5rem;
+        height: 1px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        align-self: stretch;
+        pointer-events: none;
+    }
 }
 
 .nav-link {
@@ -453,6 +480,18 @@ img {
     position: relative;
 }
 
+/* 产品列表：整卡为链接，无下划线、继承文字色 */
+a.product-card-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+a.product-card-link:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+}
+
 .product-card::before {
     content: '';
     position: absolute;
@@ -583,7 +622,7 @@ img {
 
 .product-info p {
     color: var(--text-secondary);
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
@@ -1171,11 +1210,43 @@ img {
 
 /* 移动端菜单样式优化 */
 @media (max-width: 992px) {
+    /* 同一行两列：Logo 与汉堡；菜单 ul 也放在第 1 行避免自动换行产生空白条 */
+    .navbar .container {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .nav-brand {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: start;
+    }
+
     .nav-toggle {
         display: flex;
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+        flex-shrink: 0;
     }
-    
+
+    /* 产品页顶栏搜索（移动端第二行，与 AppHeader 中 .nav-products-search-bar 对应） */
+    .nav-products-search-bar {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+    }
+
     .nav-menu {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        justify-self: stretch;
+        align-self: start;
         position: fixed;
         left: -100%;
         top: 70px;
@@ -1194,6 +1265,10 @@ img {
 
     .nav-menu.active {
         left: 0;
+    }
+
+    .nav-menu-spacer {
+        display: none;
     }
     
     .nav-menu li {
@@ -1226,10 +1301,6 @@ img {
 
 /* 平板和移动端 (< 768px) */
 @media (max-width: 768px) {
-    .container {
-        padding: 0 15px;
-    }
-    
     .navbar {
         padding: 0.75rem 0;
     }
@@ -1574,7 +1645,7 @@ img {
     
     /* 支付页面 */
     .payment-page {
-        padding: 1.5rem 0;
+        padding: 2rem 0 1.5rem;
     }
     
     .payment-container {
@@ -2009,10 +2080,6 @@ img {
 
 /* 小屏手机 (< 480px) */
 @media (max-width: 480px) {
-    .container {
-        padding: 0 12px;
-    }
-    
     .nav-brand {
         font-size: 1.1rem;
     }
@@ -2427,10 +2494,6 @@ img {
 
 /* 超小屏手机 (< 360px) */
 @media (max-width: 360px) {
-    .container {
-        padding: 0 10px;
-    }
-    
     .hero-section {
         min-height: 100vh;
         height: 100vh;
@@ -2813,6 +2876,25 @@ img {
     font-size: 0.9rem;
     min-height: 40px; /* 触摸友好的最小高度 */
     touch-action: manipulation;
+}
+
+/* 产品详情页：与赛博内容区同色平铺；容器不设底/边，避免与主列之间出现竖向色差线 */
+.product-detail-main {
+    background: #0b0f15;
+    /* 与导航衔接更紧，减少顶部「空一条」 */
+    padding-top: 0.25rem;
+    padding-bottom: 0;
+}
+
+.product-detail-main .container.product-detail-main-container {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* 仅带 product-detail-main 的详情（商品详情赛博页）：上下留白收紧，底部贴页脚不留缝 */
+.product-detail-main .product-detail-page {
+    padding: 0.25rem 0 0;
 }
 
 /* 产品详情页 */
@@ -3252,9 +3334,9 @@ img {
     margin-top: 0.5rem;
 }
 
-/* 支付页面 */
+/* 支付页面（已去掉顶部 page-header，略加上边距与顶栏衔接） */
 .payment-page {
-    padding: 2rem 0;
+    padding: 2.5rem 0 2rem;
 }
 
 .payment-container {

@@ -1005,15 +1005,22 @@ onUnmounted(() => {
   opacity: 0.3;
 }
 
+/* 每条消息占满一行；客服回复用 row-reverse 时，flex-start 对应靠右对齐（flex-end 会错误地挤到左侧） */
 .msg-row {
   display: flex;
   align-items: flex-end;
   gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.msg-row.them {
+  justify-content: flex-start;
 }
 
 .msg-row.me {
   flex-direction: row-reverse;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .msg-avatar {

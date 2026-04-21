@@ -41,10 +41,10 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt }),
-    update: (id, name, description, image, date, price, priceUsdt) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt }),
+    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson }),
+    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson }),
     delete: (id) => rpc('products.delete', { id })
   },
   orders: {

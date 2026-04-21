@@ -61,6 +61,7 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { isSafeInternalRedirect } from '@/utils/productCheckout'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
@@ -82,8 +83,12 @@ async function handleLogin() {
 
   try {
     await authStore.login(form.value)
-    const redirect = route.query.redirect || '/'
-    router.push(redirect)
+    const redirect = route.query.redirect
+    if (typeof redirect === 'string' && isSafeInternalRedirect(redirect)) {
+      await router.push(redirect)
+    } else {
+      await router.push('/')
+    }
   } catch (err) {
     const status = err.response?.status
     if (status === 429) {

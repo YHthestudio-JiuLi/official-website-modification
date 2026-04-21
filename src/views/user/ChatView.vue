@@ -950,12 +950,23 @@ onUnmounted(() => {
   font-size: 0.95rem;
 }
 
-/* 消息行 */
+/* 消息行：满宽以便「自己发的消息」在 row-reverse 下靠右对齐 */
 .msg-row {
   display: flex;
   align-items: flex-end;
   gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease;
+}
+
+.msg-row.them {
+  justify-content: flex-start;
+}
+
+.msg-row.me {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
 }
 
 @keyframes fadeIn {
@@ -967,10 +978,6 @@ onUnmounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.msg-row.me {
-  flex-direction: row-reverse;
 }
 
 .msg-avatar {

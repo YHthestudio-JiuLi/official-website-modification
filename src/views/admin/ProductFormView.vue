@@ -1,25 +1,25 @@
 <template>
   <AdminLayout>
-    <template #header-title>{{ isEdit ? 'Edit Product' : 'Add Product' }}</template>
+    <template #header-title>{{ isEdit ? $t('admin.productForm.editTitle') : $t('admin.productForm.addTitle') }}</template>
 
     <div class="product-form-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
             <i class="fas fa-box"></i>
-            {{ isEdit ? 'Edit Product' : 'Add Product' }}
+            {{ isEdit ? $t('admin.productForm.editTitle') : $t('admin.productForm.addTitle') }}
           </h2>
-          <p>{{ isEdit ? 'Update product information and pricing' : 'Add a new product to your catalog' }}</p>
+          <p>{{ isEdit ? $t('admin.productForm.editSubtitle') : $t('admin.productForm.addSubtitle') }}</p>
         </div>
         <router-link to="/admin/products" class="btn btn-secondary">
-          <i class="fas fa-arrow-left"></i> Back to List
+          <i class="fas fa-arrow-left"></i> {{ $t('admin.productForm.back') }}
         </router-link>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading product data...</span>
+          <span>{{ $t('admin.productForm.loading') }}</span>
         </div>
       </div>
 
@@ -32,13 +32,13 @@
           <!-- Basic Information -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-info-circle"></i> Basic Information
+              <i class="fas fa-info-circle"></i> {{ $t('admin.productForm.basicSection') }}
             </h3>
 
             <div class="form-row form-row-2">
               <div class="form-group">
                 <label for="name">
-                  <i class="fas fa-tag"></i> Product Name
+                  <i class="fas fa-tag"></i> {{ $t('admin.productForm.name') }}
                   <span class="required">*</span>
                 </label>
                 <input
@@ -47,12 +47,12 @@
                   v-model="form.name"
                   required
                   class="form-input"
-                  placeholder="e.g., Smart AI Assistant"
+                  :placeholder="$t('admin.productForm.namePlaceholder')"
                 />
               </div>
               <div class="form-group">
                 <label for="date">
-                  <i class="fas fa-calendar"></i> Release Date
+                  <i class="fas fa-calendar"></i> {{ $t('admin.productForm.releaseDate') }}
                   <span class="required">*</span>
                 </label>
                 <input
@@ -67,7 +67,7 @@
 
             <div class="form-group">
               <label for="description">
-                <i class="fas fa-align-left"></i> Product Description
+                <i class="fas fa-align-left"></i> {{ $t('admin.productForm.description') }}
                 <span class="required">*</span>
               </label>
               <textarea
@@ -76,11 +76,11 @@
                 rows="4"
                 required
                 class="form-input textarea-input"
-                placeholder="Describe the product features, benefits, and specifications..."
+                :placeholder="$t('admin.productForm.descriptionPlaceholder')"
               ></textarea>
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                Provide a clear and detailed description to help customers understand the product
+                {{ $t('admin.productForm.descriptionHint') }}
               </p>
             </div>
           </div>
@@ -88,31 +88,31 @@
           <!-- 详情页「核心功能」卡片，与描述独立，存库为 JSON -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-th-large"></i> 产品功能卡（详情页）
+              <i class="fas fa-th-large"></i> {{ $t('admin.productForm.featuresTitle') }}
             </h3>
             <p class="form-hint feature-intro">
               <i class="fas fa-info-circle"></i>
-              配置后展示在商品详情「核心功能」区块，最多 12 条；标题与副标题至少填一项。图标点击下拉格即可选择（悬停可看名称）。
+              {{ $t('admin.productForm.featuresIntro') }}
             </p>
             <div v-for="(row, idx) in featureRows" :key="idx" class="feature-row">
               <div class="feature-row-head">
-                <span class="feature-row-label">卡片 {{ idx + 1 }}</span>
-                <button type="button" class="btn-icon-remove" @click="removeFeatureRow(idx)" title="删除">
+                <span class="feature-row-label">{{ $t('admin.productForm.featureRowLabel', { n: idx + 1 }) }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeFeatureRow(idx)" :title="$t('admin.productForm.removeTitle')">
                   <i class="fas fa-times" />
                 </button>
               </div>
               <div class="form-row form-row-3">
                 <div class="form-group">
-                  <label>标题</label>
-                  <input v-model="row.title" type="text" class="form-input" placeholder="如：500万像素摄像头" />
+                  <label>{{ $t('admin.productForm.title') }}</label>
+                  <input v-model="row.title" type="text" class="form-input" :placeholder="$t('admin.productForm.featureTitlePh')" />
                 </div>
                 <div class="form-group">
-                  <label>图标</label>
+                  <label>{{ $t('admin.productForm.icon') }}</label>
                   <FaIconPicker v-model="row.icon" :options="iconOptions" />
                 </div>
                 <div class="form-group">
-                  <label>说明</label>
-                  <input v-model="row.description" type="text" class="form-input" placeholder="一句话说明" />
+                  <label>{{ $t('admin.productForm.subtitle') }}</label>
+                  <input v-model="row.description" type="text" class="form-input" :placeholder="$t('admin.productForm.featureSubtitlePh')" />
                 </div>
               </div>
             </div>
@@ -122,38 +122,38 @@
               :disabled="featureRows.length >= 12"
               @click="addFeatureRow"
             >
-              <i class="fas fa-plus" /> 添加功能卡（{{ featureRows.length }}/12）
+              <i class="fas fa-plus" /> {{ $t('admin.productForm.addFeature', { current: featureRows.length }) }}
             </button>
           </div>
 
           <!-- 详情页「技术规格」卡片，存库 specsJson，结构与功能卡相同 -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-microchip"></i> 产品规格卡（详情页）
+              <i class="fas fa-microchip"></i> {{ $t('admin.productForm.specsTitle') }}
             </h3>
             <p class="form-hint feature-intro">
               <i class="fas fa-info-circle"></i>
-              配置后展示在商品详情「技术规格」区块（如摄像头、续航、重量等），最多 12 条；标题与说明至少填一项。
+              {{ $t('admin.productForm.specsIntro') }}
             </p>
             <div v-for="(row, idx) in specCardRows" :key="'s' + idx" class="feature-row">
               <div class="feature-row-head">
-                <span class="feature-row-label">规格 {{ idx + 1 }}</span>
-                <button type="button" class="btn-icon-remove" @click="removeSpecCardRow(idx)" title="删除">
+                <span class="feature-row-label">{{ $t('admin.productForm.specRowLabel', { n: idx + 1 }) }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeSpecCardRow(idx)" :title="$t('admin.productForm.removeTitle')">
                   <i class="fas fa-times" />
                 </button>
               </div>
               <div class="form-row form-row-3">
                 <div class="form-group">
-                  <label>标题</label>
-                  <input v-model="row.title" type="text" class="form-input" placeholder="如：摄像头" />
+                  <label>{{ $t('admin.productForm.title') }}</label>
+                  <input v-model="row.title" type="text" class="form-input" :placeholder="$t('admin.productForm.specTitlePh')" />
                 </div>
                 <div class="form-group">
-                  <label>图标</label>
+                  <label>{{ $t('admin.productForm.icon') }}</label>
                   <FaIconPicker v-model="row.icon" :options="iconOptions" />
                 </div>
                 <div class="form-group">
-                  <label>规格值 / 说明</label>
-                  <input v-model="row.description" type="text" class="form-input" placeholder="如：500万像素" />
+                  <label>{{ $t('admin.productForm.specValue') }}</label>
+                  <input v-model="row.description" type="text" class="form-input" :placeholder="$t('admin.productForm.specValuePh')" />
                 </div>
               </div>
             </div>
@@ -163,37 +163,41 @@
               :disabled="specCardRows.length >= 12"
               @click="addSpecCardRow"
             >
-              <i class="fas fa-plus" /> 添加规格卡（{{ specCardRows.length }}/12）
+              <i class="fas fa-plus" /> {{ $t('admin.productForm.addSpec', { current: specCardRows.length }) }}
             </button>
           </div>
 
           <!-- 详情页「重要说明」，存库 usageNoticeJson -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-info-circle"></i> 重要说明（详情页）
+              <i class="fas fa-info-circle"></i> {{ $t('admin.productForm.usageTitle') }}
             </h3>
             <p class="form-hint feature-intro">
               <i class="fas fa-info-circle"></i>
-              未添加任何行时，前端不展示「重要说明」区块。类型选禁止符号时为警示样式（适合免责声明）。
+              {{ $t('admin.productForm.usageIntro') }}
             </p>
             <div v-for="(row, idx) in usageNoticeRows" :key="'u' + idx" class="feature-row">
               <div class="feature-row-head">
-                <span class="feature-row-label">重要说明 {{ idx + 1 }}</span>
-                <button type="button" class="btn-icon-remove" @click="removeUsageNoticeRow(idx)" title="删除">
+                <span class="feature-row-label">{{ $t('admin.productForm.usageRowLabel', { n: idx + 1 }) }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeUsageNoticeRow(idx)" :title="$t('admin.productForm.removeTitle')">
                   <i class="fas fa-times" />
                 </button>
               </div>
               <div class="form-row form-row-usage-notice">
                 <div class="form-group form-group-usage-notice-type">
-                  <label title="对勾为普通说明；禁止为警示">类型</label>
-                  <select v-model="row.mode" class="form-input usage-notice-type-select" title="普通 ✓ / 警示 ⛔">
-                    <option value="check" title="普通说明">✓</option>
-                    <option value="ban" title="警示">⛔</option>
+                  <label :title="$t('admin.productForm.usageTypeLabelTitle')">{{ $t('admin.productForm.usageType') }}</label>
+                  <select
+                    v-model="row.mode"
+                    class="form-input usage-notice-type-select"
+                    :title="$t('admin.productForm.usageSelectTitle')"
+                  >
+                    <option value="check" :title="$t('admin.productForm.usageCheckTitle')">✓</option>
+                    <option value="ban" :title="$t('admin.productForm.usageBanTitle')">⛔</option>
                   </select>
                 </div>
                 <div class="form-group form-group-usage-notice-text">
-                  <label>文案</label>
-                  <input v-model="row.text" type="text" class="form-input" placeholder="输入一行说明文字" />
+                  <label>{{ $t('admin.productForm.usageText') }}</label>
+                  <input v-model="row.text" type="text" class="form-input" :placeholder="$t('admin.productForm.usageTextPh')" />
                 </div>
               </div>
             </div>
@@ -203,19 +207,19 @@
               :disabled="usageNoticeRows.length >= 20"
               @click="addUsageNoticeRow"
             >
-              <i class="fas fa-plus" /> 添加重要说明（{{ usageNoticeRows.length }}/20）
+              <i class="fas fa-plus" /> {{ $t('admin.productForm.addUsage', { current: usageNoticeRows.length }) }}
             </button>
           </div>
 
           <!-- Image -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-image"></i> Product Image
+              <i class="fas fa-image"></i> {{ $t('admin.productForm.imageSection') }}
             </h3>
 
             <div class="form-group">
               <label for="image">
-                <i class="fas fa-upload"></i> Upload Images
+                <i class="fas fa-upload"></i> {{ $t('admin.productForm.uploadImages') }}
                 <span class="required">*</span>
               </label>
               <input
@@ -228,27 +232,27 @@
               />
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                支持多张图片。格式：JPG、PNG、GIF、WebP、SVG；单张最大 5MB
+                {{ $t('admin.productForm.imageHint') }}
               </p>
               <div v-if="uploadingImage" class="uploading-text">
-                <i class="fas fa-spinner fa-spin"></i> Uploading image...
+                <i class="fas fa-spinner fa-spin"></i> {{ $t('admin.productForm.uploadingImage') }}
               </div>
             </div>
 
             <div v-if="imageList.length" class="image-preview-section">
-              <label class="preview-label">Image Preview ({{ imageList.length }})</label>
+              <label class="preview-label">{{ $t('admin.productForm.previewLabel', { count: imageList.length }) }}</label>
               <div class="image-preview-grid">
                 <div v-for="(img, idx) in imageList" :key="img + idx" class="image-preview-item">
                   <img
                     :src="img"
-                    alt="Product preview"
+                    :alt="$t('admin.productForm.previewAlt')"
                     class="preview-image"
                     @error="handleImageError"
                   />
                   <button type="button" class="btn-delete-image" @click="removeImage(idx)">
                     <i class="fas fa-trash"></i>
                   </button>
-                  <span v-if="idx === 0" class="cover-badge">封面</span>
+                  <span v-if="idx === 0" class="cover-badge">{{ $t('admin.productForm.coverBadge') }}</span>
                 </div>
               </div>
             </div>
@@ -257,12 +261,12 @@
           <!-- Pricing -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-dollar-sign"></i> Pricing
+              <i class="fas fa-dollar-sign"></i> {{ $t('admin.productForm.pricingSection') }}
             </h3>
 
             <div class="form-group">
               <label for="priceUsdt">
-                <i class="fab fa-bitcoin"></i> Price (USDT)
+                <i class="fab fa-bitcoin"></i> {{ $t('admin.productForm.priceUsdt') }}
                 <span class="required">*</span>
               </label>
               <div class="price-input-wrapper">
@@ -274,13 +278,13 @@
                   min="0"
                   required
                   class="form-input price-input"
-                  placeholder="0.00"
+                  :placeholder="$t('admin.productForm.pricePlaceholder')"
                 />
                 <span class="currency-label">USDT</span>
               </div>
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                Enter the product price in USDT. Accepts decimal values up to 2 decimal places.
+                {{ $t('admin.productForm.priceHint') }}
               </p>
             </div>
           </div>
@@ -288,11 +292,17 @@
           <!-- Form Actions -->
           <div class="form-actions">
             <router-link to="/admin/products" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel
+              <i class="fas fa-times"></i> {{ $t('common.cancel') }}
             </router-link>
             <button type="submit" class="btn btn-primary" :disabled="submitting || uploadingImage || !isValid">
               <i :class="submitting ? 'fas fa-spinner fa-spin' : 'fas fa-save'"></i>
-              {{ submitting ? 'Saving...' : isEdit ? 'Update Product' : 'Create Product' }}
+              {{
+                submitting
+                  ? $t('admin.productForm.saving')
+                  : isEdit
+                    ? $t('admin.productForm.update')
+                    : $t('admin.productForm.create')
+              }}
             </button>
           </div>
         </form>
@@ -310,12 +320,14 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 
 const isEdit = computed(() => route.name === 'admin-product-edit')
 
@@ -347,22 +359,24 @@ const toast = ref({
 
 /** 可选图标（Font Awesome 6 + fas） */
 /** label 仅用于图标选择器悬停提示，界面只显示图标 */
-const iconOptions = [
-  { value: 'fa-star', label: '星标' },
-  { value: 'fa-camera', label: '相机' },
-  { value: 'fa-brain', label: 'AI' },
-  { value: 'fa-bolt', label: '闪电' },
-  { value: 'fa-chart-line', label: '图表' },
-  { value: 'fa-shield-halved', label: '安全' },
-  { value: 'fa-microchip', label: '芯片' },
-  { value: 'fa-plug', label: '连接' },
-  { value: 'fa-database', label: '数据' },
-  { value: 'fa-battery-three-quarters', label: '续航' },
-  { value: 'fa-weight-hanging', label: '重量' },
-  { value: 'fa-headset', label: '客服' },
-  { value: 'fa-coins', label: '支付' },
-  { value: 'fa-wand-magic-sparkles', label: '智能' }
+const iconDefs = [
+  { value: 'fa-star', labelKey: 'admin.productForm.icons.faStar' },
+  { value: 'fa-camera', labelKey: 'admin.productForm.icons.faCamera' },
+  { value: 'fa-brain', labelKey: 'admin.productForm.icons.faBrain' },
+  { value: 'fa-bolt', labelKey: 'admin.productForm.icons.faBolt' },
+  { value: 'fa-chart-line', labelKey: 'admin.productForm.icons.faChartLine' },
+  { value: 'fa-shield-halved', labelKey: 'admin.productForm.icons.faShieldHalved' },
+  { value: 'fa-microchip', labelKey: 'admin.productForm.icons.faMicrochip' },
+  { value: 'fa-plug', labelKey: 'admin.productForm.icons.faPlug' },
+  { value: 'fa-database', labelKey: 'admin.productForm.icons.faDatabase' },
+  { value: 'fa-battery-three-quarters', labelKey: 'admin.productForm.icons.faBatteryThreeQuarters' },
+  { value: 'fa-weight-hanging', labelKey: 'admin.productForm.icons.faWeightHanging' },
+  { value: 'fa-headset', labelKey: 'admin.productForm.icons.faHeadset' },
+  { value: 'fa-coins', labelKey: 'admin.productForm.icons.faCoins' },
+  { value: 'fa-wand-magic-sparkles', labelKey: 'admin.productForm.icons.faWandMagicSparkles' }
 ]
+
+const iconOptions = computed(() => iconDefs.map((item) => ({ value: item.value, label: t(item.labelKey) })))
 
 function loadFeatureRowsFromProduct(data) {
   if (data.featureCards && Array.isArray(data.featureCards)) {
@@ -510,7 +524,9 @@ onMounted(async () => {
       loadSpecCardRowsFromProduct(response.data)
       loadUsageNoticeRowsFromProduct(response.data)
     } catch (err) {
-      error.value = 'Failed to load product data: ' + (err.response?.data?.message || err.message)
+      error.value = t('admin.productForm.errors.load', {
+        message: err.response?.data?.message || err.message
+      })
       setTimeout(() => {
         router.push('/admin/products')
       }, 2000)
@@ -534,7 +550,7 @@ async function handleImageSelect(event) {
   try {
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Image is too large. Max size is 5MB.')
+        throw new Error(t('admin.productForm.errors.imageTooLarge'))
       }
       const formData = new FormData()
       formData.append('image', file)
@@ -545,13 +561,13 @@ async function handleImageSelect(event) {
       })
       const imageUrl = response.data?.image
       if (!imageUrl) {
-        throw new Error('Invalid upload response')
+        throw new Error(t('admin.productForm.errors.invalidUpload'))
       }
       imageList.value.push(imageUrl)
     }
     form.value.image = imageList.value[0] || ''
   } catch (err) {
-    error.value = err.response?.data?.error || err.message || 'Failed to upload image'
+    error.value = err.response?.data?.error || err.message || t('admin.productForm.errors.uploadFailed')
   } finally {
     uploadingImage.value = false
     event.target.value = ''
@@ -572,7 +588,7 @@ async function removeImage(index) {
 
 async function handleSubmit() {
   if (!isValid.value) {
-    error.value = 'Please fill in all required fields correctly'
+    error.value = t('admin.productForm.errors.requiredFields')
     return
   }
 
@@ -616,12 +632,12 @@ async function handleSubmit() {
       await api.post('/api/admin/products', submitData)
     }
 
-    showToast('Product saved successfully', 'success')
+    showToast(t('admin.productForm.success.saved'), 'success')
     setTimeout(() => {
       router.back()
     }, 1500)
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to save product. Please try again.'
+    error.value = err.response?.data?.message || t('admin.productForm.errors.saveFailed')
   } finally {
     submitting.value = false
   }

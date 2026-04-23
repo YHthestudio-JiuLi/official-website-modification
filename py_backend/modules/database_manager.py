@@ -17,6 +17,7 @@ from .chat_messages import ChatMessageManager
 from .chat_tg_links import ChatTgLinkManager
 from .popup_notices import PopupNoticeManager
 from .device_verification import DeviceVerificationManager
+from .questions import QuestionManager
 
 
 class DatabaseManager:
@@ -36,6 +37,7 @@ class DatabaseManager:
         self.chat_tg_links = ChatTgLinkManager(conn)
         self.popup_notices = PopupNoticeManager(conn)
         self.device_verification = DeviceVerificationManager(conn)
+        self.questions = QuestionManager(conn)
 
     def init_db(self) -> None:
         self.conn.execute("PRAGMA foreign_keys = ON")
@@ -54,6 +56,7 @@ class DatabaseManager:
         self.chat_tg_links.create_table()
         self.popup_notices.create_table()
         self.device_verification.create_table()
+        self.questions.create_table()
 
         self._apply_pragmas()
 

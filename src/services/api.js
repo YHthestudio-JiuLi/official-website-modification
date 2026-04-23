@@ -3,10 +3,7 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: '',
   timeout: 15000,
-  withCredentials: true, // Important for session cookies
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  withCredentials: true
 })
 
 // CSRF token storage
@@ -33,6 +30,14 @@ api.interceptors.request.use(
     // Skip CSRF token for CSRF token endpoint itself to avoid infinite loop
     if (config.url === '/api/csrf-token') {
       return config
+    }
+
+    // For FormData, let axios handle Content-Type automatically (don't set it)
+    if (config.data instanceof FormData) {
+      // Don't set Content-Type, axios will set it with correct boundary
+    } else {
+      // Set Content-Type for non-FormData requests
+      config.headers['Content-Type'] = 'application/json'
     }
 
     // For POST, PUT, DELETE requests, ensure we have a CSRF token

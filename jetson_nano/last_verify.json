@@ -1,6 +1,7 @@
 {
   "device_id": "ce:01:28:f6:c9:2b",
-  "issued_at": 1775584812,
-  "signature": "R/RJufPrOKv36N00BK60sU7H13WCmJ4QI0NMaA1/O/FrFJsrT0I3mQQfyGHbeSH22WjQtHk3E9Y5/28qbabMBg==",
-  "public_key": "dS/cNi8fV4ErkX5BD3ZBeWUM3Eje7pGZNgqAJl9QJu0="
+  "issued_at": 1776975576,
+  "signature": "FQM3qefGkjK17lajnix5qJ64w98glmSkogRCAw0MHYdFcAStLn/a8R7vqE/Rvd98colsSL+ttwrYrHitpeqtDA==",
+  "public_key": "rHYSAF/fA7fOd7ITv7+QlaV4YMjnrVh5oDvBZ03/1SY=",
+  "api_base": "http://127.0.0.1:3000"
 }

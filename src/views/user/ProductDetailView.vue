@@ -7,7 +7,7 @@
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
           <div v-else-if="!product" class="empty-state">
-            Product not found
+            {{ $t('products.detail.notFound') }}
           </div>
 
           <div v-else class="product-detail-cyber">
@@ -37,7 +37,7 @@
                       <span class="pdc-cyan">{{ product.name }}</span>
                     </template>
                   </h2>
-                  <p class="pdc-hero-desc">{{ product.description || '暂无详细描述。' }}</p>
+                  <p class="pdc-hero-desc">{{ product.description || $t('products.detail.noDescription') }}</p>
                   <div class="pdc-hero-actions">
                     <button
                       type="button"
@@ -45,10 +45,11 @@
                       :disabled="buySubmitting"
                       @click="onBuyNowClick"
                     >
-                      <i class="fas fa-shopping-cart" /> {{ buySubmitting ? '处理中…' : '立即购买' }}
+                      <i class="fas fa-shopping-cart" />
+                      {{ buySubmitting ? $t('products.detail.buyProcessing') : $t('products.detail.buyNow') }}
                     </button>
                     <router-link to="/products" class="pdc-btn pdc-btn-outline">
-                      <i class="fas fa-list" /> 更多产品
+                      <i class="fas fa-list" /> {{ $t('products.detail.moreProducts') }}
                     </router-link>
                   </div>
                 </div>
@@ -67,9 +68,10 @@
             <section v-if="displayFeatureCards.length" class="pdc-section">
               <div class="pdc-section-head">
                 <h2 class="pdc-h2">
-                  <span class="pdc-cyan">核心</span><span class="pdc-pink">功能</span>
+                  <span class="pdc-cyan">{{ $t('products.detail.coreTitleCyan') }}</span>
+                  <span class="pdc-pink">{{ $t('products.detail.coreTitlePink') }}</span>
                 </h2>
-                <p class="pdc-sub">由后台商品管理配置（最多 12 条）</p>
+                <p class="pdc-sub">{{ $t('products.detail.coreSub') }}</p>
               </div>
               <div class="pdc-feature-grid">
                 <div
@@ -91,7 +93,8 @@
             <section v-if="galleryExtraImages.length > 0" class="pdc-section">
               <div class="pdc-section-head">
                 <h2 class="pdc-h2">
-                  <span class="pdc-pink">产品</span><span class="pdc-cyan">展示</span>
+                  <span class="pdc-pink">{{ $t('products.detail.galleryTitlePink') }}</span>
+                  <span class="pdc-cyan">{{ $t('products.detail.galleryTitleCyan') }}</span>
                 </h2>
               </div>
               <div class="pdc-gallery-stack">
@@ -106,7 +109,7 @@
                   >
                     <img
                       :src="src"
-                      :alt="`${product.name} 展示 ${idx + 2}`"
+                      :alt="$t('products.detail.galleryAlt', { name: product.name, n: idx + 2 })"
                       @error="handleImageError"
                     />
                   </div>
@@ -118,8 +121,8 @@
             <section v-if="showSpecsSection" id="specs" class="pdc-section pdc-section-specs">
               <div v-if="displaySpecCards.length" class="pdc-specs-panel">
                 <div class="pdc-specs-panel-head">
-                  <h2 class="pdc-specs-title">技术规格</h2>
-                  <p class="pdc-specs-sub">由后台「产品规格卡」配置</p>
+                  <h2 class="pdc-specs-title">{{ $t('products.detail.specsTitle') }}</h2>
+                  <p class="pdc-specs-sub">{{ $t('products.detail.specsSub') }}</p>
                 </div>
                 <div class="pdc-specs-grid">
                   <div
@@ -143,7 +146,7 @@
                         <!-- 对齐参考稿：品红圆内白色感叹号（非 i 信息标） -->
                         <i class="fas fa-exclamation pdc-spec-notice-head-ico" />
                       </span>
-                      <h3 class="pdc-spec-notice-title">重要说明</h3>
+                      <h3 class="pdc-spec-notice-title">{{ $t('products.detail.noticeTitle') }}</h3>
                     </div>
                     <ul class="pdc-spec-notice-list">
                       <li v-for="(row, nidx) in displayUsageNoticeLines" :key="'un' + nidx">
@@ -166,7 +169,7 @@
                     <span class="pdc-spec-notice-ico-wrap" aria-hidden="true">
                       <i class="fas fa-exclamation pdc-spec-notice-head-ico" />
                     </span>
-                    <h3 class="pdc-spec-notice-title">重要说明</h3>
+                    <h3 class="pdc-spec-notice-title">{{ $t('products.detail.noticeTitle') }}</h3>
                   </div>
                   <ul class="pdc-spec-notice-list">
                     <li v-for="(row, nidx) in displayUsageNoticeLines" :key="'uo' + nidx">
@@ -188,16 +191,17 @@
             <section class="pdc-section pdc-section-last">
               <div class="pdc-section-head">
                 <h2 class="pdc-h2">
-                  <span class="pdc-pink">专业</span><span class="pdc-cyan">套餐</span>
+                  <span class="pdc-pink">{{ $t('products.detail.planTitlePink') }}</span>
+                  <span class="pdc-cyan">{{ $t('products.detail.planTitleCyan') }}</span>
                 </h2>
                 <div class="pdc-usdt-pill">
                   <i class="fas fa-coins" />
-                  <span>仅接受 USDT 付款</span>
+                  <span>{{ $t('products.detail.usdtOnly') }}</span>
                 </div>
               </div>
               <div class="pdc-pricing-wrap">
                 <div class="pdc-price-card">
-                  <div class="pdc-price-ribbon">当前商品</div>
+                  <div class="pdc-price-ribbon">{{ $t('products.detail.currentProductRibbon') }}</div>
                   <h3 class="pdc-price-name">{{ product.name }}</h3>
                   <!-- 仅展示一个主价格：有 USDT 价则优先 USDT，否则人民币 -->
                   <div
@@ -207,14 +211,14 @@
                     {{ primaryPriceText }}
                   </div>
                   <div v-if="displayFeatureCards.length" class="pdc-price-core">
-                    <p class="pdc-price-core-title">核心功能</p>
+                    <p class="pdc-price-core-title">{{ $t('products.detail.priceCoreTitle') }}</p>
                     <ul class="pdc-price-features">
                       <li v-for="(item, idx) in displayFeatureCards" :key="'pfc' + idx">
                         <i class="fas fa-check" />
                         <span>
                           <template v-if="item.title">
                             <strong>{{ item.title }}</strong>
-                            <template v-if="item.description">：{{ item.description }}</template>
+                            <template v-if="item.description">{{ $t('products.detail.listColon') }}{{ item.description }}</template>
                           </template>
                           <template v-else>{{ item.description }}</template>
                         </span>
@@ -227,7 +231,8 @@
                     :disabled="buySubmitting"
                     @click="onBuyNowClick"
                   >
-                    <i class="fas fa-shopping-cart" /> {{ buySubmitting ? '处理中…' : '立即购买' }}
+                    <i class="fas fa-shopping-cart" />
+                    {{ buySubmitting ? $t('products.detail.buyProcessing') : $t('products.detail.buyNow') }}
                   </button>
                 </div>
               </div>
@@ -243,6 +248,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
@@ -252,6 +258,7 @@ import { startProductCheckout } from '@/utils/productCheckout'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const authStore = useAuthStore()
 const product = ref(null)
 const loading = ref(true)
@@ -297,7 +304,7 @@ const marqueePlainText = computed(() => {
   if (!n) return ''
   const title = String(n.title || '').trim()
   const body = stripHtmlForMarquee(String(n.content || ''))
-  if (title && body) return `【${title}】${body}`
+  if (title && body) return t('products.detail.noticeMarqueeBoth', { title, body })
   return title || body
 })
 
@@ -330,11 +337,11 @@ const primaryPriceKind = computed(() => {
 
 const primaryPriceText = computed(() => {
   const p = product.value
-  if (!p) return '—'
+  if (!p) return t('products.detail.dash')
   const k = primaryPriceKind.value
   if (k === 'usdt') return `${Number(p.priceUsdt)} USDT`
   if (k === 'cny') return `¥${p.price}`
-  return '价格待定'
+  return t('products.detail.priceTbd')
 })
 
 /** 仅使用接口返回的 featureCards（后台 featuresJson） */
@@ -477,7 +484,7 @@ watch(
         params: { id: String(route.params.id) },
         query: {}
       })
-      alert('下单失败，请稍后重试')
+      alert(t('products.detail.checkoutErrorRetry'))
     }
   },
   { flush: 'post' }
@@ -491,7 +498,7 @@ async function onBuyNowClick() {
     await startProductCheckout(router, product.value.id)
   } catch (e) {
     console.error(e)
-    alert('下单失败，请确认已登录且网络正常')
+    alert(t('products.detail.checkoutErrorAuth'))
   } finally {
     buySubmitting.value = false
   }

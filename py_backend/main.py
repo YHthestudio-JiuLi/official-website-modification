@@ -5,16 +5,18 @@ import logging
 import os
 import sqlite3
 import asyncio
+import shutil
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from .modules import DatabaseManager
 from .utils import connect, validate_table_name, row_to_dict, rows_to_dict
+from .controller import questions_router
 
 # 配置日志
 LOG_DIR = Path(__file__).parent / "logs"
@@ -69,12 +71,7 @@ async def lifespan(app: FastAPI):
         db_manager = DatabaseManager(conn)
         db_manager.init_db()
         logger.info("Python backend initialized successfully")
-        # 启动时清理过期聊天（修复「仅清内存、SQLite 仍显示旧会话」）
-        try:
-            db_manager.chat_messages.cleanup_expired(3)
-        except Exception as e:
-            logger.warning(f"Startup chat cleanup skipped: {e}")
-
+        
         async def chat_cleanup_task():
             while True:
                 await asyncio.sleep(60 * 60)
@@ -98,6 +95,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="YH_Web Python DB Backend", version="1.0.0", lifespan=lifespan)
+
+app.include_router(questions_router)
 
 
 @app.get("/health")
@@ -197,9 +196,6 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
-            args.get("featuresJson"),
-            args.get("specsJson"),
-            args.get("usageNoticeJson"),
         )
     if op == "products.update":
         return db_manager.products.update(
@@ -210,9 +206,6 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
-            args.get("featuresJson"),
-            args.get("specsJson"),
-            args.get("usageNoticeJson"),
         )
     if op == "products.delete":
         return db_manager.products.delete(args["id"])
@@ -404,9 +397,39 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "deviceVerification.findByDeviceId":
         return db_manager.device_verification.find_by_device_id(args["device_id"])
     if op == "deviceVerification.create":
-        return db_manager.device_verification.create(args["device_id"], int(args.get("max_verifications", 10)))
+        question_id = args.get("question_id")
+        firmware_id = args.get("firmware_id")
+        is_whitelisted = bool(args.get("is_whitelisted", False))
+        return db_manager.device_verification.create(
+            args["device_id"],
+            int(args.get("max_verifications", 10)),
+            question_id if question_id is not None else None,
+            firmware_id if firmware_id is not None else None,
+            is_whitelisted,
+        )
     if op == "deviceVerification.updateMaxVerifications":
         return db_manager.device_verification.update_max_verifications(args["device_id"], int(args["max_verifications"]))
+    if op == "deviceVerification.updateQuestionId":
+        question_id = args.get("question_id")
+        return db_manager.device_verification.update_question_id(
+            args["device_id"],
+            question_id if question_id is not None else None
+        )
+    if op == "deviceVerification.updateFirmwareId":
+        firmware_id = args.get("firmware_id")
+        return db_manager.device_verification.update_firmware_id(
+            args["device_id"],
+            firmware_id if firmware_id is not None else None
+        )
+    if op == "deviceVerification.updateWhitelist":
+        return db_manager.device_verification.update_whitelist(
+            args["device_id"],
+            bool(args.get("is_whitelisted", False)),
+        )
+    if op == "deviceVerification.cleanupUnwhitelistedExpired":
+        return db_manager.device_verification.cleanup_unwhitelisted_expired(
+            int(args.get("ttl_minutes", 30))
+        )
     if op == "deviceVerification.addMaxVerifications":
         return db_manager.device_verification.add_max_verifications(args["device_id"], int(args["add_count"]))
     if op == "deviceVerification.delete":
@@ -442,5 +465,47 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         )
     if op == "deviceVerification.countAllLogs":
         return db_manager.device_verification.count_all_logs()
+    if op == "deviceVerification.listFirmwareFiles":
+        return db_manager.device_verification.list_firmware_files()
+    if op == "deviceVerification.createFirmwareFile":
+        return db_manager.device_verification.create_firmware_file(
+            args["file_name"],
+            args["file_url"],
+            int(args.get("file_size", 0))
+        )
+    if op == "deviceVerification.deleteFirmwareFile":
+        return db_manager.device_verification.delete_firmware_file(int(args["id"]))
+    if op == "deviceVerification.setDefaultFirmware":
+        return db_manager.device_verification.set_default_firmware(int(args["id"]))
+
+    if op == "questions.findAll":
+        return db_manager.questions.find_all()
+    if op == "questions.findById":
+        return db_manager.questions.find_by_id(args["id"])
+    if op == "questions.create":
+        return db_manager.questions.create(
+            args["name"],
+            args.get("category_name"),
+            args.get("db_file_path"),
+            args.get("vector_file_path"),
+        )
+    if op == "questions.update":
+        return db_manager.questions.update(
+            args["id"],
+            args["name"],
+            args.get("category_name"),
+            args.get("db_file_path"),
+            args.get("vector_file_path"),
+        )
+    if op == "questions.updateFields":
+        return db_manager.questions.update_fields(
+            args["id"],
+            args.get("name"),
+            args.get("category_name"),
+            args.get("db_file_path"),
+            args.get("vector_file_path"),
+        )
+    if op == "questions.delete":
+        return db_manager.questions.delete(args["id"])
 
     raise ValueError(f"Unknown op: {op}")

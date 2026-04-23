@@ -13,18 +13,17 @@ const multer = require('multer');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
+const FormData = require('form-data');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
 const { createTelegramIntegration, notifyForumNewPost, notifyForumNewReply, canSendTelegramForAdmin, notifyOrderPaid } = require('./telegram');
 const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegram-fetcher');
+const questionsService = require('./services/questionsService');
 
 // 加载环境变量
 dotenv.config();
 
 const app = express();
-// 部署在 Nginx 等反向代理后时必须开启，否则带 X-Forwarded-For 的请求会触发 express-rate-limit 的 ValidationError
-const trustProxyHops = process.env.TRUST_PROXY_HOPS;
-app.set('trust proxy', trustProxyHops === '0' || trustProxyHops === 'false' ? false : Number(trustProxyHops) || 1);
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-here';
@@ -164,6 +163,15 @@ if (!fs.existsSync(productUploadsPath)) {
   fs.mkdirSync(productUploadsPath, { recursive: true });
 }
 
+const questionUploadsPath = path.join(uploadsPath, 'questions');
+if (!fs.existsSync(questionUploadsPath)) {
+  fs.mkdirSync(questionUploadsPath, { recursive: true });
+}
+const nanoFirmwareUploadsPath = path.join(uploadsPath, 'nano-firmwares');
+if (!fs.existsSync(nanoFirmwareUploadsPath)) {
+  fs.mkdirSync(nanoFirmwareUploadsPath, { recursive: true });
+}
+
 // 对于静态资源文件（JS、CSS 等），如果文件不存在则返回 404，不回退到 index.html
 app.use('/assets', express.static(distPath + '/assets', {
   maxAge: '1y',
@@ -171,26 +179,20 @@ app.use('/assets', express.static(distPath + '/assets', {
   lastModified: true
 }));
 
-// 其他静态文件（index.html 不可长期缓存，否则部署后浏览器仍引用旧 script 文件名）
+// 其他静态文件
 app.use(express.static(distPath, {
   maxAge: '1y',
   etag: true,
-  lastModified: true,
-  setHeaders(res, absPath) {
-    if (path.basename(absPath) === 'index.html') {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    }
-  },
-}));
-
-// 上传文件静态访问
-app.use('/uploads', express.static(uploadsPath, {
-  maxAge: '30d',
-  etag: true,
   lastModified: true
 }));
+
+// 降低前台页面被搜索引擎收录的概率（合规爬虫会参考；恶意爬虫不受约束）
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
+  next();
+});
 
 const productImageUpload = multer({
   storage: multer.diskStorage({
@@ -212,6 +214,47 @@ const productImageUpload = multer({
       return;
     }
     cb(new Error('Only image files are allowed'));
+  }
+});
+
+const questionFilesUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, questionUploadsPath);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      cb(null, `question_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${ext}`);
+    }
+  }),
+  limits: {
+    // 题库向量文件通常较大，放宽到 200MB
+    fileSize: 200 * 1024 * 1024
+  }
+});
+
+const nanoFirmwareUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, nanoFirmwareUploadsPath);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.bin';
+      const safeExt = ext.replace(/[^a-z0-9.]/g, '') || '.bin';
+      cb(null, `nano_firmware_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${safeExt}`);
+    }
+  }),
+  limits: {
+    fileSize: 500 * 1024 * 1024
+  },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const allowExts = ['.zip', '.tar', '.gz', '.tgz', '.rar', '.7z', '.xz', '.bin', '.img', '.deb', '.run', '.txt', '.md', '.json', '.yaml', '.yml'];
+    if (allowExts.includes(ext)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Unsupported firmware file type'));
   }
 });
 
@@ -254,192 +297,20 @@ function parseProductImages(imageField) {
   return [raw];
 }
 
-/** 功能卡图标：仅允许 fa- 前缀的类名片段，防止注入 */
-function sanitizeFeatureIcon(icon) {
-  if (!icon || typeof icon !== 'string') return 'fa-star';
-  const parts = icon.trim().split(/\s+/).filter(Boolean);
-  const last = parts.length ? parts[parts.length - 1] : '';
-  if (/^fa-[a-z0-9-]+$/i.test(last)) return last.toLowerCase();
-  if (/^[a-z0-9-]+$/i.test(last)) return `fa-${last.toLowerCase()}`;
-  return 'fa-star';
-}
-
-/** 解析 JSON 功能卡列表（featuresJson / specsJson，最多 12 条） */
-function parseFeatureCardsJson(featuresJson) {
-  if (featuresJson == null || featuresJson === '') return [];
-  if (typeof featuresJson !== 'string') return [];
-  const raw = featuresJson.trim();
-  if (!raw) return [];
-  let arr;
+function normalizeUploadFileName(name) {
+  if (!name || typeof name !== 'string') return '';
   try {
-    arr = JSON.parse(raw);
-  } catch (_e) {
-    return [];
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch (_error) {
+    return name;
   }
-  if (!Array.isArray(arr)) return [];
-  const out = [];
-  for (const item of arr.slice(0, 12)) {
-    if (!item || typeof item !== 'object') continue;
-    const title = String(item.title ?? '').trim();
-    const description = String(item.description ?? '').trim();
-    if (!title && !description) continue;
-    out.push({
-      title: title || '—',
-      description,
-      icon: sanitizeFeatureIcon(item.icon)
-    });
-  }
-  return out;
-}
-
-/** 将请求体中的功能卡规范为可入库的 JSON 字符串或 null */
-function coerceFeaturesJsonForDb(body) {
-  const v = body.featuresJson !== undefined ? body.featuresJson : body.featureCards;
-  if (v == null || v === '') return null;
-  if (typeof v === 'string') {
-    const s = v.trim();
-    if (!s) return null;
-    try {
-      const parsed = JSON.parse(s);
-      if (!Array.isArray(parsed)) return null;
-      return JSON.stringify(parsed.slice(0, 12));
-    } catch (_e) {
-      return null;
-    }
-  }
-  if (Array.isArray(v)) {
-    const slim = v.slice(0, 12).map((row) => ({
-      title: String(row.title || '').trim(),
-      description: String(row.description || '').trim(),
-      icon: sanitizeFeatureIcon(row.icon)
-    })).filter((row) => row.title || row.description);
-    return slim.length ? JSON.stringify(slim) : null;
-  }
-  return null;
-}
-
-/** 详情页「重要说明」：最多 20 条，每项 { text, mode?: 'check'|'ban' } */
-const USAGE_NOTICE_MAX_ROWS = 20;
-
-function parseUsageNoticeJson(raw) {
-  if (raw == null || raw === '') return [];
-  let arr;
-  if (typeof raw === 'string') {
-    const s = raw.trim();
-    if (!s) return [];
-    try {
-      arr = JSON.parse(s);
-    } catch (_e) {
-      return [];
-    }
-  } else if (Array.isArray(raw)) {
-    arr = raw;
-  } else {
-    return [];
-  }
-  if (!Array.isArray(arr)) return [];
-  const out = [];
-  for (const item of arr.slice(0, USAGE_NOTICE_MAX_ROWS)) {
-    if (!item || typeof item !== 'object') continue;
-    const text = String(item.text ?? '').trim();
-    if (!text) continue;
-    const modeRaw = String(item.mode ?? 'check').toLowerCase();
-    const mode = modeRaw === 'ban' || modeRaw === 'warn' ? 'ban' : 'check';
-    out.push({ text, mode });
-  }
-  return out;
-}
-
-function coerceUsageNoticeJsonForDb(body) {
-  const v = body.usageNoticeJson !== undefined ? body.usageNoticeJson : body.usageNoticeLines;
-  if (v == null || v === '') return null;
-  if (typeof v === 'string') {
-    const s = v.trim();
-    if (!s) return null;
-    try {
-      const parsed = JSON.parse(s);
-      if (!Array.isArray(parsed)) return null;
-      const slim = parseUsageNoticeJson(parsed);
-      return slim.length ? JSON.stringify(slim) : null;
-    } catch (_e) {
-      return null;
-    }
-  }
-  if (Array.isArray(v)) {
-    const slim = parseUsageNoticeJson(v);
-    return slim.length ? JSON.stringify(slim) : null;
-  }
-  return null;
-}
-
-/** 规格卡入库 JSON（与功能卡结构相同） */
-function coerceSpecsJsonForDb(body) {
-  const v = body.specsJson !== undefined ? body.specsJson : body.specCards;
-  if (v == null || v === '') return null;
-  if (typeof v === 'string') {
-    const s = v.trim();
-    if (!s) return null;
-    try {
-      const parsed = JSON.parse(s);
-      if (!Array.isArray(parsed)) return null;
-      return JSON.stringify(parsed.slice(0, 12));
-    } catch (_e) {
-      return null;
-    }
-  }
-  if (Array.isArray(v)) {
-    const slim = v.slice(0, 12).map((row) => ({
-      title: String(row.title || '').trim(),
-      description: String(row.description || '').trim(),
-      icon: sanitizeFeatureIcon(row.icon)
-    })).filter((row) => row.title || row.description);
-    return slim.length ? JSON.stringify(slim) : null;
-  }
-  return null;
 }
 
 function normalizeProductRecord(product) {
   if (!product) return product;
   const images = parseProductImages(product.image);
-  let featureCards = [];
-  if (Array.isArray(product.featureCards) && product.featureCards.length) {
-    featureCards = product.featureCards
-      .map((c) => ({
-        title: String(c.title ?? '').trim(),
-        description: String(c.description ?? '').trim(),
-        icon: sanitizeFeatureIcon(c.icon)
-      }))
-      .filter((c) => c.title || c.description)
-      .map((c) => ({ ...c, title: c.title || '—' }))
-      .slice(0, 12);
-  } else {
-    featureCards = parseFeatureCardsJson(product.featuresJson);
-  }
-  let specCards = [];
-  if (Array.isArray(product.specCards) && product.specCards.length) {
-    specCards = product.specCards
-      .map((c) => ({
-        title: String(c.title ?? '').trim(),
-        description: String(c.description ?? '').trim(),
-        icon: sanitizeFeatureIcon(c.icon)
-      }))
-      .filter((c) => c.title || c.description)
-      .map((c) => ({ ...c, title: c.title || '—' }))
-      .slice(0, 12);
-  } else {
-    specCards = parseFeatureCardsJson(product.specsJson);
-  }
-  let usageNoticeLines = [];
-  if (Array.isArray(product.usageNoticeLines) && product.usageNoticeLines.length) {
-    usageNoticeLines = parseUsageNoticeJson(product.usageNoticeLines);
-  } else {
-    usageNoticeLines = parseUsageNoticeJson(product.usageNoticeJson);
-  }
   return {
     ...product,
-    featureCards,
-    specCards,
-    usageNoticeLines,
     images,
     image: images[0] || ''
   };
@@ -464,6 +335,18 @@ setInterval(async () => {
   }
 }, 60000);
 
+// 定时任务：自动删除 30 分钟内未加入白名单的自动注册设备
+setInterval(async () => {
+  try {
+    const deleted = await dbOperations.deviceVerification.cleanupUnwhitelistedExpired(10);
+    if (deleted > 0) {
+      console.log(`[Device Whitelist Cleanup] Deleted ${deleted} unwhitelisted devices`);
+    }
+  } catch (error) {
+    console.error('[Device Whitelist Cleanup] Error:', error);
+  }
+}, 60000);
+
 // ==================== 认证中间件 ====================
 
 function requireUser(req, res, next) {
@@ -484,6 +367,54 @@ async function requireAdmin(req, res, next) {
   }
   next();
 }
+
+// 敏感上传目录：仅管理员可直链访问，避免被公开爬虫/扫描器直接拉取文件
+app.use(
+  '/uploads/questions',
+  requireAdmin,
+  express.static(questionUploadsPath, {
+    maxAge: '30d',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      const ext = path.extname(filePath).toLowerCase();
+      if (['.db', '.sqlite', '.sqlite3', '.index', '.gz', '.zip', '.tar', '.tgz', '.7z', '.rar'].includes(ext)) {
+        res.setHeader('Content-Disposition', 'attachment');
+      }
+    }
+  })
+);
+app.use(
+  '/uploads/nano-firmwares',
+  requireAdmin,
+  express.static(nanoFirmwareUploadsPath, {
+    maxAge: '30d',
+    etag: true,
+    lastModified: true,
+    setHeaders: (res) => {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  })
+);
+
+// 上传文件静态访问（排除已在上方单独保护的敏感目录）
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    const p = String(req.path || '');
+    if (p.startsWith('/questions') || p.startsWith('/nano-firmwares')) {
+      return res.status(404).send('Not found');
+    }
+    return next();
+  },
+  express.static(uploadsPath, {
+    maxAge: '30d',
+    etag: true,
+    lastModified: true
+  })
+);
 
 // ==================== 用户认证 API ====================
 
@@ -541,7 +472,7 @@ app.get('/api/products', async (req, res) => {
     res.json(translatedProducts);
   } catch (error) {
     console.error('[API Error] /api/products:', error.message);
-    res.status(503).json({ error: 'Database service unavailable' });
+    res.status(503).json({ error: 'Database service unavailable. Please start Python backend with: npm run py' });
   }
 });
 
@@ -704,17 +635,16 @@ app.get('/api/forum/posts/:id', async (req, res) => {
 app.post('/api/forum/posts', requireUser, async (req, res) => {
   const { title, content } = req.body;
   const date = new Date().toISOString().split('T')[0];
-  // create 返回 SQLite lastrowid，不可再用 findAll 最后一项推断 ID（列表按置顶/日期/id 排序，末项未必是新帖）
-  const postId = await dbOperations.forumPosts.create(title, req.session.user.username, content, date, 0);
-
+  await dbOperations.forumPosts.create(title, req.session.user.username, content, date, 0);
+  
   // 发送 Telegram 通知
   try {
     const post = {
-      id: postId,
+      id: await dbOperations.forumPosts.findAll().then(posts => posts[posts.length - 1]?.id),
       title,
       author: req.session.user.username,
       content,
-      date,
+      date
     };
     notifyForumNewPost(post).catch((err) => {
       console.error('[Forum Telegram] Post notification error:', err.message || err);
@@ -722,8 +652,8 @@ app.post('/api/forum/posts', requireUser, async (req, res) => {
   } catch (err) {
     console.error('[Forum Telegram] Get post info error:', err.message || err);
   }
-
-  res.json({ success: true, id: postId });
+  
+  res.json({ success: true });
 });
 
 app.get('/api/forum/posts/:id/replies', async (req, res) => {
@@ -1029,10 +959,7 @@ app.post('/api/admin/products', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  const featuresJson = coerceFeaturesJsonForDb(req.body);
-  const specsJson = coerceSpecsJsonForDb(req.body);
-  const usageNoticeJson = coerceUsageNoticeJsonForDb(req.body);
-  await dbOperations.products.create(name, description, image, productDate, price, price, featuresJson, specsJson, usageNoticeJson);
+  await dbOperations.products.create(name, description, image, productDate, price, price);
   res.json({ success: true });
 });
 
@@ -1040,36 +967,169 @@ app.put('/api/admin/products/:id', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  const id = parseInt(req.params.id);
-  const existing = await dbOperations.products.findById(id);
-  let featuresJson = null;
-  if (Object.prototype.hasOwnProperty.call(req.body, 'featureCards') ||
-      Object.prototype.hasOwnProperty.call(req.body, 'featuresJson')) {
-    featuresJson = coerceFeaturesJsonForDb(req.body);
-  } else {
-    featuresJson = existing && existing.featuresJson != null ? existing.featuresJson : null;
-  }
-  let specsJson = null;
-  if (Object.prototype.hasOwnProperty.call(req.body, 'specCards') ||
-      Object.prototype.hasOwnProperty.call(req.body, 'specsJson')) {
-    specsJson = coerceSpecsJsonForDb(req.body);
-  } else {
-    specsJson = existing && existing.specsJson != null ? existing.specsJson : null;
-  }
-  let usageNoticeJson = null;
-  if (Object.prototype.hasOwnProperty.call(req.body, 'usageNoticeLines') ||
-      Object.prototype.hasOwnProperty.call(req.body, 'usageNoticeJson')) {
-    usageNoticeJson = coerceUsageNoticeJsonForDb(req.body);
-  } else {
-    usageNoticeJson = existing && existing.usageNoticeJson != null ? existing.usageNoticeJson : null;
-  }
-  await dbOperations.products.update(id, name, description, image, productDate, price, price, featuresJson, specsJson, usageNoticeJson);
+  await dbOperations.products.update(parseInt(req.params.id), name, description, image, productDate, price, price);
   res.json({ success: true });
 });
 
 app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
   await dbOperations.products.delete(parseInt(req.params.id));
   res.json({ success: true });
+});
+
+app.get('/api/admin/questions', requireAdmin, async (req, res) => {
+  try {
+    const questions = await questionsService.findAll();
+    res.json(questions);
+  } catch (error) {
+    logger.error('Failed to get questions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/questions/:id', requireAdmin, async (req, res) => {
+  try {
+    const question = await questionsService.findById(parseInt(req.params.id));
+    res.json(question);
+  } catch (error) {
+    if (error.message.includes('404') || error.message.includes('not found')) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    logger.error('Failed to get question:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
+  { name: 'dbFile', maxCount: 1 },
+  { name: 'vectorFile', maxCount: 1 }
+]), async (req, res) => {
+  console.log('[Questions] req.body:', req.body);
+  console.log('[Questions] req.files:', req.files);
+  
+  try {
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    const name = req.body?.name || req.body?.['name'] || '';
+    const categoryName = (req.body?.category_name || req.body?.['category_name'] || '').trim();
+    console.log('[Questions] name value:', name);
+    
+    formData.append('name', name);
+    if (categoryName) {
+      formData.append('category_name', categoryName);
+    }
+    
+    if (req.files?.dbFile?.[0]) {
+      const dbFile = req.files.dbFile[0];
+      formData.append('db_file', fs.createReadStream(dbFile.path), {
+        filename: dbFile.originalname,
+        contentType: dbFile.mimetype
+      });
+    }
+    
+    if (req.files?.vectorFile?.[0]) {
+      const vectorFile = req.files.vectorFile[0];
+      formData.append('vector_file', fs.createReadStream(vectorFile.path), {
+        filename: vectorFile.originalname,
+        contentType: vectorFile.mimetype
+      });
+    }
+    
+    const result = await questionsService.createWithFiles(formData);
+    
+    if (req.files?.dbFile?.[0]) {
+      try { fs.unlinkSync(req.files.dbFile[0].path); } catch (e) {}
+    }
+    if (req.files?.vectorFile?.[0]) {
+      try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    
+    res.json({ success: true, id: result.id, dbFilePath: result.db_file_path, vectorFilePath: result.vector_file_path });
+  } catch (error) {
+    logger.error('Failed to create question:', error);
+    if (req.files?.dbFile?.[0]) {
+      try { fs.unlinkSync(req.files.dbFile[0].path); } catch (e) {}
+    }
+    if (req.files?.vectorFile?.[0]) {
+      try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
+  { name: 'dbFile', maxCount: 1 },
+  { name: 'vectorFile', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    formData.append('name', req.body.name || '');
+    const categoryName = (req.body?.category_name || '').trim();
+    if (categoryName) {
+      formData.append('category_name', categoryName);
+    }
+    
+    if (req.body.clearDbFile === 'true' || req.body.clearDbFile === true) {
+      formData.append('clear_db_file', 'true');
+    }
+    if (req.body.clearVectorFile === 'true' || req.body.clearVectorFile === true) {
+      formData.append('clear_vector_file', 'true');
+    }
+    
+    if (req.files.dbFile && req.files.dbFile[0]) {
+      const dbFile = req.files.dbFile[0];
+      formData.append('db_file', fs.createReadStream(dbFile.path), {
+        filename: dbFile.originalname,
+        contentType: dbFile.mimetype
+      });
+    }
+    
+    if (req.files.vectorFile && req.files.vectorFile[0]) {
+      const vectorFile = req.files.vectorFile[0];
+      formData.append('vector_file', fs.createReadStream(vectorFile.path), {
+        filename: vectorFile.originalname,
+        contentType: vectorFile.mimetype
+      });
+    }
+    
+    const result = await questionsService.updateWithFiles(parseInt(req.params.id), formData);
+    
+    if (req.files.dbFile && req.files.dbFile[0]) {
+      try { fs.unlinkSync(req.files.dbFile[0].path); } catch (e) {}
+    }
+    if (req.files.vectorFile && req.files.vectorFile[0]) {
+      try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    
+    res.json({ success: true, dbFilePath: result.db_file_path, vectorFilePath: result.vector_file_path });
+  } catch (error) {
+    if (error.message.includes('404') || error.message.includes('not found')) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    logger.error('Failed to update question:', error);
+    if (req.files?.dbFile?.[0]) {
+      try { fs.unlinkSync(req.files.dbFile[0].path); } catch (e) {}
+    }
+    if (req.files?.vectorFile?.[0]) {
+      try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/questions/:id', requireAdmin, async (req, res) => {
+  try {
+    await questionsService.delete(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    if (error.message.includes('404') || error.message.includes('not found')) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    logger.error('Failed to delete question:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/admin/posts', requireAdmin, async (req, res) => {
@@ -1503,6 +1563,156 @@ app.delete('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
 
 // ==================== 设备验证 API ====================
 
+// 将数据库记录的文件路径解析为 uploads 内的绝对路径，防止路径穿越
+function resolveUploadPathSafely(storedPath) {
+  const raw = String(storedPath || '').trim();
+  if (!raw) throw new Error('empty-path');
+
+  let absPath = '';
+  if (raw.startsWith('/uploads/') || raw.startsWith('uploads/')) {
+    absPath = path.join(__dirname, raw.replace(/^\//, ''));
+  } else if (path.isAbsolute(raw)) {
+    absPath = raw;
+  } else {
+    absPath = path.join(__dirname, raw);
+  }
+
+  const resolved = path.resolve(absPath);
+  const uploadsRoot = path.resolve(uploadsPath);
+  const relative = path.relative(uploadsRoot, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('path-outside-uploads');
+  }
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+    throw new Error('file-not-found');
+  }
+  return resolved;
+}
+
+// 设备端下载绑定资源（题库数据库/向量索引/固件），使用与验签相同的签名参数鉴权
+app.post('/api/device/download/artifact', async (req, res) => {
+  const { device_id, issued_at, signature, artifact } = req.body || {};
+  if (!artifact || typeof artifact !== 'string') {
+    return res.status(400).json({ error: 'Missing artifact' });
+  }
+  const allowedArtifacts = ['question_db', 'question_vector', 'firmware'];
+  if (!allowedArtifacts.includes(artifact)) {
+    return res.status(400).json({ error: 'Invalid artifact' });
+  }
+  if (!device_id || typeof device_id !== 'string' || typeof signature !== 'string') {
+    return res.status(400).json({ error: 'Invalid request body' });
+  }
+  const deviceId = device_id.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const issuedAt = parseInt(issued_at, 10);
+  if (Number.isNaN(issuedAt) || issuedAt < 0) {
+    return res.status(400).json({ error: 'Invalid issued_at' });
+  }
+
+  try {
+    const verified = await dbOperations.deviceVerification.verifySignature(deviceId, signature, issuedAt);
+    if (!verified) {
+      return res.status(403).json({ error: 'Signature verification failed' });
+    }
+
+    const device = await dbOperations.deviceVerification.findByDeviceId(deviceId);
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    let absFilePath = '';
+    let downloadName = 'artifact.bin';
+
+    if (artifact === 'firmware') {
+      if (!device.firmware_url) {
+        return res.status(404).json({ error: 'No firmware bound to this device' });
+      }
+      absFilePath = resolveUploadPathSafely(device.firmware_url);
+      downloadName = path.basename(device.firmware_name || absFilePath);
+    } else {
+      if (!device.question_id) {
+        return res.status(404).json({ error: 'No question bank bound to this device' });
+      }
+      const question = await dbOperations.questions.findById(parseInt(device.question_id, 10));
+      if (!question) {
+        return res.status(404).json({ error: 'Question bank not found' });
+      }
+      const key = artifact === 'question_db' ? 'db_file_path' : 'vector_file_path';
+      if (!question[key]) {
+        return res.status(404).json({ error: `No ${key} configured for this question bank` });
+      }
+      absFilePath = resolveUploadPathSafely(question[key]);
+      downloadName = path.basename(absFilePath);
+    }
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    fs.createReadStream(absFilePath).pipe(res);
+  } catch (error) {
+    if (error && error.message === 'path-outside-uploads') {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    if (error && error.message === 'file-not-found') {
+      return res.status(404).json({ error: 'File not found on server' });
+    }
+    if (error && error.message === 'empty-path') {
+      return res.status(404).json({ error: 'File path missing' });
+    }
+    console.error('[API Error] POST /api/device/download/artifact:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+// 设备端查询当前绑定关系（题库ID/固件ID），用于本地判断是否需要替换旧资源
+app.post('/api/device/binding-status', async (req, res) => {
+  const { device_id, issued_at, signature } = req.body || {};
+  if (!device_id || typeof device_id !== 'string' || typeof signature !== 'string') {
+    return res.status(400).json({ error: 'Invalid request body' });
+  }
+  const deviceId = device_id.trim();
+  if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
+    return res.status(400).json({ error: 'Invalid device_id format' });
+  }
+  const issuedAt = parseInt(issued_at, 10);
+  if (Number.isNaN(issuedAt) || issuedAt < 0) {
+    return res.status(400).json({ error: 'Invalid issued_at' });
+  }
+
+  try {
+    const verified = await dbOperations.deviceVerification.verifySignature(deviceId, signature, issuedAt);
+    if (!verified) {
+      return res.status(403).json({ error: 'Signature verification failed' });
+    }
+
+    const device = await dbOperations.deviceVerification.findByDeviceId(deviceId);
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
+    let question = null;
+    if (device.question_id) {
+      question = await dbOperations.questions.findById(parseInt(device.question_id, 10));
+    }
+
+    res.json({
+      device_id: deviceId,
+      question_id: device.question_id || null,
+      firmware_id: device.firmware_id || null,
+      has_question_db: !!(question && question.db_file_path),
+      has_question_vector: !!(question && question.vector_file_path),
+      has_firmware: !!device.firmware_url,
+      question_db_name: question && question.db_file_path ? path.basename(question.db_file_path) : null,
+      question_vector_name: question && question.vector_file_path ? path.basename(question.vector_file_path) : null,
+      firmware_name: device.firmware_name || null
+    });
+  } catch (error) {
+    console.error('[API Error] POST /api/device/binding-status:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 // 设备验证（用户端）
 app.post('/api/device/verify', async (req, res) => {
   const { device_id } = req.body || {};
@@ -1519,6 +1729,9 @@ app.post('/api/device/verify', async (req, res) => {
     const result = await dbOperations.deviceVerification.verify(deviceId, ipAddress, userAgent);
     res.json(result);
   } catch (error) {
+    if (error.message && error.message.includes('not whitelisted')) {
+      return res.status(403).json({ error: 'Device not whitelisted; contact administrator.' });
+    }
     if (error.message.includes('quota exhausted')) {
       return res.status(403).json({ error: 'Verification quota exhausted; contact administrator.' });
     }
@@ -1592,6 +1805,79 @@ app.put('/api/admin/device-verification/settings', requireAdmin, async (req, res
   }
 });
 
+app.get('/api/admin/device-firmwares', requireAdmin, async (_req, res) => {
+  try {
+    const items = await dbOperations.deviceVerification.listFirmwareFiles();
+    res.json({ items });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/device-firmwares:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
+  nanoFirmwareUpload.single('firmware')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Firmware upload failed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No firmware file uploaded' });
+    }
+    try {
+      const normalizedName = normalizeUploadFileName(req.file.originalname || req.file.filename);
+      const firmware = await dbOperations.deviceVerification.createFirmwareFile(
+        normalizedName || req.file.filename,
+        `/uploads/nano-firmwares/${req.file.filename}`,
+        req.file.size || 0
+      );
+      res.json({ ok: true, firmware });
+    } catch (error) {
+      console.error('[API Error] POST /api/admin/device-firmwares/upload:', error.message);
+      res.status(503).json({ error: 'Database service unavailable' });
+    }
+  });
+});
+
+app.put('/api/admin/device-firmwares/:id/default', requireAdmin, async (req, res) => {
+  const firmwareId = parseInt(req.params.id, 10);
+  if (Number.isNaN(firmwareId) || firmwareId <= 0) {
+    return res.status(400).json({ error: 'Invalid firmware id' });
+  }
+  try {
+    const firmware = await dbOperations.deviceVerification.setDefaultFirmware(firmwareId);
+    res.json({ ok: true, firmware });
+  } catch (error) {
+    if (error.message && error.message.includes('not found')) {
+      return res.status(404).json({ error: 'Firmware not found' });
+    }
+    console.error('[API Error] PUT /api/admin/device-firmwares/:id/default:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.delete('/api/admin/device-firmwares/:id', requireAdmin, async (req, res) => {
+  const firmwareId = parseInt(req.params.id, 10);
+  if (Number.isNaN(firmwareId) || firmwareId <= 0) {
+    return res.status(400).json({ error: 'Invalid firmware id' });
+  }
+  try {
+    const removed = await dbOperations.deviceVerification.deleteFirmwareFile(firmwareId);
+    if (!removed) {
+      return res.status(404).json({ error: 'Firmware not found' });
+    }
+    if (removed.file_url && typeof removed.file_url === 'string' && removed.file_url.startsWith('/uploads/nano-firmwares/')) {
+      const abs = path.join(__dirname, removed.file_url.replace(/^\//, ''));
+      if (abs.startsWith(nanoFirmwareUploadsPath) && fs.existsSync(abs)) {
+        fs.unlinkSync(abs);
+      }
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[API Error] DELETE /api/admin/device-firmwares/:id:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 // 管理端设备验证管理
 app.get('/api/admin/devices', requireAdmin, async (req, res) => {
   try {
@@ -1617,7 +1903,7 @@ app.get('/api/admin/devices/:id', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/devices', requireAdmin, async (req, res) => {
-  const { device_id, max_verifications } = req.body || {};
+  const { device_id, max_verifications, question_id, firmware_id, is_whitelisted } = req.body || {};
   if (!device_id || typeof device_id !== 'string' || device_id.trim().length < 4) {
     return res.status(400).json({ error: 'Invalid device_id format' });
   }
@@ -1629,8 +1915,11 @@ app.post('/api/admin/devices', requireAdmin, async (req, res) => {
   if (maxV < 0 || maxV > 1000000) {
     return res.status(400).json({ error: 'Invalid max_verifications' });
   }
+  const questionId = question_id ? parseInt(question_id) : null;
+  const firmwareId = firmware_id ? parseInt(firmware_id) : null;
+  const isWhitelisted = is_whitelisted === undefined ? true : Boolean(is_whitelisted);
   try {
-    const device = await dbOperations.deviceVerification.create(deviceId, maxV);
+    const device = await dbOperations.deviceVerification.create(deviceId, maxV, questionId, firmwareId, isWhitelisted);
     res.json({ ok: true, device });
   } catch (error) {
     console.error('[API Error] POST /api/admin/devices:', error.message);
@@ -1643,7 +1932,7 @@ app.put('/api/admin/devices/:deviceId', requireAdmin, async (req, res) => {
   if (!/^[\w.:-]+$/.test(deviceId) || deviceId.length < 4 || deviceId.length > 128) {
     return res.status(400).json({ error: 'Invalid device_id format' });
   }
-  const { max_verifications, add_max_verifications } = req.body || {};
+  const { max_verifications, add_max_verifications, question_id, firmware_id, is_whitelisted } = req.body || {};
   try {
     const existing = await dbOperations.deviceVerification.findByDeviceId(deviceId);
     if (!existing) {
@@ -1660,7 +1949,25 @@ app.put('/api/admin/devices/:deviceId', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Invalid max_verifications' });
     }
     await dbOperations.deviceVerification.updateMaxVerifications(deviceId, newMax);
-    res.json({ ok: true, device_id: deviceId, max_verifications: newMax });
+    if (question_id !== undefined) {
+      const qid = question_id ? parseInt(question_id) : null;
+      await dbOperations.deviceVerification.updateQuestionId(deviceId, qid);
+    }
+    if (firmware_id !== undefined) {
+      const fid = firmware_id ? parseInt(firmware_id) : null;
+      await dbOperations.deviceVerification.updateFirmwareId(deviceId, fid);
+    }
+    if (is_whitelisted !== undefined) {
+      await dbOperations.deviceVerification.updateWhitelist(deviceId, Boolean(is_whitelisted));
+    }
+    res.json({
+      ok: true,
+      device_id: deviceId,
+      max_verifications: newMax,
+      question_id: question_id !== undefined ? (question_id ? parseInt(question_id) : null) : existing.question_id,
+      firmware_id: firmware_id !== undefined ? (firmware_id ? parseInt(firmware_id) : null) : existing.firmware_id,
+      is_whitelisted: is_whitelisted !== undefined ? (Boolean(is_whitelisted) ? 1 : 0) : (existing.is_whitelisted || 0)
+    });
   } catch (error) {
     console.error('[API Error] PUT /api/admin/devices/:deviceId:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
@@ -1736,15 +2043,17 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/assets/') || req.path.startsWith('/dist/assets/')) {
     return res.status(404).send('File not found');
   }
-  // SPA 回退的 index 同样禁止强缓存，避免线上更新后仍加载旧入口
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // 全局错误处理
 app.use((err, req, res, next) => {
+  if (err && err.name === 'MulterError' && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      code: 'FILE_TOO_LARGE',
+      error: '上传文件过大，题库文件最大支持 200MB'
+    });
+  }
   if (err && err.code === 'EBADCSRFTOKEN') {
     return res.status(403).json({
       code: 'INVALID_CSRF_TOKEN',

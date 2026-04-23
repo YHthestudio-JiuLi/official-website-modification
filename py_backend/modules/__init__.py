@@ -14,6 +14,7 @@ from .chat_messages import ChatMessageManager
 from .chat_tg_links import ChatTgLinkManager
 from .popup_notices import PopupNoticeManager
 from .device_verification import DeviceVerificationManager
+from .questions import QuestionManager
 from .database_manager import DatabaseManager
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "ChatTgLinkManager",
     "PopupNoticeManager",
     "DeviceVerificationManager",
+    "QuestionManager",
     "DatabaseManager",
 ]

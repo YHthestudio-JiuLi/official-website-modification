@@ -3,6 +3,9 @@
 """
 从官网 API 拉取设备验证签名，并写入同目录下的 last_verify.json。
 device_id 默认自动取本机网卡 MAC（小写冒号分隔，如 aa:bb:cc:dd:ee:ff）。
+
+退出码：0 成功；1 失败；2 设备未加入白名单（可由 yh_background_sync 轮询等待管理员授权）。
+
 用法：
   export API_BASE=http://192.168.2.12:3000
   python3 fetch_signature.py
@@ -98,6 +101,9 @@ def main() -> int:
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace")
         print(f"[错误] HTTP {e.code}: {err_body}", file=sys.stderr)
+        # 未加入白名单：由 run_demo / yh_background_sync 轮询等待管理员授权
+        if e.code == 403 and "not whitelisted" in err_body.lower():
+            return 2
         return 1
     except urllib.error.URLError as e:
         print(f"[错误] 网络失败: {e.reason}", file=sys.stderr)
@@ -113,16 +119,20 @@ def main() -> int:
         print(f"[错误] 服务端: {data.get('error')}", file=sys.stderr)
         return 1
 
+    # 记录当前 API_BASE，便于 run_demo 在冷却期跳过拉签时仍能用正确地址下载
+    to_save = dict(data)
+    to_save["api_base"] = base
+
     out_dir = Path(__file__).resolve().parent
     out_path = out_dir / OUTPUT_NAME
-    out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_path.write_text(json.dumps(to_save, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"[成功] 已写入: {out_path}")
     print(f"  device_id: {data.get('device_id')}")
     print(f"  issued_at: {data.get('issued_at')}")
     print(f"  signature: {str(data.get('signature', ''))[:48]}...")
     print(f"  public_key: {str(data.get('public_key', ''))[:32]}...")
-    print("\n下一步: python3 verify_signature.py")
+    print("\n下一步: python3 verify_signature.py（run_demo.sh 会在验签通过后下载绑定资源到 YH/）")
     return 0
 
 

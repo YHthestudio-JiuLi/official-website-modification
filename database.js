@@ -41,10 +41,10 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson }),
-    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson }),
+    create: (name, description, image, date, price, priceUsdt) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt }),
+    update: (id, name, description, image, date, price, priceUsdt) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt }),
     delete: (id) => rpc('products.delete', { id })
   },
   orders: {
@@ -153,10 +153,18 @@ const dbOperations = {
     findAll: () => rpc('deviceVerification.findAll'),
     findById: (id) => rpc('deviceVerification.findById', { id }),
     findByDeviceId: (deviceId) => rpc('deviceVerification.findByDeviceId', { device_id: deviceId }),
-    create: (deviceId, maxVerifications = 10) =>
-      rpc('deviceVerification.create', { device_id: deviceId, max_verifications: maxVerifications }),
+    create: (deviceId, maxVerifications = 10, questionId = null, firmwareId = null, isWhitelisted = false) =>
+      rpc('deviceVerification.create', { device_id: deviceId, max_verifications: maxVerifications, question_id: questionId, firmware_id: firmwareId, is_whitelisted: isWhitelisted }),
     updateMaxVerifications: (deviceId, maxVerifications) =>
       rpc('deviceVerification.updateMaxVerifications', { device_id: deviceId, max_verifications: maxVerifications }),
+    updateQuestionId: (deviceId, questionId) =>
+      rpc('deviceVerification.updateQuestionId', { device_id: deviceId, question_id: questionId }),
+    updateFirmwareId: (deviceId, firmwareId) =>
+      rpc('deviceVerification.updateFirmwareId', { device_id: deviceId, firmware_id: firmwareId }),
+    updateWhitelist: (deviceId, isWhitelisted) =>
+      rpc('deviceVerification.updateWhitelist', { device_id: deviceId, is_whitelisted: isWhitelisted }),
+    cleanupUnwhitelistedExpired: (ttlMinutes = 30) =>
+      rpc('deviceVerification.cleanupUnwhitelistedExpired', { ttl_minutes: ttlMinutes }),
     addMaxVerifications: (deviceId, addCount) =>
       rpc('deviceVerification.addMaxVerifications', { device_id: deviceId, add_count: addCount }),
     delete: (deviceId) => rpc('deviceVerification.delete', { device_id: deviceId }),
@@ -174,7 +182,23 @@ const dbOperations = {
       rpc('deviceVerification.countLogsByDeviceId', { device_id: deviceId }),
     findAllLogs: (limit = 100, offset = 0) =>
       rpc('deviceVerification.findAllLogs', { limit, offset }),
-    countAllLogs: () => rpc('deviceVerification.countAllLogs')
+    countAllLogs: () => rpc('deviceVerification.countAllLogs'),
+    listFirmwareFiles: () => rpc('deviceVerification.listFirmwareFiles'),
+    createFirmwareFile: (fileName, fileUrl, fileSize = 0) =>
+      rpc('deviceVerification.createFirmwareFile', { file_name: fileName, file_url: fileUrl, file_size: fileSize }),
+    deleteFirmwareFile: (id) => rpc('deviceVerification.deleteFirmwareFile', { id }),
+    setDefaultFirmware: (id) => rpc('deviceVerification.setDefaultFirmware', { id })
+  },
+  questions: {
+    findAll: () => rpc('questions.findAll'),
+    findById: (id) => rpc('questions.findById', { id }),
+    create: (name, categoryName = null, dbFilePath = null, vectorFilePath = null) =>
+      rpc('questions.create', { name, category_name: categoryName, db_file_path: dbFilePath, vector_file_path: vectorFilePath }),
+    update: (id, name, categoryName = null, dbFilePath = null, vectorFilePath = null) =>
+      rpc('questions.update', { id, name, category_name: categoryName, db_file_path: dbFilePath, vector_file_path: vectorFilePath }),
+    updateFields: (id, name = null, categoryName = null, dbFilePath = null, vectorFilePath = null) =>
+      rpc('questions.updateFields', { id, name, category_name: categoryName, db_file_path: dbFilePath, vector_file_path: vectorFilePath }),
+    delete: (id) => rpc('questions.delete', { id })
   }
 };
 

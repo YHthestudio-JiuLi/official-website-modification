@@ -16,6 +16,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      // 商品图等静态资源由 Node 的 /uploads 提供；开发时页面在 5173，需代理否则图片 404
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   },

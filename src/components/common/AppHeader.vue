@@ -40,7 +40,7 @@
         <li class="lang-switcher">
           <button @click="toggleLanguage" class="nav-link lang-btn" :title="$t('language.switch')">
             <i class="fas fa-globe"></i>
-            <span>{{ currentLang === 'zh' ? '中文' : 'EN' }}</span>
+            <span>{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
           </button>
         </li>
 

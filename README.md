@@ -37,7 +37,6 @@ official-website-modification/
 │   └── modules/           # 数据管理模块（订单/论坛/聊天等）
 ├── data/                  # SQLite 数据文件目录
 ├── uploads/               # 上传资源（如商品图片）
-├── tests/                 # Node 侧测试脚本
 ├── scripts/               # 辅助脚本
 ├── plans/                 # 规划文档
 ├── logs/                  # 运行日志

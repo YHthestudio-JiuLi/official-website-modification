@@ -4,7 +4,7 @@
     <div v-if="!isLoggedIn" class="admin-login-overlay">
       <div class="admin-login-card">
         <div class="admin-login-brand">
-          <span class="admin-login-logo">客</span>
+          <span class="admin-login-logo">{{ $t('adminChat.login.logo') }}</span>
           <div>
             <h1>{{ $t('adminChat.login.title') }}</h1>
             <p class="admin-login-tagline">{{ $t('adminChat.login.subtitle') }}</p>
@@ -66,7 +66,7 @@
                 :class="{ active: serviceFilter === 'all' }"
                 @click="serviceFilter = 'all'"
               >
-                <i class="fas fa-inbox"></i> 全部
+                <i class="fas fa-inbox"></i> {{ $t('adminChat.workspace.filterAll') }}
               </button>
               <button 
                 type="button" 
@@ -74,7 +74,7 @@
                 :class="{ active: serviceFilter === 'support' }"
                 @click="serviceFilter = 'support'"
               >
-                <i class="fas fa-headset"></i> 官方客服
+                <i class="fas fa-headset"></i> {{ $t('adminChat.workspace.filterSupport') }}
               </button>
               <button 
                 type="button" 
@@ -82,7 +82,7 @@
                 :class="{ active: serviceFilter === 'sales' }"
                 @click="serviceFilter = 'sales'"
               >
-                <i class="fas fa-shopping-cart"></i> 售前咨询
+                <i class="fas fa-shopping-cart"></i> {{ $t('adminChat.workspace.filterSales') }}
               </button>
             </div>
             
@@ -92,7 +92,7 @@
           <div class="conv-list">
             <div v-if="filteredConversations.length === 0" class="empty-conv">
               <i class="fas fa-inbox"></i>
-              <p>暂无会话</p>
+              <p>{{ $t('adminChat.workspace.emptyConversations') }}</p>
             </div>
             <div
               v-for="conv in filteredConversations"
@@ -106,12 +106,16 @@
                 <div class="conv-item-top">
                   <strong>{{ conv.nickname }}</strong>
                   <span class="service-type-badge" :class="conv.service_type || 'support'">
-                    {{ (conv.service_type || 'support') === 'support' ? '客服' : '售前' }}
+                    {{
+                      (conv.service_type || 'support') === 'support'
+                        ? $t('adminChat.workspace.badgeSupportShort')
+                        : $t('adminChat.workspace.badgeSalesShort')
+                    }}
                   </span>
                   <time class="conv-time">{{ formatSidebarTime(conv.last_at) }}</time>
                 </div>
                 <div class="conv-item-bottom">
-                  <span class="conv-preview">{{ conv.last_body || '（暂无消息）' }}</span>
+                  <span class="conv-preview">{{ conv.last_body || $t('adminChat.workspace.noPreview') }}</span>
                   <span v-if="conv.last_sender === 'user' && conv.session_id !== activeSessionId" class="conv-pending">
                     {{ $t('adminChat.workspace.pending') }}
                   </span>
@@ -132,7 +136,11 @@
                 <div class="admin-chat-meta">
                   <span v-if="activeMeta?.service_type" class="service-badge" :class="activeMeta.service_type">
                     <i :class="activeMeta.service_type === 'support' ? 'fas fa-headset' : 'fas fa-shopping-cart'"></i>
-                    {{ activeMeta.service_type === 'support' ? '官方客服' : '售前咨询' }}
+                    {{
+                      activeMeta.service_type === 'support'
+                        ? $t('adminChat.workspace.filterSupport')
+                        : $t('adminChat.workspace.filterSales')
+                    }}
                   </span>
                   <span class="admin-chat-sub">{{ activeMeta?.admin_display_name || '' }}</span>
                 </div>
@@ -143,12 +151,12 @@
           <div class="messages admin-messages" ref="messagesContainer">
             <div v-if="loadHistoryLoading" class="loading-history">
               <i class="fas fa-spinner fa-spin"></i>
-              <span>加载历史消息...</span>
+              <span>{{ $t('adminChat.workspace.loadHistory') }}</span>
             </div>
             
             <div v-else-if="messages.length === 0 && activeSessionId" class="empty-hint">
               <i class="fas fa-comment-dots"></i>
-              <p>暂无消息，主动和用户打个招呼吧</p>
+              <p>{{ $t('adminChat.workspace.emptyThreadHint') }}</p>
             </div>
             
             <div
@@ -212,7 +220,7 @@ import { useAdminStore } from '@/stores/admin'
 
 const TOKEN_KEY = 'cs_admin_token'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const adminStore = useAdminStore()
 
@@ -261,7 +269,8 @@ function parseServerDateTime(value) {
 function formatTime(iso) {
   const d = parseServerDateTime(iso)
   if (!d) return iso ? String(iso) : ''
-  return d.toLocaleString('zh-CN', {
+  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
+  return d.toLocaleString(fmtLocale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -289,7 +298,7 @@ function formatSidebarTime(iso) {
     d.getMonth() === y.getMonth() &&
     d.getDate() === y.getDate()
   ) {
-    return `昨天 ${hm}`
+    return t('adminChat.time.yesterday', { time: hm })
   }
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`
 }
@@ -363,7 +372,7 @@ function appendMessage(row, scrollBottom = true) {
 async function handleLogin() {
   loginError.value = ''
   if (!password.value.trim()) {
-    loginError.value = '请输入密码'
+    loginError.value = t('adminChat.errors.passwordRequired')
     return
   }
   try {
@@ -373,7 +382,7 @@ async function handleLogin() {
       body: JSON.stringify({ password: password.value }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Login failed')
+    if (!res.ok) throw new Error(data.error || t('adminChat.errors.loginFailed'))
     token.value = data.token
     localStorage.setItem(TOKEN_KEY, token.value)
     isLoggedIn.value = true
@@ -452,12 +461,12 @@ async function sendReply() {
       body: JSON.stringify({ sender: 'admin', body }),
     })
     const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Failed to send')
+    if (!res.ok) throw new Error(data.error || t('adminChat.workspace.sendError'))
     appendMessage(data.message, true)
     await refreshConversations()
   } catch (e) {
     inputMessage.value = body
-    alert('发送失败：' + (e.message || '未知错误'))
+    alert(t('adminChat.workspace.sendFailedAlert', { message: e.message || t('common.unknownError') }))
   }
 }
 

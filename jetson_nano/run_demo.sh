@@ -7,6 +7,36 @@ cd "$(dirname "$0")"
 VERIFY_INTERVAL_HOURS="${VERIFY_INTERVAL_HOURS:-0.01}"
 LAST_FILE="last_verify.json"
 
+cleanup_yh_on_fail() {
+  if [[ -d "YH" ]]; then
+    echo "[警告] 检测到失败，删除本地 YH 目录及全部内容"
+    rm -rf "YH"
+  fi
+}
+
+# 是否启用「未授权/下载失败时后台轮询」；设为 0 可关闭（例如调试）
+YH_DAEMON="${YH_DAEMON:-1}"
+
+# 启动低频率后台同步（管理员网页授权后设备自动拉取绑定资源）
+start_yh_background_sync() {
+  if [[ "${YH_DAEMON}" != "1" ]]; then
+    echo "[信息] 已设置 YH_DAEMON=0，不启动后台同步进程"
+    return 1
+  fi
+  if [[ -f yh_background_sync.pid ]]; then
+    local old
+    old=$(cat yh_background_sync.pid 2>/dev/null || true)
+    if [[ -n "${old}" ]] && kill -0 "${old}" 2>/dev/null; then
+      echo "[信息] 后台同步已在运行 (pid ${old})，日志: $(pwd)/yh_background_sync.log"
+      return 0
+    fi
+  fi
+  nohup python3 yh_background_sync.py >> yh_background_sync.log 2>&1 &
+  echo "[信息] 已启动后台同步（pid 见 yh_background_sync.pid），日志: $(pwd)/yh_background_sync.log"
+  echo "[信息] 请在网页后台为该设备「授权」并绑定题库/固件；授权后本机将自动创建 YH 并解压同步"
+  return 0
+}
+
 should_verify="1"
 if [[ -f "$LAST_FILE" ]]; then
   # 用 Python 解析 JSON 和时间戳，兼容不同系统的 date 行为
@@ -51,8 +81,45 @@ else
   echo "[信息] 未找到 $LAST_FILE，首次运行将执行验证。"
 fi
 
-if [[ "$should_verify" == "1" ]]; then
-  python3 fetch_signature.py
+# 冷却跳过拉签时若尚无签名文件，必须重新拉取，否则 verify 会失败
+if [[ "$should_verify" == "0" ]] && [[ ! -f "$LAST_FILE" ]]; then
+  echo "[信息] 无 last_verify.json，改为执行拉取签名。"
+  should_verify="1"
 fi
 
-python3 verify_signature.py
+if [[ "$should_verify" == "1" ]]; then
+  fetch_rc=0
+  python3 fetch_signature.py || fetch_rc=$?
+  if [[ "$fetch_rc" == "2" ]]; then
+    echo "[信息] 设备尚未白名单授权或暂未返回签名，前台结束；已挂低频率后台轮询等待网页授权…"
+    start_yh_background_sync || true
+    exit 0
+  fi
+  if [[ "$fetch_rc" != "0" ]]; then
+    cleanup_yh_on_fail
+    exit "$fetch_rc"
+  fi
+fi
+
+if ! python3 verify_signature.py; then
+  cleanup_yh_on_fail
+  exit $?
+fi
+
+# 验签通过后必须跑同步脚本：会向网站查询当前绑定（题库/固件），与本地 .binding_state.json 比对；
+# 一致则只补缺文件，不一致则清理后重新下载解压，避免本地与后台绑定不一致仍直接启动。
+echo "[信息] 验签通过，正在核对网站绑定并同步题库与固件..."
+if ! python3 download_bound_artifacts.py; then
+  cleanup_yh_on_fail
+  echo "[信息] 同步未完成，启动后台持续重试（不阻塞前台）…"
+  start_yh_background_sync || true
+  exit 0
+fi
+
+# 仅同步资源、不启动 GUI/主程序时设置 YH_SKIP_LAUNCH=1
+if [[ "${YH_SKIP_LAUNCH:-0}" == "1" ]]; then
+  echo "[信息] YH_SKIP_LAUNCH=1，不启动 YHTheStudio"
+  exit 0
+fi
+
+exec bash launch_yh_studio.sh "$@"

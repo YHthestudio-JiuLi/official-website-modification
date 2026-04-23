@@ -12,19 +12,19 @@
           <p>{{ $t('admin.users.description') }}</p>
         </div>
         <div class="header-actions">
+          <button @click="router.push('/admin/users/edit')" class="btn btn-primary" :title="$t('admin.users.addUser')">
+            <i class="fas fa-plus"></i>
+            <span>{{ $t('admin.users.addUser') }}</span>
+          </button>
           <button
             v-if="selectedUsers.length > 0"
             @click="confirmBatchDelete"
             class="btn btn-danger"
-            :disabled="selectedUsers.length === 0"
           >
             <i class="fas fa-trash"></i>
-            <span>{{ $t('admin.users.deleteSelected') }} ({{ selectedUsers.length }})</span>
+            <span>{{ $t('admin.users.deleteSelected') }}({{ selectedUsers.length }})</span>
+            <!-- <span class="count-badge-btn"></span> -->
           </button>
-          <router-link to="/admin/users/edit" class="btn btn-primary" :title="$t('admin.users.addUser')">
-            <i class="fas fa-plus"></i>
-            <span>{{ $t('admin.users.addUser') }}</span>
-          </router-link>
         </div>
       </div>
 
@@ -242,10 +242,12 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 
 const users = ref([])
 const loading = ref(true)
@@ -401,6 +403,12 @@ async function executeBatchDelete() {
   font-size: 0.95rem;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -412,6 +420,25 @@ async function executeBatchDelete() {
   transition: all 0.3s ease;
   border: none;
   cursor: pointer;
+}
+
+.header-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1.2rem;
+  height: 40px;
+  min-width: 120px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .btn-primary {
@@ -435,12 +462,13 @@ async function executeBatchDelete() {
 }
 
 .btn-danger {
-  background: #f5576c;
+  background: linear-gradient(135deg, #f5576c, #e0455a);
   color: white;
 }
 
 .btn-danger:hover {
-  background: #e0455a;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(245, 87, 108, 0.3);
 }
 
 .loading-container {

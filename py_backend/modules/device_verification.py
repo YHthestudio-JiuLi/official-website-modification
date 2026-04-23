@@ -68,14 +68,35 @@ class DeviceVerificationManager:
                 device_id TEXT UNIQUE NOT NULL,
                 verification_count INTEGER NOT NULL DEFAULT 0,
                 max_verifications INTEGER NOT NULL DEFAULT 10,
+                is_whitelisted INTEGER NOT NULL DEFAULT 0,
                 private_key TEXT NOT NULL,
                 public_key TEXT NOT NULL,
+                question_id INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_device_verifications_device_id ON device_verifications(device_id)"
+        )
+        
+        # 迁移：如果旧表没有 question_id 字段，则添加
+        self.cur.execute("PRAGMA table_info(device_verifications)")
+        columns = [col[1] for col in self.cur.fetchall()]
+        if "question_id" not in columns:
+            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN question_id INTEGER")
+        if "firmware_id" not in columns:
+            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN firmware_id INTEGER")
+        if "is_whitelisted" not in columns:
+            # 迁移：历史设备默认按已授权处理，避免升级后现有设备全部失效
+            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN is_whitelisted INTEGER NOT NULL DEFAULT 1")
+        
+        # 创建索引（迁移后）
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_verifications_question_id ON device_verifications(question_id)"
+        )
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_device_verifications_firmware_id ON device_verifications(firmware_id)"
         )
         
         self.conn.execute(
@@ -102,23 +123,45 @@ class DeviceVerificationManager:
             """
             CREATE TABLE IF NOT EXISTS device_verification_settings (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
-                verify_cooldown_seconds INTEGER NOT NULL DEFAULT 0
+                verify_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+                default_firmware_id INTEGER
+            )
+            """
+        )
+        self.cur.execute("PRAGMA table_info(device_verification_settings)")
+        settings_columns = [col[1] for col in self.cur.fetchall()]
+        if "default_firmware_id" not in settings_columns:
+            self.conn.execute("ALTER TABLE device_verification_settings ADD COLUMN default_firmware_id INTEGER")
+        self.conn.execute(
+            "INSERT OR IGNORE INTO device_verification_settings (id, verify_cooldown_seconds) VALUES (1, 0)"
+        )
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS nano_firmware_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_name TEXT NOT NULL,
+                file_url TEXT NOT NULL UNIQUE,
+                file_size INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
         self.conn.execute(
-            "INSERT OR IGNORE INTO device_verification_settings (id, verify_cooldown_seconds) VALUES (1, 0)"
+            "CREATE INDEX IF NOT EXISTS idx_nano_firmware_files_created_at ON nano_firmware_files(created_at)"
         )
 
     def get_settings(self) -> Dict[str, Any]:
         """读取设备验证全局设置（单行）。"""
         self.cur.execute(
-            "SELECT verify_cooldown_seconds FROM device_verification_settings WHERE id = 1"
+            "SELECT verify_cooldown_seconds, default_firmware_id FROM device_verification_settings WHERE id = 1"
         )
         row = self.cur.fetchone()
         if row is None:
-            return {"verify_cooldown_seconds": 0}
-        return {"verify_cooldown_seconds": int(row["verify_cooldown_seconds"])}
+            return {"verify_cooldown_seconds": 0, "default_firmware_id": None}
+        return {
+            "verify_cooldown_seconds": int(row["verify_cooldown_seconds"]),
+            "default_firmware_id": row["default_firmware_id"],
+        }
 
     def update_verify_cooldown_seconds(self, seconds: int) -> Dict[str, Any]:
         """更新防重复消耗间隔（秒）。0 表示关闭。"""
@@ -190,35 +233,64 @@ class DeviceVerificationManager:
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute(
-            "SELECT id, device_id, verification_count, max_verifications, public_key, created_at FROM device_verifications ORDER BY created_at DESC"
+            """
+            SELECT d.id, d.device_id, d.verification_count, d.max_verifications, d.is_whitelisted, d.question_id, d.firmware_id, d.public_key, d.created_at,
+                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+            FROM device_verifications d
+            LEFT JOIN questions q ON d.question_id = q.id
+            LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
+            ORDER BY d.created_at DESC
+            """
         )
         return rows_to_dict(self.cur.fetchall())
 
     def find_by_id(self, device_id: int) -> Optional[Dict[str, Any]]:
         self.cur.execute(
-            "SELECT id, device_id, verification_count, max_verifications, public_key, created_at FROM device_verifications WHERE id = ?",
+            """
+            SELECT d.id, d.device_id, d.verification_count, d.max_verifications, d.is_whitelisted, d.question_id, d.firmware_id, d.public_key, d.created_at,
+                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+            FROM device_verifications d
+            LEFT JOIN questions q ON d.question_id = q.id
+            LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
+            WHERE d.id = ?
+            """,
             (device_id,)
         )
         return row_to_dict(self.cur.fetchone())
 
     def find_by_device_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         self.cur.execute(
-            "SELECT * FROM device_verifications WHERE device_id = ?",
+            """
+            SELECT d.*, q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+            FROM device_verifications d
+            LEFT JOIN questions q ON d.question_id = q.id
+            LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
+            WHERE d.device_id = ?
+            """,
             (device_id,)
         )
         return row_to_dict(self.cur.fetchone())
 
-    def create(self, device_id: str, max_verifications: int = 10) -> Dict[str, Any]:
+    def create(
+        self,
+        device_id: str,
+        max_verifications: int = 10,
+        question_id: int = None,
+        firmware_id: int = None,
+        is_whitelisted: bool = False,
+    ) -> Dict[str, Any]:
+        if firmware_id is None:
+            firmware_id = self.get_settings().get("default_firmware_id")
         private_bytes, public_bytes = self._generate_key_pair()
         encrypted_private = self._encrypt_key(private_bytes, device_id)
         encrypted_public = self._encrypt_key(public_bytes, device_id)
         
         self.cur.execute(
             """
-            INSERT INTO device_verifications (device_id, verification_count, max_verifications, private_key, public_key)
-            VALUES (?, 0, ?, ?, ?)
+            INSERT INTO device_verifications (device_id, verification_count, max_verifications, is_whitelisted, private_key, public_key, question_id, firmware_id)
+            VALUES (?, 0, ?, ?, ?, ?, ?, ?)
             """,
-            (device_id, max_verifications, encrypted_private, encrypted_public)
+            (device_id, max_verifications, 1 if is_whitelisted else 0, encrypted_private, encrypted_public, question_id, firmware_id)
         )
         self.conn.commit()
         
@@ -227,6 +299,9 @@ class DeviceVerificationManager:
             "device_id": device_id,
             "verification_count": 0,
             "max_verifications": max_verifications,
+            "is_whitelisted": 1 if is_whitelisted else 0,
+            "question_id": question_id,
+            "firmware_id": firmware_id,
             "public_key": encrypted_public
         }
 
@@ -236,6 +311,51 @@ class DeviceVerificationManager:
             (max_verifications, device_id)
         )
         self.conn.commit()
+
+    def update_question_id(self, device_id: str, question_id: int) -> None:
+        self.cur.execute(
+            "UPDATE device_verifications SET question_id = ? WHERE device_id = ?",
+            (question_id, device_id)
+        )
+        self.conn.commit()
+
+    def update_firmware_id(self, device_id: str, firmware_id: int) -> None:
+        self.cur.execute(
+            "UPDATE device_verifications SET firmware_id = ? WHERE device_id = ?",
+            (firmware_id, device_id)
+        )
+        self.conn.commit()
+
+    def update_whitelist(self, device_id: str, is_whitelisted: bool) -> None:
+        self.cur.execute(
+            "UPDATE device_verifications SET is_whitelisted = ? WHERE device_id = ?",
+            (1 if is_whitelisted else 0, device_id),
+        )
+        self.conn.commit()
+
+    def cleanup_unwhitelisted_expired(self, ttl_minutes: int = 30) -> int:
+        """删除创建超过 ttl_minutes 仍未授权的设备记录。"""
+        ttl = int(ttl_minutes)
+        if ttl <= 0:
+            return 0
+        self.cur.execute(
+            """
+            SELECT device_id
+            FROM device_verifications
+            WHERE COALESCE(is_whitelisted, 0) = 0
+              AND datetime(created_at) <= datetime('now', ?)
+            """,
+            (f"-{ttl} minutes",),
+        )
+        rows = self.cur.fetchall()
+        if not rows:
+            return 0
+        device_ids = [row["device_id"] for row in rows]
+        for device_id in device_ids:
+            self.cur.execute("DELETE FROM device_verification_logs WHERE device_id = ?", (device_id,))
+            self.cur.execute("DELETE FROM device_verifications WHERE device_id = ?", (device_id,))
+        self.conn.commit()
+        return len(device_ids)
 
     def add_max_verifications(self, device_id: str, add_count: int) -> int:
         row = self.find_by_device_id(device_id)
@@ -263,8 +383,14 @@ class DeviceVerificationManager:
 
         if row is None:
             default_max = 10
-            self.create(device_id, default_max)
+            self.create(device_id, default_max, is_whitelisted=False)
             row = self.find_by_device_id(device_id)
+
+        if int(row.get("is_whitelisted") or 0) != 1:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device not whitelisted; contact administrator.",
+            )
 
         count = row["verification_count"]
         max_v = row["max_verifications"]
@@ -359,6 +485,8 @@ class DeviceVerificationManager:
         row = self.find_by_device_id(device_id)
         if row is None:
             return False
+        if int(row.get("is_whitelisted") or 0) != 1:
+            return False
         try:
             public_bytes = self._decrypt_key(row["public_key"], device_id)
             public_key = self._load_public_key(public_bytes)
@@ -409,3 +537,75 @@ class DeviceVerificationManager:
     def delete_logs_by_device_id(self, device_id: str) -> None:
         self.cur.execute("DELETE FROM device_verification_logs WHERE device_id = ?", (device_id,))
         self.conn.commit()
+
+    def list_firmware_files(self) -> List[Dict[str, Any]]:
+        settings = self.get_settings()
+        default_id = settings.get("default_firmware_id")
+        self.cur.execute(
+            """
+            SELECT id, file_name, file_url, file_size, created_at
+            FROM nano_firmware_files
+            ORDER BY created_at DESC, id DESC
+            """
+        )
+        rows = rows_to_dict(self.cur.fetchall())
+        for row in rows:
+            row["is_default"] = row.get("id") == default_id
+        return rows
+
+    def create_firmware_file(self, file_name: str, file_url: str, file_size: int = 0) -> Dict[str, Any]:
+        self.cur.execute(
+            """
+            INSERT INTO nano_firmware_files (file_name, file_url, file_size)
+            VALUES (?, ?, ?)
+            """,
+            (file_name, file_url, int(file_size or 0)),
+        )
+        firmware_id = self.cur.lastrowid
+        self.conn.commit()
+        self.cur.execute(
+            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            (firmware_id,),
+        )
+        row = row_to_dict(self.cur.fetchone())
+        if row:
+            row["is_default"] = row.get("id") == self.get_settings().get("default_firmware_id")
+        return row
+
+    def delete_firmware_file(self, firmware_id: int) -> Optional[Dict[str, Any]]:
+        self.cur.execute(
+            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            (firmware_id,),
+        )
+        row = row_to_dict(self.cur.fetchone())
+        if not row:
+            return None
+        self.cur.execute("DELETE FROM nano_firmware_files WHERE id = ?", (firmware_id,))
+        self.cur.execute("UPDATE device_verifications SET firmware_id = NULL WHERE firmware_id = ?", (firmware_id,))
+        self.cur.execute(
+            "UPDATE device_verification_settings SET default_firmware_id = NULL WHERE id = 1 AND default_firmware_id = ?",
+            (firmware_id,),
+        )
+        self.conn.commit()
+        row["is_default"] = False
+        return row
+
+    def set_default_firmware(self, firmware_id: int) -> Dict[str, Any]:
+        self.cur.execute(
+            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            (firmware_id,),
+        )
+        row = row_to_dict(self.cur.fetchone())
+        if not row:
+            raise ValueError("Firmware not found")
+        self.cur.execute(
+            "UPDATE device_verification_settings SET default_firmware_id = ? WHERE id = 1",
+            (firmware_id,),
+        )
+        self.cur.execute(
+            "UPDATE device_verifications SET firmware_id = ?",
+            (firmware_id,),
+        )
+        self.conn.commit()
+        row["is_default"] = True
+        return row

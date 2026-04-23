@@ -51,6 +51,25 @@
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
+            <i class="fas fa-database"></i> {{ $t('admin.questions.pageTitle') }}
+          </div>
+          <router-link to="/admin/questions" class="nav-link" :class="{ active: isActive('/admin/questions') }" @click="closeMobileMenu">
+            <i class="fas fa-database"></i>
+            <span>{{ $t('admin.questions.listTitle') }}</span>
+          </router-link>
+        </div>
+        <router-link
+          to="/admin/questions"
+          class="nav-link"
+          :class="{ active: isActive('/admin/questions') }"
+          v-show="collapsed"
+          :title="$t('admin.questions.pageTitle')"
+        >
+          <i class="fas fa-database"></i>
+        </router-link>
+
+        <div class="nav-section" v-show="!collapsed">
+          <div class="nav-section-title">
             <i class="fas fa-comments"></i> {{ $t('admin.posts.title') }}
           </div>
           <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" @click="closeMobileMenu">
@@ -64,21 +83,21 @@
 
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
-            <i class="fas fa-headset"></i> {{ $t('admin.chatService') || 'Customer Service' }}
+            <i class="fas fa-headset"></i> {{ $t('admin.chatService') }}
           </div>
           <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" @click="closeMobileMenu">
             <i class="fas fa-comments"></i>
-            <span>{{ $t('admin.chatWorkspace') || 'Chat Workspace' }}</span>
+            <span>{{ $t('admin.chatWorkspace') }}</span>
           </router-link>
           <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" @click="closeMobileMenu">
             <i class="fas fa-robot"></i>
-            <span>{{ $t('admin.chatSettings.title') || 'Chat Settings' }}</span>
+            <span>{{ $t('admin.chatSettings.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" v-show="collapsed" :title="$t('admin.chatWorkspace') || 'Chat Workspace'">
+        <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" v-show="collapsed" :title="$t('admin.chatWorkspace')">
           <i class="fas fa-comments"></i>
         </router-link>
-        <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" v-show="collapsed" :title="$t('admin.chatSettings.title') || 'Chat Settings'">
+        <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" v-show="collapsed" :title="$t('admin.chatSettings.title')">
           <i class="fas fa-robot"></i>
         </router-link>
 
@@ -105,20 +124,20 @@
           </router-link>
           <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" @click="closeMobileMenu">
             <i class="fas fa-bullhorn"></i>
-            <span>{{ $t('admin.popupNotices.menu') || 'Popup Notices' }}</span>
+            <span>{{ $t('admin.popupNotices.menu') }}</span>
           </router-link>
           <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" @click="closeMobileMenu">
             <i class="fas fa-shield-alt"></i>
-            <span>{{ $t('admin.deviceVerification.menu') || 'Device Verification' }}</span>
+            <span>{{ $t('admin.deviceVerification.menu') }}</span>
           </router-link>
         </div>
         <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" :title="$t('admin.paymentSettings')">
           <i class="fas fa-wallet"></i>
         </router-link>
-        <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed" :title="$t('admin.popupNotices.menu') || 'Popup Notices'">
+        <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed" :title="$t('admin.popupNotices.menu')">
           <i class="fas fa-bullhorn"></i>
         </router-link>
-        <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" v-show="collapsed" :title="$t('admin.deviceVerification.menu') || 'Device Verification'">
+        <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" v-show="collapsed" :title="$t('admin.deviceVerification.menu')">
           <i class="fas fa-shield-alt"></i>
         </router-link>
       </nav>
@@ -160,7 +179,7 @@
           <!-- 语言切换 -->
           <button @click="toggleLanguage" class="lang-btn" :title="$t('language.switch')">
             <i class="fas fa-globe"></i>
-            <span>{{ currentLang === 'zh' ? '中文' : 'EN' }}</span>
+            <span>{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
           </button>
           <span class="admin-info">
             <i class="fas fa-user-circle"></i>

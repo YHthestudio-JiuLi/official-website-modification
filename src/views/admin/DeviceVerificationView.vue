@@ -752,7 +752,36 @@ async function onFirmwareFileChange(event) {
     }
     showToast(t('admin.deviceVerification.firmwareUploadSuccess'), 'success')
   } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.firmwareUploadError'), 'error')
+    const code = error?.code
+    const status = error?.response?.status
+    const data = error.response?.data
+    let msg =
+      (data && typeof data === 'object' && (data.error || data.message)) ||
+      (typeof data === 'string' && data.length < 240 ? data.trim().slice(0, 200) : '')
+    if (status === 401 && (!msg || msg === 'Unauthorized')) {
+      msg = t('admin.deviceVerification.firmwareUpload401')
+    } else if (
+      status === 503 &&
+      (!msg || String(msg).toLowerCase().includes('database service unavailable'))
+    ) {
+      msg = t('admin.deviceVerification.firmwareUpload503')
+    }
+    if (!msg && (code === 'ECONNABORTED' || error?.message?.includes('timeout'))) {
+      msg = t('admin.deviceVerification.firmwareUploadTimeout')
+    } else if (!msg && status === 413) {
+      msg = t('admin.deviceVerification.firmwareUpload413')
+    } else if (!msg && status === 401) {
+      msg = t('admin.deviceVerification.firmwareUpload401')
+    } else if (!msg && status === 403) {
+      msg = t('admin.deviceVerification.firmwareUpload403')
+    } else if (!msg && status === 503) {
+      msg = t('admin.deviceVerification.firmwareUpload503')
+    } else if (!msg && (status === 502 || status === 504)) {
+      msg = t('admin.deviceVerification.firmwareUploadGateway')
+    } else if (!msg && !error.response) {
+      msg = t('admin.deviceVerification.firmwareUploadNetwork')
+    }
+    showToast(msg || t('admin.deviceVerification.firmwareUploadError'), 'error')
   } finally {
     firmwareUploading.value = false
     if (firmwareInputRef.value) {

@@ -24,6 +24,14 @@ const questionsService = require('./services/questionsService');
 dotenv.config();
 
 const app = express();
+// Nginx/宝塔反代会带 X-Forwarded-For；须开启 trust proxy，否则 express-rate-limit 抛 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// 直连本机调试且需避免信任转发头时：环境变量 TRUST_PROXY=false
+if (process.env.TRUST_PROXY === 'false' || process.env.TRUST_PROXY === '0') {
+  app.set('trust proxy', false);
+} else {
+  const hops = parseInt(process.env.TRUST_PROXY || '1', 10);
+  app.set('trust proxy', Number.isFinite(hops) && hops >= 0 ? hops : 1);
+}
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-here';
@@ -87,12 +95,42 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 挂载在 /api 下时，不同 Express 版本 req.path 可能是 /admin/... 或 /api/admin/...，用 originalUrl 兜底
+function _apiPathNoQuery(req) {
+  return String(req.originalUrl || req.url || '').split('?')[0];
+}
+
+function isAdminApiRequest(req) {
+  const full = _apiPathNoQuery(req);
+  if (full.startsWith('/api/admin')) return true;
+  const p = String(req.path || '');
+  return p.startsWith('/admin/') || p.startsWith('/api/admin/');
+}
+
+function isChatApiRequest(req) {
+  const full = _apiPathNoQuery(req);
+  if (full.startsWith('/api/chat')) return true;
+  return String(req.path || '').startsWith('/chat/');
+}
+
+function isAuthApiRequest(req) {
+  const full = _apiPathNoQuery(req);
+  if (full.startsWith('/api/auth')) return true;
+  return String(req.path || '').startsWith('/auth/');
+}
+
+function isDeviceApiRequest(req) {
+  const full = _apiPathNoQuery(req);
+  if (full.startsWith('/api/device')) return true;
+  return String(req.path || '').startsWith('/device/');
+}
+
 // 应用限流中间件到 API 路由（排除登录接口；管理后台全站不参与通用限流，避免列表/轮询触发 429）
 app.use('/api', (req, res, next) => {
   if (req.path === '/auth/login' || req.path === '/admin/auth/login') {
     return next();
   }
-  if (req.path.startsWith('/admin/')) {
+  if (isAdminApiRequest(req)) {
     return next();
   }
   return limiter(req, res, next);
@@ -123,10 +161,10 @@ const csrfProtection = csrf({
 
 // 应用 CSRF 保护中间件到所有 API 路由（除了聊天 API、管理员 API 和认证 API）
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/chat/') || req.path.startsWith('/admin/') || req.path.startsWith('/auth/') || req.path.startsWith('/device/')) {
-    return next()
+  if (isChatApiRequest(req) || isAdminApiRequest(req) || isAuthApiRequest(req) || isDeviceApiRequest(req)) {
+    return next();
   }
-  csrfProtection(req, res, next)
+  csrfProtection(req, res, next);
 });
 
 // 聊天相关状态
@@ -181,9 +219,18 @@ app.use('/assets', express.static(distPath + '/assets', {
 
 // 其他静态文件
 app.use(express.static(distPath, {
+  index: false,
   maxAge: '1y',
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // 入口 HTML 禁止强缓存，确保每次都能获取到最新的资源 hash
+    if (path.extname(filePath).toLowerCase() === '.html') {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
 }));
 
 // 降低前台页面被搜索引擎收录的概率（合规爬虫会参考；恶意爬虫不受约束）
@@ -360,12 +407,18 @@ async function requireAdmin(req, res, next) {
   if (!req.session.admin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const user = await dbOperations.users.findById(req.session.admin.id);
-  if (!user || !user.isAdmin) {
-    req.session.admin = null;
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const user = await dbOperations.users.findById(req.session.admin.id);
+    if (!user || !user.isAdmin) {
+      req.session.admin = null;
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+  } catch (error) {
+    // Python 后端不可用时避免未捕获异常导致上传无响应或非 JSON
+    console.error('[requireAdmin] 校验管理员失败:', error.message);
+    return res.status(503).json({ error: 'Database service unavailable' });
   }
-  next();
 }
 
 // 敏感上传目录：仅管理员可直链访问，避免被公开爬虫/扫描器直接拉取文件
@@ -1565,8 +1618,16 @@ app.delete('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
 
 // 将数据库记录的文件路径解析为 uploads 内的绝对路径，防止路径穿越
 function resolveUploadPathSafely(storedPath) {
-  const raw = String(storedPath || '').trim();
+  let raw = String(storedPath || '').trim().replace(/\\/g, '/');
   if (!raw) throw new Error('empty-path');
+
+  // 兼容历史数据：Python 曾把本机绝对路径写入 SQLite，换机器部署后须截成 /uploads/... 再解析
+  if (path.isAbsolute(raw)) {
+    const idx = raw.indexOf('/uploads/');
+    if (idx !== -1) {
+      raw = raw.slice(idx);
+    }
+  }
 
   let absPath = '';
   if (raw.startsWith('/uploads/') || raw.startsWith('uploads/')) {
@@ -1816,11 +1877,22 @@ app.get('/api/admin/device-firmwares', requireAdmin, async (_req, res) => {
 });
 
 app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
+  const adminName = req.session && req.session.admin && req.session.admin.username;
+  console.log('[FirmwareUpload] 收到请求', {
+    admin: adminName,
+    contentLength: req.headers['content-length'],
+    contentType: req.headers['content-type'] && String(req.headers['content-type']).slice(0, 80)
+  });
   nanoFirmwareUpload.single('firmware')(req, res, async (err) => {
     if (err) {
+      console.error('[FirmwareUpload] Multer 失败', err.code || '', err.message);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: '固件超过 500MB 上限，请压缩或分包后上传' });
+      }
       return res.status(400).json({ error: err.message || 'Firmware upload failed' });
     }
     if (!req.file) {
+      console.warn('[FirmwareUpload] 未收到文件字段 firmware（请确认表单字段名为 firmware）');
       return res.status(400).json({ error: 'No firmware file uploaded' });
     }
     try {
@@ -1830,6 +1902,7 @@ app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
         `/uploads/nano-firmwares/${req.file.filename}`,
         req.file.size || 0
       );
+      console.log('[FirmwareUpload] 成功', { path: req.file.path, size: req.file.size, id: firmware && firmware.id });
       res.json({ ok: true, firmware });
     } catch (error) {
       console.error('[API Error] POST /api/admin/device-firmwares/upload:', error.message);
@@ -2043,6 +2116,9 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/assets/') || req.path.startsWith('/dist/assets/')) {
     return res.status(404).send('File not found');
   }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

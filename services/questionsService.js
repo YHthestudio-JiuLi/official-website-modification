@@ -41,11 +41,29 @@ class QuestionsService {
     try {
       const raw = String(filePath).trim();
       if (!raw) return null;
-      let abs = raw;
-      if (!path.isAbsolute(raw)) {
-        abs = path.join(process.cwd(), raw.replace(/^\/+/, ''));
+      const uploadsRoot = path.join(process.cwd(), 'uploads');
+      const candidatePaths = [];
+
+      if (path.isAbsolute(raw)) {
+        candidatePaths.push(raw);
+        const idx = raw.replace(/\\/g, '/').indexOf('/uploads/');
+        if (idx !== -1) {
+          const relFromUploads = raw.replace(/\\/g, '/').slice(idx + '/uploads/'.length);
+          candidatePaths.push(path.join(uploadsRoot, relFromUploads));
+        }
+      } else {
+        candidatePaths.push(path.join(process.cwd(), raw.replace(/^\/+/, '')));
       }
-      const stat = fs.statSync(abs);
+
+      let stat = null;
+      for (const abs of candidatePaths) {
+        if (!abs) continue;
+        if (!fs.existsSync(abs)) continue;
+        stat = fs.statSync(abs);
+        if (stat && stat.isFile()) break;
+        stat = null;
+      }
+      if (!stat) return null;
       if (!stat.isFile()) return null;
       return stat.size;
     } catch (_error) {

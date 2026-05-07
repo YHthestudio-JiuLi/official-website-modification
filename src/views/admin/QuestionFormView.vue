@@ -107,9 +107,10 @@
                   <div class="file-info">
                     <p class="file-name">{{ getFileName(existingDbFile) }}</p>
                     <p class="file-status existing">
-                      <i class="fas fa-check-circle"></i> {{ $t('admin.questionsForm.currentFile') }}
+                      <i class="fas fa-check-circle"></i>
+                      {{ $t('admin.questionsForm.currentFile') }}
+                      <span v-if="existingDbFileSize"> · {{ formatFileSize(existingDbFileSize) }}</span>
                     </p>
-                    <p v-if="existingDbFileSize" class="file-size">{{ formatFileSize(existingDbFileSize) }}</p>
                   </div>
                   <div class="file-actions">
                     <button type="button" class="btn-file btn-replace" @click="$refs.dbFileInput.click()">
@@ -169,9 +170,10 @@
                   <div class="file-info">
                     <p class="file-name">{{ getFileName(existingVectorFile) }}</p>
                     <p class="file-status existing">
-                      <i class="fas fa-check-circle"></i> {{ $t('admin.questionsForm.currentFile') }}
+                      <i class="fas fa-check-circle"></i>
+                      {{ $t('admin.questionsForm.currentFile') }}
+                      <span v-if="existingVectorFileSize"> · {{ formatFileSize(existingVectorFileSize) }}</span>
                     </p>
-                    <p v-if="existingVectorFileSize" class="file-size">{{ formatFileSize(existingVectorFileSize) }}</p>
                   </div>
                   <div class="file-actions">
                     <button type="button" class="btn-file btn-replace" @click="$refs.vectorFileInput.click()">
@@ -204,26 +206,6 @@
             </div>
           </div>
 
-          <div v-if="isEdit && hasExistingSizeInfo" class="form-section">
-            <h3 class="section-title">
-              <i class="fas fa-memory"></i> 文件大小信息
-            </h3>
-            <div class="size-info-grid">
-              <div class="size-item">
-                <span class="size-label">题库数据库</span>
-                <span class="size-value">{{ existingDbFileSize ? formatFileSize(existingDbFileSize) : '-' }}</span>
-              </div>
-              <div class="size-item">
-                <span class="size-label">向量索引</span>
-                <span class="size-value">{{ existingVectorFileSize ? formatFileSize(existingVectorFileSize) : '-' }}</span>
-              </div>
-              <div class="size-item total">
-                <span class="size-label">总占用</span>
-                <span class="size-value">{{ formatFileSize(existingTotalFileSize) }}</span>
-              </div>
-            </div>
-          </div>
-
           <div class="form-actions">
             <router-link to="/admin/questions" class="btn btn-secondary">
               <i class="fas fa-times"></i> {{ $t('common.cancel') }}
@@ -239,6 +221,9 @@
               }}
             </button>
           </div>
+          <p v-if="uploadingChunks" class="upload-progress-tip">
+            {{ $t('admin.questionsForm.uploadingProgress', { progress: chunkUploadProgress }) }}
+          </p>
         </form>
       </div>
 
@@ -283,6 +268,8 @@ const clearVectorFileFlag = ref(false)
 
 const loading = ref(false)
 const submitting = ref(false)
+const uploadingChunks = ref(false)
+const chunkUploadProgress = ref(0)
 const error = ref('')
 
 const toast = ref({
@@ -294,10 +281,6 @@ const toast = ref({
 const isValid = computed(() => {
   if (!form.value.name) return false
   return true
-})
-
-const hasExistingSizeInfo = computed(() => {
-  return (existingDbFileSize.value || 0) > 0 || (existingVectorFileSize.value || 0) > 0 || (existingTotalFileSize.value || 0) > 0
 })
 
 watch(form, () => {
@@ -431,11 +414,21 @@ async function handleSubmit() {
       formData.append('category_name', form.value.category_name)
     }
     
-    if (form.value.dbFile) {
-      formData.append('dbFile', form.value.dbFile)
+    const pendingUploads = []
+    if (form.value.dbFile) pendingUploads.push({ file: form.value.dbFile, field: 'dbFile' })
+    if (form.value.vectorFile) pendingUploads.push({ file: form.value.vectorFile, field: 'vectorFile' })
+    if (pendingUploads.length > 0) {
+      uploadingChunks.value = true
+      chunkUploadProgress.value = 0
     }
-    if (form.value.vectorFile) {
-      formData.append('vectorFile', form.value.vectorFile)
+    for (let index = 0; index < pendingUploads.length; index += 1) {
+      const item = pendingUploads[index]
+      const uploadId = await uploadQuestionFileInChunks(item.file, item.field, index, pendingUploads.length)
+      if (item.field === 'dbFile') {
+        formData.append('dbChunkUploadId', uploadId)
+      } else if (item.field === 'vectorFile') {
+        formData.append('vectorChunkUploadId', uploadId)
+      }
     }
     
     if (isEdit.value) {
@@ -446,13 +439,10 @@ async function handleSubmit() {
         formData.append('clearVectorFile', 'true')
       }
       
-      await api.put(`/api/admin/questions/${route.params.id}`, formData, {
-        timeout: 60000
-      })
+      // 大题库/向量上传由 api 拦截器统一延长超时，勿在此写 60s
+      await api.put(`/api/admin/questions/${route.params.id}`, formData)
     } else {
-      await api.post('/api/admin/questions', formData, {
-        timeout: 60000
-      })
+      await api.post('/api/admin/questions', formData)
     }
 
     showToast(t('admin.questionsForm.saveSuccess'), 'success')
@@ -464,8 +454,47 @@ async function handleSubmit() {
     error.value = errorMsg
     showToast(errorMsg, 'error')
   } finally {
+    uploadingChunks.value = false
+    chunkUploadProgress.value = 0
     submitting.value = false
   }
+}
+
+async function uploadQuestionFileInChunks(file, fileField, fileIndex, totalFiles) {
+  const chunkSize = 5 * 1024 * 1024
+  const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
+  const initResp = await api.post('/api/admin/questions/upload/init', {
+    fileName: file.name,
+    fileField,
+    fileSize: file.size,
+    totalChunks
+  })
+  const uploadId = initResp.data?.uploadId
+  if (!uploadId) {
+    throw new Error(t('admin.questionsForm.uploadInitFailed'))
+  }
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+    const start = chunkIndex * chunkSize
+    const end = Math.min(file.size, start + chunkSize)
+    const chunk = file.slice(start, end)
+    const fd = new FormData()
+    fd.append('uploadId', uploadId)
+    fd.append('chunkIndex', String(chunkIndex))
+    fd.append('totalChunks', String(totalChunks))
+    fd.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
+    await api.post('/api/admin/questions/upload/chunk', fd)
+    const partProgress = (chunkIndex + 1) / totalChunks
+    const progress = ((fileIndex + partProgress) / totalFiles) * 100
+    chunkUploadProgress.value = Math.round(progress)
+  }
+  await api.post('/api/admin/questions/upload/complete', {
+    uploadId,
+    fileName: file.name,
+    fileField,
+    fileSize: file.size,
+    totalChunks
+  })
+  return uploadId
 }
 
 function showToast(message, type = 'success') {
@@ -843,6 +872,12 @@ function showToast(message, type = 'success') {
   justify-content: flex-end;
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-color);
+}
+
+.upload-progress-tip {
+  margin: 0.85rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .toast {

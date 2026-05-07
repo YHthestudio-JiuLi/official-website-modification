@@ -10,6 +10,10 @@ STUDIO_REL="${YH_STUDIO_DIR:-YH/dist/YHTheStudio}"
 STUDIO_EXE="${YH_STUDIO_EXE:-}"
 
 if [[ ! -d "${ROOT}/${STUDIO_REL}" ]]; then
+  # run_demo 流程下应用尚未就绪时不报错刷屏（例如网站未绑定固件）
+  if [[ "${YH_RUN_DEMO:-}" == "1" ]]; then
+    exit 0
+  fi
   echo "[错误] 应用目录不存在: ${ROOT}/${STUDIO_REL}（请先完成下载与解压）" >&2
   exit 1
 fi
@@ -37,11 +41,16 @@ fi
 
 # 默认：在应用目录内启动 ./YHTheStudio（必须先 cd，再 exec 相对路径，禁止携带 STUDIO_REL 前缀）
 if [[ ! -f "${STUDIO_ABS}/YHTheStudio" ]]; then
+  if [[ "${YH_RUN_DEMO:-}" == "1" ]]; then
+    exit 0
+  fi
   echo "[错误] 未找到 ${STUDIO_ABS}/YHTheStudio，请设置 YH_STUDIO_EXE" >&2
   exit 1
 fi
 
-echo "[信息] 工作目录: ${STUDIO_ABS}"
-echo "[信息] 启动: ${STUDIO_ABS}/YHTheStudio"
+if [[ "${YH_RUN_DEMO:-}" != "1" ]]; then
+  echo "[信息] 工作目录: ${STUDIO_ABS}"
+  echo "[信息] 启动: ${STUDIO_ABS}/YHTheStudio"
+fi
 cd "${STUDIO_ABS}"
 exec ./YHTheStudio "$@"

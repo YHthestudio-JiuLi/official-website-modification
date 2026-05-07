@@ -626,7 +626,13 @@
       "firmwareTitle": "Nano Firmware",
       "firmwareDesc": "Upload firmware packages, set the default firmware, and bind it to all devices in one step.",
       "firmwareUpload": "Upload Firmware",
-      "firmwareUploading": "Uploading...",
+      "firmwareUploading": "Uploading... {progress}%",
+      "firmwareRegisterFromServer": "Register From Server",
+      "firmwareRegisterFromServerPrompt": "Enter the firmware file name already on server (under uploads/nano-firmwares, e.g. firmware_v1.2.3.zip)",
+      "firmwareRegisterFromServerNameRequired": "Please enter a valid file name",
+      "firmwareRegisterFromServerSuccess": "Server firmware registered successfully",
+      "firmwareRegisterFromServerError": "Failed to register server firmware",
+      "firmwareChecksumLabel": "SHA-256:",
       "firmwareListLoading": "Loading firmware list...",
       "firmwareEmpty": "No firmware yet. Please upload a file first.",
       "firmwareSelectPlaceholder": "Select a firmware version",
@@ -721,7 +727,9 @@
       "loadError": "Failed to load question bank: {message}",
       "nameRequired": "Please enter a question bank name",
       "saveSuccess": "Question bank saved",
-      "saveError": "Failed to save question bank, please try again"
+      "saveError": "Failed to save question bank, please try again",
+      "uploadingProgress": "Uploading files in chunks... {progress}%",
+      "uploadInitFailed": "Failed to initialize chunk upload"
     },
     "chatService": "Customer Service",
     "chatWorkspace": "Chat Workspace"

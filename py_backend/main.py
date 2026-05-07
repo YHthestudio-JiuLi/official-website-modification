@@ -471,7 +471,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return db_manager.device_verification.create_firmware_file(
             args["file_name"],
             args["file_url"],
-            int(args.get("file_size", 0))
+            int(args.get("file_size", 0)),
+            args.get("checksum_sha256")
         )
     if op == "deviceVerification.deleteFirmwareFile":
         return db_manager.device_verification.delete_firmware_file(int(args["id"]))

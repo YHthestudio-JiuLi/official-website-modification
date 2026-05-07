@@ -42,7 +42,6 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.60.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "esbuild": "^0.28.0",
     "vite": "^7.3.1"

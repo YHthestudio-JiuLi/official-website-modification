@@ -142,10 +142,15 @@ class DeviceVerificationManager:
                 file_name TEXT NOT NULL,
                 file_url TEXT NOT NULL UNIQUE,
                 file_size INTEGER NOT NULL DEFAULT 0,
+                checksum_sha256 TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        self.cur.execute("PRAGMA table_info(nano_firmware_files)")
+        firmware_columns = [col[1] for col in self.cur.fetchall()]
+        if "checksum_sha256" not in firmware_columns:
+            self.conn.execute("ALTER TABLE nano_firmware_files ADD COLUMN checksum_sha256 TEXT")
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_nano_firmware_files_created_at ON nano_firmware_files(created_at)"
         )
@@ -235,7 +240,7 @@ class DeviceVerificationManager:
         self.cur.execute(
             """
             SELECT d.id, d.device_id, d.verification_count, d.max_verifications, d.is_whitelisted, d.question_id, d.firmware_id, d.public_key, d.created_at,
-                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url, f.checksum_sha256 as firmware_checksum_sha256
             FROM device_verifications d
             LEFT JOIN questions q ON d.question_id = q.id
             LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
@@ -248,7 +253,7 @@ class DeviceVerificationManager:
         self.cur.execute(
             """
             SELECT d.id, d.device_id, d.verification_count, d.max_verifications, d.is_whitelisted, d.question_id, d.firmware_id, d.public_key, d.created_at,
-                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+                   q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url, f.checksum_sha256 as firmware_checksum_sha256
             FROM device_verifications d
             LEFT JOIN questions q ON d.question_id = q.id
             LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
@@ -261,7 +266,8 @@ class DeviceVerificationManager:
     def find_by_device_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         self.cur.execute(
             """
-            SELECT d.*, q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url
+            SELECT d.*, q.name as question_name, f.file_name as firmware_name, f.file_url as firmware_url,
+                   f.checksum_sha256 as firmware_checksum_sha256, f.file_size as firmware_file_size
             FROM device_verifications d
             LEFT JOIN questions q ON d.question_id = q.id
             LEFT JOIN nano_firmware_files f ON d.firmware_id = f.id
@@ -543,7 +549,7 @@ class DeviceVerificationManager:
         default_id = settings.get("default_firmware_id")
         self.cur.execute(
             """
-            SELECT id, file_name, file_url, file_size, created_at
+            SELECT id, file_name, file_url, file_size, checksum_sha256, created_at
             FROM nano_firmware_files
             ORDER BY created_at DESC, id DESC
             """
@@ -553,18 +559,21 @@ class DeviceVerificationManager:
             row["is_default"] = row.get("id") == default_id
         return rows
 
-    def create_firmware_file(self, file_name: str, file_url: str, file_size: int = 0) -> Dict[str, Any]:
+    def create_firmware_file(self, file_name: str, file_url: str, file_size: int = 0, checksum_sha256: str = None) -> Dict[str, Any]:
+        normalized_checksum = (checksum_sha256 or "").strip().lower() or None
+        if normalized_checksum is not None and (len(normalized_checksum) != 64 or any(ch not in "0123456789abcdef" for ch in normalized_checksum)):
+            raise ValueError("checksum_sha256 must be a 64-char hex string")
         self.cur.execute(
             """
-            INSERT INTO nano_firmware_files (file_name, file_url, file_size)
-            VALUES (?, ?, ?)
+            INSERT INTO nano_firmware_files (file_name, file_url, file_size, checksum_sha256)
+            VALUES (?, ?, ?, ?)
             """,
-            (file_name, file_url, int(file_size or 0)),
+            (file_name, file_url, int(file_size or 0), normalized_checksum),
         )
         firmware_id = self.cur.lastrowid
         self.conn.commit()
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())
@@ -574,7 +583,7 @@ class DeviceVerificationManager:
 
     def delete_firmware_file(self, firmware_id: int) -> Optional[Dict[str, Any]]:
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())
@@ -592,7 +601,7 @@ class DeviceVerificationManager:
 
     def set_default_firmware(self, firmware_id: int) -> Dict[str, Any]:
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, created_at FROM nano_firmware_files WHERE id = ?",
+            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())

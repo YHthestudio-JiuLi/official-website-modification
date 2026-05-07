@@ -42,7 +42,11 @@
             <input ref="firmwareInputRef" type="file" class="firmware-file-input" @change="onFirmwareFileChange" />
             <button type="button" class="btn btn-primary" :disabled="firmwareUploading" @click="triggerFirmwareSelect">
               <i class="fas fa-upload"></i>
-              {{ firmwareUploading ? $t('admin.deviceVerification.firmwareUploading') : $t('admin.deviceVerification.firmwareUpload') }}
+              {{ firmwareUploading ? $t('admin.deviceVerification.firmwareUploading', { progress: firmwareUploadProgress }) : $t('admin.deviceVerification.firmwareUpload') }}
+            </button>
+            <button type="button" class="btn btn-secondary" :disabled="firmwareUploading" @click="registerFirmwareFromServer">
+              <i class="fas fa-server"></i>
+              {{ $t('admin.deviceVerification.firmwareRegisterFromServer') }}
             </button>
           </div>
           <div v-if="firmwareLoading" class="firmware-empty">{{ $t('admin.deviceVerification.firmwareListLoading') }}</div>
@@ -58,6 +62,12 @@
               <span>{{ formatFirmwareSize(selectedFirmwareItem.file_size) }}</span>
               <span>·</span>
               <span>{{ formatDateTime(selectedFirmwareItem.created_at) }}</span>
+              <template v-if="selectedFirmwareItem.checksum_sha256">
+                <span>·</span>
+                <span :title="selectedFirmwareItem.checksum_sha256">
+                  {{ $t('admin.deviceVerification.firmwareChecksumLabel') }} {{ selectedFirmwareItem.checksum_sha256.slice(0, 12) }}...
+                </span>
+              </template>
               <span v-if="selectedFirmwareItem.is_default" class="firmware-default-badge">{{ $t('admin.deviceVerification.firmwareDefaultBadge') }}</span>
             </div>
             <div class="firmware-actions">
@@ -666,6 +676,7 @@ const settingsSaving = ref(false)
 const firmwareItems = ref([])
 const firmwareLoading = ref(false)
 const firmwareUploading = ref(false)
+const firmwareUploadProgress = ref(0)
 const firmwareInputRef = ref(null)
 const selectedFirmwareId = ref('')
 const selectedFirmwareItem = computed(() => firmwareItems.value.find(item => String(item.id) === selectedFirmwareId.value) || null)
@@ -737,14 +748,67 @@ function triggerFirmwareSelect() {
   firmwareInputRef.value?.click()
 }
 
+async function registerFirmwareFromServer() {
+  const fileName = window.prompt(t('admin.deviceVerification.firmwareRegisterFromServerPrompt'))
+  if (fileName == null) return
+  const normalizedName = String(fileName).trim()
+  if (!normalizedName) {
+    showToast(t('admin.deviceVerification.firmwareRegisterFromServerNameRequired'), 'error')
+    return
+  }
+  try {
+    const response = await api.post('/api/admin/device-firmwares/register-local', {
+      file_name: normalizedName
+    })
+    const createdId = response.data?.firmware?.id
+    await fetchFirmwareItems()
+    if (createdId) {
+      selectedFirmwareId.value = String(createdId)
+    }
+    showToast(t('admin.deviceVerification.firmwareRegisterFromServerSuccess'), 'success')
+  } catch (error) {
+    showToast(
+      error.response?.data?.error || t('admin.deviceVerification.firmwareRegisterFromServerError'),
+      'error'
+    )
+  }
+}
+
 async function onFirmwareFileChange(event) {
   const file = event.target?.files?.[0]
   if (!file) return
-  const formData = new FormData()
-  formData.append('firmware', file)
   firmwareUploading.value = true
+  firmwareUploadProgress.value = 0
   try {
-    const response = await api.post('/api/admin/device-firmwares/upload', formData)
+    const chunkSize = 5 * 1024 * 1024
+    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
+    const initResp = await api.post('/api/admin/device-firmwares/upload/init', {
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks
+    })
+    const uploadId = initResp.data?.uploadId
+    if (!uploadId) {
+      throw new Error('Missing uploadId')
+    }
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+      const start = chunkIndex * chunkSize
+      const end = Math.min(file.size, start + chunkSize)
+      const chunk = file.slice(start, end)
+      const chunkFormData = new FormData()
+      chunkFormData.append('uploadId', uploadId)
+      chunkFormData.append('chunkIndex', String(chunkIndex))
+      chunkFormData.append('totalChunks', String(totalChunks))
+      chunkFormData.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
+      await api.post('/api/admin/device-firmwares/upload/chunk', chunkFormData)
+      firmwareUploadProgress.value = Math.round(((chunkIndex + 1) / totalChunks) * 100)
+    }
+    const response = await api.post('/api/admin/device-firmwares/upload/complete', {
+      uploadId,
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks
+    })
     const createdId = response.data?.firmware?.id
     await fetchFirmwareItems()
     if (createdId) {
@@ -768,6 +832,8 @@ async function onFirmwareFileChange(event) {
     }
     if (!msg && (code === 'ECONNABORTED' || error?.message?.includes('timeout'))) {
       msg = t('admin.deviceVerification.firmwareUploadTimeout')
+    } else if (!msg && status === 408) {
+      msg = t('admin.deviceVerification.firmwareUploadTimeout')
     } else if (!msg && status === 413) {
       msg = t('admin.deviceVerification.firmwareUpload413')
     } else if (!msg && status === 401) {
@@ -784,6 +850,7 @@ async function onFirmwareFileChange(event) {
     showToast(msg || t('admin.deviceVerification.firmwareUploadError'), 'error')
   } finally {
     firmwareUploading.value = false
+    firmwareUploadProgress.value = 0
     if (firmwareInputRef.value) {
       firmwareInputRef.value.value = ''
     }

@@ -17,8 +17,32 @@ logger = logging.getLogger("py_backend")
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 
-QUESTIONS_UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "questions"
+# 项目根（与 api-server 所在目录一致），题库文件落在 uploads/questions 下
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+QUESTIONS_UPLOAD_DIR = PROJECT_ROOT / "uploads" / "questions"
 QUESTIONS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _resolve_local_upload_path(stored: str | None) -> Path | None:
+    """将数据库中的路径解析为本机绝对路径（兼容历史绝对路径与 /uploads/...）。"""
+    if not stored:
+        return None
+    s = str(stored).strip().replace("\\", "/")
+    if s.startswith("/uploads/") or s.startswith("uploads/"):
+        return (PROJECT_ROOT / s.lstrip("/")).resolve()
+    p = Path(s)
+    if p.is_absolute():
+        return p
+    return (PROJECT_ROOT / s).resolve()
+
+
+def _to_portable_stored_path(abs_path: Path) -> str:
+    """写入 SQLite 的路径统一为 /uploads/...，便于 Node 在任意部署目录下解析。"""
+    try:
+        rel = abs_path.resolve().relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return str(abs_path)
+    return "/" + rel.as_posix()
 
 
 class QuestionUpdate(BaseModel):
@@ -83,17 +107,17 @@ async def create_question(
         vector_file_path = None
         
         if db_file and db_file.filename:
-            db_file_path = question_dir / db_file.filename
-            with open(db_file_path, "wb") as buffer:
+            db_abs = question_dir / db_file.filename
+            with open(db_abs, "wb") as buffer:
                 shutil.copyfileobj(db_file.file, buffer)
-            db_file_path = str(db_file_path)
+            db_file_path = _to_portable_stored_path(db_abs)
             logger.info(f"Uploaded db file for question {question_id}: {db_file_path}")
         
         if vector_file and vector_file.filename:
-            vector_file_path = question_dir / vector_file.filename
-            with open(vector_file_path, "wb") as buffer:
+            vec_abs = question_dir / vector_file.filename
+            with open(vec_abs, "wb") as buffer:
                 shutil.copyfileobj(vector_file.file, buffer)
-            vector_file_path = str(vector_file_path)
+            vector_file_path = _to_portable_stored_path(vec_abs)
             logger.info(f"Uploaded vector file for question {question_id}: {vector_file_path}")
         
         if db_file_path or vector_file_path:
@@ -141,33 +165,35 @@ async def update_question(
         vector_file_path = question.get("vector_file_path")
         
         if clear_db_file:
-            if db_file_path and Path(db_file_path).exists():
+            p_db = _resolve_local_upload_path(db_file_path)
+            if p_db and p_db.is_file():
                 try:
-                    Path(db_file_path).unlink()
+                    p_db.unlink()
                 except Exception as e:
                     logger.warning(f"Failed to delete db file: {e}")
             db_file_path = None
         
         if clear_vector_file:
-            if vector_file_path and Path(vector_file_path).exists():
+            p_vec = _resolve_local_upload_path(vector_file_path)
+            if p_vec and p_vec.is_file():
                 try:
-                    Path(vector_file_path).unlink()
+                    p_vec.unlink()
                 except Exception as e:
                     logger.warning(f"Failed to delete vector file: {e}")
             vector_file_path = None
         
         if db_file and db_file.filename:
-            new_db_file_path = question_dir / db_file.filename
-            with open(new_db_file_path, "wb") as buffer:
+            new_db_abs = question_dir / db_file.filename
+            with open(new_db_abs, "wb") as buffer:
                 shutil.copyfileobj(db_file.file, buffer)
-            db_file_path = str(new_db_file_path)
+            db_file_path = _to_portable_stored_path(new_db_abs)
             logger.info(f"Updated db file for question {id}: {db_file_path}")
         
         if vector_file and vector_file.filename:
-            new_vector_file_path = question_dir / vector_file.filename
-            with open(new_vector_file_path, "wb") as buffer:
+            new_vec_abs = question_dir / vector_file.filename
+            with open(new_vec_abs, "wb") as buffer:
                 shutil.copyfileobj(vector_file.file, buffer)
-            vector_file_path = str(new_vector_file_path)
+            vector_file_path = _to_portable_stored_path(new_vec_abs)
             logger.info(f"Updated vector file for question {id}: {vector_file_path}")
         
         with get_db_lock():

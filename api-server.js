@@ -11,6 +11,7 @@ const winston = require('winston');
 const fs = require('fs');
 const multer = require('multer');
 const http = require('http');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const FormData = require('form-data');
@@ -126,11 +127,15 @@ function isDeviceApiRequest(req) {
 }
 
 // 应用限流中间件到 API 路由（排除登录接口；管理后台全站不参与通用限流，避免列表/轮询触发 429）
+// 设备端验签/绑定状态/artifact 多分片下载会在数秒内产生大量 POST，不应占用通用 100/15min 配额导致 429
 app.use('/api', (req, res, next) => {
   if (req.path === '/auth/login' || req.path === '/admin/auth/login') {
     return next();
   }
   if (isAdminApiRequest(req)) {
+    return next();
+  }
+  if (isDeviceApiRequest(req)) {
     return next();
   }
   return limiter(req, res, next);
@@ -205,9 +210,17 @@ const questionUploadsPath = path.join(uploadsPath, 'questions');
 if (!fs.existsSync(questionUploadsPath)) {
   fs.mkdirSync(questionUploadsPath, { recursive: true });
 }
+const questionChunksPath = path.join(questionUploadsPath, '.chunks');
+if (!fs.existsSync(questionChunksPath)) {
+  fs.mkdirSync(questionChunksPath, { recursive: true });
+}
 const nanoFirmwareUploadsPath = path.join(uploadsPath, 'nano-firmwares');
 if (!fs.existsSync(nanoFirmwareUploadsPath)) {
   fs.mkdirSync(nanoFirmwareUploadsPath, { recursive: true });
+}
+const nanoFirmwareChunksPath = path.join(nanoFirmwareUploadsPath, '.chunks');
+if (!fs.existsSync(nanoFirmwareChunksPath)) {
+  fs.mkdirSync(nanoFirmwareChunksPath, { recursive: true });
 }
 
 // 对于静态资源文件（JS、CSS 等），如果文件不存在则返回 404，不回退到 index.html
@@ -279,6 +292,53 @@ const questionFilesUpload = multer({
     fileSize: 200 * 1024 * 1024
   }
 });
+const questionChunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const uploadId = String(req.body?.uploadId || '').trim();
+      if (!/^[a-zA-Z0-9_-]{12,80}$/.test(uploadId)) {
+        return cb(new Error('Invalid uploadId'));
+      }
+      const chunkDir = path.join(questionChunksPath, uploadId);
+      fs.mkdirSync(chunkDir, { recursive: true });
+      cb(null, chunkDir);
+    },
+    filename: (req, _file, cb) => {
+      const chunkIndex = parseInt(req.body?.chunkIndex, 10);
+      if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex > 100000) {
+        return cb(new Error('Invalid chunkIndex'));
+      }
+      cb(null, `chunk_${chunkIndex}.part`);
+    }
+  }),
+  limits: {
+    fileSize: 20 * 1024 * 1024
+  }
+});
+const questionChunkSessions = new Map();
+const questionCompletedUploads = new Map();
+const QUESTION_CHUNK_EXPIRE_MS = 6 * 60 * 60 * 1000;
+
+function buildQuestionStoredName(originalName) {
+  const ext = path.extname(String(originalName || '')).toLowerCase() || '.bin';
+  return `question_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${ext}`;
+}
+
+function cleanupQuestionChunkSession(uploadId) {
+  const chunkDir = path.join(questionChunksPath, uploadId);
+  questionChunkSessions.delete(uploadId);
+  if (fs.existsSync(chunkDir)) {
+    fs.rmSync(chunkDir, { recursive: true, force: true });
+  }
+}
+
+function consumeCompletedQuestionUpload(uploadId, expectedField) {
+  const item = questionCompletedUploads.get(uploadId);
+  if (!item) return null;
+  if (expectedField && item.fileField !== expectedField) return null;
+  questionCompletedUploads.delete(uploadId);
+  return item;
+}
 
 const nanoFirmwareUpload = multer({
   storage: multer.diskStorage({
@@ -304,6 +364,66 @@ const nanoFirmwareUpload = multer({
     cb(new Error('Unsupported firmware file type'));
   }
 });
+const firmwareChunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const uploadId = String(req.body?.uploadId || '').trim();
+      if (!/^[a-zA-Z0-9_-]{12,80}$/.test(uploadId)) {
+        return cb(new Error('Invalid uploadId'));
+      }
+      const chunkDir = path.join(nanoFirmwareChunksPath, uploadId);
+      fs.mkdirSync(chunkDir, { recursive: true });
+      cb(null, chunkDir);
+    },
+    filename: (req, _file, cb) => {
+      const chunkIndex = parseInt(req.body?.chunkIndex, 10);
+      if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex > 100000) {
+        return cb(new Error('Invalid chunkIndex'));
+      }
+      cb(null, `chunk_${chunkIndex}.part`);
+    }
+  }),
+  limits: {
+    // 单片 20MB，前端默认 5MB；更小片可以显著降低超时中断概率
+    fileSize: 20 * 1024 * 1024
+  }
+});
+const firmwareChunkSessions = new Map();
+const FIRMWARE_CHUNK_EXPIRE_MS = 6 * 60 * 60 * 1000;
+const ALLOWED_FIRMWARE_EXTS = ['.zip', '.tar', '.gz', '.tgz', '.rar', '.7z', '.xz', '.bin', '.img', '.deb', '.run', '.txt', '.md', '.json', '.yaml', '.yml'];
+
+function cleanupFirmwareChunkSession(uploadId) {
+  const chunkDir = path.join(nanoFirmwareChunksPath, uploadId);
+  firmwareChunkSessions.delete(uploadId);
+  if (fs.existsSync(chunkDir)) {
+    fs.rmSync(chunkDir, { recursive: true, force: true });
+  }
+}
+
+function buildFirmwareStoredName(originalName) {
+  const ext = path.extname(String(originalName || '')).toLowerCase();
+  const safeExt = ALLOWED_FIRMWARE_EXTS.includes(ext) ? ext : '.bin';
+  return `nano_firmware_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${safeExt}`;
+}
+
+async function appendChunkFile(outputStream, chunkPath) {
+  await new Promise((resolve, reject) => {
+    const rs = fs.createReadStream(chunkPath);
+    rs.on('error', reject);
+    rs.on('end', resolve);
+    rs.pipe(outputStream, { end: false });
+  });
+}
+
+async function sha256FileHex(filePath) {
+  return await new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const rs = fs.createReadStream(filePath);
+    rs.on('error', reject);
+    rs.on('data', (buf) => hash.update(buf));
+    rs.on('end', () => resolve(hash.digest('hex')));
+  });
+}
 
 // 支付设置缓存
 let paymentSettingsCache = null;
@@ -353,6 +473,17 @@ function normalizeUploadFileName(name) {
   }
 }
 
+function buildAttachmentContentDisposition(name, fallback = 'download.bin') {
+  const inputName = normalizeUploadFileName(String(name || '').trim()) || fallback;
+  const safeAscii = inputName
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/["\\]/g, '_')
+    .replace(/[;\r\n]/g, '_')
+    .trim() || fallback;
+  const encoded = encodeURIComponent(inputName).replace(/['()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encoded}`;
+}
+
 function normalizeProductRecord(product) {
   if (!product) return product;
   const images = parseProductImages(product.image);
@@ -393,6 +524,64 @@ setInterval(async () => {
     console.error('[Device Whitelist Cleanup] Error:', error);
   }
 }, 60000);
+
+// 定时清理过期固件分片，避免异常中断后临时文件长期堆积
+setInterval(() => {
+  const now = Date.now();
+  for (const [uploadId, session] of firmwareChunkSessions.entries()) {
+    if (!session || (now - (session.updatedAt || session.createdAt || now)) < FIRMWARE_CHUNK_EXPIRE_MS) {
+      continue;
+    }
+    cleanupFirmwareChunkSession(uploadId);
+  }
+  if (!fs.existsSync(nanoFirmwareChunksPath)) return;
+  for (const folder of fs.readdirSync(nanoFirmwareChunksPath)) {
+    const abs = path.join(nanoFirmwareChunksPath, folder);
+    let stat = null;
+    try {
+      stat = fs.statSync(abs);
+    } catch (_e) {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    if ((now - stat.mtimeMs) > FIRMWARE_CHUNK_EXPIRE_MS) {
+      fs.rmSync(abs, { recursive: true, force: true });
+    }
+  }
+}, 10 * 60 * 1000);
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [uploadId, session] of questionChunkSessions.entries()) {
+    if (!session || (now - (session.updatedAt || session.createdAt || now)) < QUESTION_CHUNK_EXPIRE_MS) {
+      continue;
+    }
+    cleanupQuestionChunkSession(uploadId);
+  }
+  for (const [uploadId, item] of questionCompletedUploads.entries()) {
+    if (!item || (now - (item.createdAt || now)) < QUESTION_CHUNK_EXPIRE_MS) {
+      continue;
+    }
+    questionCompletedUploads.delete(uploadId);
+    if (item.storedPath && fs.existsSync(item.storedPath)) {
+      fs.rmSync(item.storedPath, { force: true });
+    }
+  }
+  if (!fs.existsSync(questionChunksPath)) return;
+  for (const folder of fs.readdirSync(questionChunksPath)) {
+    const abs = path.join(questionChunksPath, folder);
+    let stat = null;
+    try {
+      stat = fs.statSync(abs);
+    } catch (_e) {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    if ((now - stat.mtimeMs) > QUESTION_CHUNK_EXPIRE_MS) {
+      fs.rmSync(abs, { recursive: true, force: true });
+    }
+  }
+}, 10 * 60 * 1000);
 
 // ==================== 认证中间件 ====================
 
@@ -1052,12 +1241,143 @@ app.get('/api/admin/questions/:id', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/questions/upload/init', requireAdmin, (req, res) => {
+  const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
+  const fileField = String(req.body?.fileField || '').trim();
+  const fileSize = parseInt(req.body?.fileSize, 10);
+  const totalChunks = parseInt(req.body?.totalChunks, 10);
+  const ext = path.extname(fileName).toLowerCase();
+  const allowMap = {
+    dbFile: ['.db', '.sqlite', '.sqlite3'],
+    vectorFile: ['.index']
+  };
+  const allowExts = allowMap[fileField];
+  if (!allowExts) {
+    return res.status(400).json({ error: 'Invalid fileField' });
+  }
+  if (!fileName || fileName.length > 255) {
+    return res.status(400).json({ error: 'Invalid fileName' });
+  }
+  if (!Number.isInteger(fileSize) || fileSize <= 0 || fileSize > 2 * 1024 * 1024 * 1024) {
+    return res.status(400).json({ error: 'Invalid fileSize' });
+  }
+  if (!Number.isInteger(totalChunks) || totalChunks <= 0 || totalChunks > 10000) {
+    return res.status(400).json({ error: 'Invalid totalChunks' });
+  }
+  if (!allowExts.includes(ext)) {
+    return res.status(400).json({ error: 'Unsupported file type' });
+  }
+  const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
+  const chunkDir = path.join(questionChunksPath, uploadId);
+  fs.mkdirSync(chunkDir, { recursive: true });
+  questionChunkSessions.set(uploadId, {
+    fileName,
+    fileField,
+    fileSize,
+    totalChunks,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+  res.json({ ok: true, uploadId, chunkSize: 5 * 1024 * 1024 });
+});
+
+app.post('/api/admin/questions/upload/chunk', requireAdmin, (req, res) => {
+  questionChunkUpload.single('chunk')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Chunk too large' });
+      }
+      return res.status(400).json({ error: err.message || 'Chunk upload failed' });
+    }
+    const uploadId = String(req.body?.uploadId || '').trim();
+    const chunkIndex = parseInt(req.body?.chunkIndex, 10);
+    const totalChunks = parseInt(req.body?.totalChunks, 10);
+    if (!/^[a-zA-Z0-9_-]{12,80}$/.test(uploadId)) {
+      return res.status(400).json({ error: 'Invalid uploadId' });
+    }
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex > 100000) {
+      return res.status(400).json({ error: 'Invalid chunkIndex' });
+    }
+    if (!Number.isInteger(totalChunks) || totalChunks <= 0 || totalChunks > 10000) {
+      return res.status(400).json({ error: 'Invalid totalChunks' });
+    }
+    const session = questionChunkSessions.get(uploadId);
+    if (!session) {
+      return res.status(404).json({ error: 'Upload session expired' });
+    }
+    if (session.totalChunks !== totalChunks) {
+      return res.status(400).json({ error: 'Chunk metadata mismatch' });
+    }
+    session.updatedAt = Date.now();
+    res.json({ ok: true });
+  });
+});
+
+app.post('/api/admin/questions/upload/complete', requireAdmin, async (req, res) => {
+  const uploadId = String(req.body?.uploadId || '').trim();
+  const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
+  const fileField = String(req.body?.fileField || '').trim();
+  const fileSize = parseInt(req.body?.fileSize, 10);
+  const totalChunks = parseInt(req.body?.totalChunks, 10);
+  const session = questionChunkSessions.get(uploadId);
+  if (!session) {
+    return res.status(404).json({ error: 'Upload session expired' });
+  }
+  if (
+    session.fileName !== fileName ||
+    session.fileField !== fileField ||
+    session.fileSize !== fileSize ||
+    session.totalChunks !== totalChunks
+  ) {
+    cleanupQuestionChunkSession(uploadId);
+    return res.status(400).json({ error: 'Upload metadata mismatch' });
+  }
+  const chunkDir = path.join(questionChunksPath, uploadId);
+  const storedName = buildQuestionStoredName(fileName);
+  const finalPath = path.join(questionUploadsPath, storedName);
+  let out = null;
+  try {
+    out = fs.createWriteStream(finalPath, { flags: 'wx' });
+    for (let i = 0; i < totalChunks; i += 1) {
+      const partPath = path.join(chunkDir, `chunk_${i}.part`);
+      if (!fs.existsSync(partPath)) {
+        throw new Error(`Missing chunks: ${i}`);
+      }
+      await appendChunkFile(out, partPath);
+    }
+    await new Promise((resolve, reject) => {
+      out.end(() => resolve());
+      out.on('error', reject);
+    });
+    const stat = fs.statSync(finalPath);
+    if (!stat || !stat.size || stat.size <= 0) {
+      throw new Error('Merged question file is empty');
+    }
+    questionCompletedUploads.set(uploadId, {
+      fileField,
+      originalName: fileName,
+      storedPath: finalPath,
+      createdAt: Date.now()
+    });
+    cleanupQuestionChunkSession(uploadId);
+    res.json({ ok: true, uploadId });
+  } catch (error) {
+    if (fs.existsSync(finalPath)) {
+      fs.rmSync(finalPath, { force: true });
+    }
+    cleanupQuestionChunkSession(uploadId);
+    res.status(500).json({ error: error.message || 'Complete question upload failed' });
+  }
+});
+
 app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
   { name: 'dbFile', maxCount: 1 },
   { name: 'vectorFile', maxCount: 1 }
 ]), async (req, res) => {
   console.log('[Questions] req.body:', req.body);
   console.log('[Questions] req.files:', req.files);
+  let consumedDbChunk = null;
+  let consumedVectorChunk = null;
   
   try {
     const FormData = require('form-data');
@@ -1072,11 +1392,20 @@ app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
       formData.append('category_name', categoryName);
     }
     
+    const dbChunkUploadId = String(req.body?.dbChunkUploadId || '').trim();
+    const vectorChunkUploadId = String(req.body?.vectorChunkUploadId || '').trim();
+    consumedDbChunk = dbChunkUploadId ? consumeCompletedQuestionUpload(dbChunkUploadId, 'dbFile') : null;
+    consumedVectorChunk = vectorChunkUploadId ? consumeCompletedQuestionUpload(vectorChunkUploadId, 'vectorFile') : null;
+
     if (req.files?.dbFile?.[0]) {
       const dbFile = req.files.dbFile[0];
       formData.append('db_file', fs.createReadStream(dbFile.path), {
         filename: dbFile.originalname,
         contentType: dbFile.mimetype
+      });
+    } else if (consumedDbChunk?.storedPath) {
+      formData.append('db_file', fs.createReadStream(consumedDbChunk.storedPath), {
+        filename: consumedDbChunk.originalName || path.basename(consumedDbChunk.storedPath)
       });
     }
     
@@ -1085,6 +1414,10 @@ app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
       formData.append('vector_file', fs.createReadStream(vectorFile.path), {
         filename: vectorFile.originalname,
         contentType: vectorFile.mimetype
+      });
+    } else if (consumedVectorChunk?.storedPath) {
+      formData.append('vector_file', fs.createReadStream(consumedVectorChunk.storedPath), {
+        filename: consumedVectorChunk.originalName || path.basename(consumedVectorChunk.storedPath)
       });
     }
     
@@ -1096,6 +1429,12 @@ app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
     if (req.files?.vectorFile?.[0]) {
       try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
     }
+    if (consumedDbChunk?.storedPath) {
+      try { fs.unlinkSync(consumedDbChunk.storedPath); } catch (e) {}
+    }
+    if (consumedVectorChunk?.storedPath) {
+      try { fs.unlinkSync(consumedVectorChunk.storedPath); } catch (e) {}
+    }
     
     res.json({ success: true, id: result.id, dbFilePath: result.db_file_path, vectorFilePath: result.vector_file_path });
   } catch (error) {
@@ -1106,6 +1445,12 @@ app.post('/api/admin/questions', requireAdmin, questionFilesUpload.fields([
     if (req.files?.vectorFile?.[0]) {
       try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
     }
+    if (consumedDbChunk?.storedPath) {
+      try { fs.unlinkSync(consumedDbChunk.storedPath); } catch (e) {}
+    }
+    if (consumedVectorChunk?.storedPath) {
+      try { fs.unlinkSync(consumedVectorChunk.storedPath); } catch (e) {}
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -1114,6 +1459,8 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
   { name: 'dbFile', maxCount: 1 },
   { name: 'vectorFile', maxCount: 1 }
 ]), async (req, res) => {
+  let consumedDbChunk = null;
+  let consumedVectorChunk = null;
   try {
     const FormData = require('form-data');
     const formData = new FormData();
@@ -1131,11 +1478,20 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
       formData.append('clear_vector_file', 'true');
     }
     
+    const dbChunkUploadId = String(req.body?.dbChunkUploadId || '').trim();
+    const vectorChunkUploadId = String(req.body?.vectorChunkUploadId || '').trim();
+    consumedDbChunk = dbChunkUploadId ? consumeCompletedQuestionUpload(dbChunkUploadId, 'dbFile') : null;
+    consumedVectorChunk = vectorChunkUploadId ? consumeCompletedQuestionUpload(vectorChunkUploadId, 'vectorFile') : null;
+
     if (req.files.dbFile && req.files.dbFile[0]) {
       const dbFile = req.files.dbFile[0];
       formData.append('db_file', fs.createReadStream(dbFile.path), {
         filename: dbFile.originalname,
         contentType: dbFile.mimetype
+      });
+    } else if (consumedDbChunk?.storedPath) {
+      formData.append('db_file', fs.createReadStream(consumedDbChunk.storedPath), {
+        filename: consumedDbChunk.originalName || path.basename(consumedDbChunk.storedPath)
       });
     }
     
@@ -1144,6 +1500,10 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
       formData.append('vector_file', fs.createReadStream(vectorFile.path), {
         filename: vectorFile.originalname,
         contentType: vectorFile.mimetype
+      });
+    } else if (consumedVectorChunk?.storedPath) {
+      formData.append('vector_file', fs.createReadStream(consumedVectorChunk.storedPath), {
+        filename: consumedVectorChunk.originalName || path.basename(consumedVectorChunk.storedPath)
       });
     }
     
@@ -1154,6 +1514,12 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
     }
     if (req.files.vectorFile && req.files.vectorFile[0]) {
       try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    if (consumedDbChunk?.storedPath) {
+      try { fs.unlinkSync(consumedDbChunk.storedPath); } catch (e) {}
+    }
+    if (consumedVectorChunk?.storedPath) {
+      try { fs.unlinkSync(consumedVectorChunk.storedPath); } catch (e) {}
     }
     
     res.json({ success: true, dbFilePath: result.db_file_path, vectorFilePath: result.vector_file_path });
@@ -1167,6 +1533,12 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
     }
     if (req.files?.vectorFile?.[0]) {
       try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
+    }
+    if (consumedDbChunk?.storedPath) {
+      try { fs.unlinkSync(consumedDbChunk.storedPath); } catch (e) {}
+    }
+    if (consumedVectorChunk?.storedPath) {
+      try { fs.unlinkSync(consumedVectorChunk.storedPath); } catch (e) {}
     }
     res.status(500).json({ error: error.message });
   }
@@ -1650,6 +2022,69 @@ function resolveUploadPathSafely(storedPath) {
   return resolved;
 }
 
+/** 设备绑定资源在磁盘上的字节数（供 Jetson 进度条在缺少 Content-Length 时兜底） */
+function safeArtifactByteSize(storedPath) {
+  try {
+    const abs = resolveUploadPathSafely(storedPath);
+    const st = fs.statSync(abs);
+    return typeof st.size === 'number' && st.size > 0 ? st.size : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+/**
+ * 解析 RFC 7233 单区间 Range: bytes=...（不支持 multipart）。
+ * 返回 { start, end }（含端点）；不可满足返回 { unsatisfiable: true }；无法解析返回 null。
+ */
+function parseBytesRange(rangeHeader, fileSize) {
+  if (!rangeHeader || typeof rangeHeader !== 'string' || fileSize <= 0) {
+    return null;
+  }
+  const raw = rangeHeader.trim();
+  if (!/^bytes=/i.test(raw)) {
+    return null;
+  }
+  const first = raw.replace(/^bytes=/i, '').split(',')[0].trim();
+  const m = /^(\d*)-(\d*)$/.exec(first);
+  if (!m) {
+    return null;
+  }
+  let start = m[1] === '' ? null : parseInt(m[1], 10);
+  let end = m[2] === '' ? null : parseInt(m[2], 10);
+  if (start !== null && Number.isNaN(start)) return null;
+  if (end !== null && Number.isNaN(end)) return null;
+
+  if (start === null && end === null) {
+    return null;
+  }
+  // 后缀区间：bytes=-500
+  if (start === null && end !== null) {
+    const suffixLen = end;
+    if (suffixLen <= 0) {
+      return { unsatisfiable: true };
+    }
+    if (suffixLen >= fileSize) {
+      start = 0;
+      end = fileSize - 1;
+    } else {
+      start = fileSize - suffixLen;
+      end = fileSize - 1;
+    }
+  } else if (start !== null && end === null) {
+    end = fileSize - 1;
+  }
+
+  if (start < 0 || start >= fileSize) {
+    return { unsatisfiable: true };
+  }
+  if (end < start) {
+    return { unsatisfiable: true };
+  }
+  end = Math.min(end, fileSize - 1);
+  return { start, end };
+}
+
 // 设备端下载绑定资源（题库数据库/向量索引/固件），使用与验签相同的签名参数鉴权
 app.post('/api/device/download/artifact', async (req, res) => {
   const { device_id, issued_at, signature, artifact } = req.body || {};
@@ -1708,8 +2143,44 @@ app.post('/api/device/download/artifact', async (req, res) => {
       downloadName = path.basename(absFilePath);
     }
 
+    const stat = fs.statSync(absFilePath);
+    const fileSize = stat.size;
+    const rawRange = req.headers.range;
+    const rangeHeader = typeof rawRange === 'string' ? rawRange.trim() : '';
+
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    res.setHeader('Content-Disposition', buildAttachmentContentDisposition(downloadName, 'artifact.bin'));
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    if (rangeHeader) {
+      const rangeParsed = parseBytesRange(rangeHeader, fileSize);
+      if (rangeParsed === null) {
+        return res.status(400).json({ error: 'Invalid Range header' });
+      }
+      if (rangeParsed.unsatisfiable) {
+        res.status(416);
+        res.setHeader('Content-Range', `bytes */${fileSize}`);
+        return res.end();
+      }
+      const { start, end } = rangeParsed;
+      const chunkLen = end - start + 1;
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Content-Length', String(chunkLen));
+      const rs = fs.createReadStream(absFilePath, { start, end });
+      rs.on('error', (err) => {
+        console.error('[device download] range stream:', err.message);
+        if (!res.headersSent) {
+          res.status(500).end();
+        } else {
+          res.destroy(err);
+        }
+      });
+      rs.pipe(res);
+      return;
+    }
+
+    res.setHeader('Content-Length', String(fileSize));
     fs.createReadStream(absFilePath).pipe(res);
   } catch (error) {
     if (error && error.message === 'path-outside-uploads') {
@@ -1757,6 +2228,26 @@ app.post('/api/device/binding-status', async (req, res) => {
       question = await dbOperations.questions.findById(parseInt(device.question_id, 10));
     }
 
+    let firmwareSizeBytes = null;
+    if (device.firmware_url) {
+      firmwareSizeBytes = safeArtifactByteSize(device.firmware_url);
+    }
+    // 磁盘 stat 失败时用库表 file_size，保证客户端能显示总大小与 ETA
+    if (firmwareSizeBytes == null && device.firmware_file_size != null) {
+      const n = parseInt(device.firmware_file_size, 10);
+      if (Number.isFinite(n) && n > 0) {
+        firmwareSizeBytes = n;
+      }
+    }
+    let questionDbSizeBytes = null;
+    let questionVectorSizeBytes = null;
+    if (question && question.db_file_path) {
+      questionDbSizeBytes = safeArtifactByteSize(question.db_file_path);
+    }
+    if (question && question.vector_file_path) {
+      questionVectorSizeBytes = safeArtifactByteSize(question.vector_file_path);
+    }
+
     res.json({
       device_id: deviceId,
       question_id: device.question_id || null,
@@ -1766,7 +2257,12 @@ app.post('/api/device/binding-status', async (req, res) => {
       has_firmware: !!device.firmware_url,
       question_db_name: question && question.db_file_path ? path.basename(question.db_file_path) : null,
       question_vector_name: question && question.vector_file_path ? path.basename(question.vector_file_path) : null,
-      firmware_name: device.firmware_name || null
+      firmware_name: device.firmware_name || null,
+      firmware_checksum_sha256: device.firmware_checksum_sha256 || null,
+      // 与磁盘一致；经 Nginx 等代理后下载响应可能无 Content-Length，客户端用此字段估算进度与 ETA
+      firmware_size_bytes: firmwareSizeBytes,
+      question_db_size_bytes: questionDbSizeBytes,
+      question_vector_size_bytes: questionVectorSizeBytes
     });
   } catch (error) {
     console.error('[API Error] POST /api/device/binding-status:', error.message);
@@ -1876,6 +2372,217 @@ app.get('/api/admin/device-firmwares', requireAdmin, async (_req, res) => {
   }
 });
 
+app.get('/api/admin/device-firmwares/local-files', requireAdmin, (_req, res) => {
+  try {
+    const items = fs.readdirSync(nanoFirmwareUploadsPath, { withFileTypes: true })
+      .filter((ent) => ent.isFile() && !ent.name.startsWith('.'))
+      .map((ent) => {
+        const abs = path.join(nanoFirmwareUploadsPath, ent.name);
+        const st = fs.statSync(abs);
+        return {
+          file_name: ent.name,
+          file_size: st.size || 0,
+          modified_at: st.mtime ? st.mtime.toISOString() : null
+        };
+      })
+      .sort((a, b) => {
+        const ta = new Date(a.modified_at || 0).getTime();
+        const tb = new Date(b.modified_at || 0).getTime();
+        return tb - ta;
+      });
+    res.json({ items });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/device-firmwares/local-files:', error.message);
+    res.status(500).json({ error: 'Failed to list local firmware files' });
+  }
+});
+
+app.post('/api/admin/device-firmwares/register-local', requireAdmin, async (req, res) => {
+  const fileName = normalizeUploadFileName(String(req.body?.file_name || '').trim());
+  if (!fileName || fileName.length > 255 || fileName.includes('/') || fileName.includes('\\')) {
+    return res.status(400).json({ error: 'Invalid file_name' });
+  }
+  const ext = path.extname(fileName).toLowerCase();
+  if (!ALLOWED_FIRMWARE_EXTS.includes(ext)) {
+    return res.status(400).json({ error: 'Unsupported firmware file type' });
+  }
+  const abs = path.join(nanoFirmwareUploadsPath, fileName);
+  if (!abs.startsWith(nanoFirmwareUploadsPath)) {
+    return res.status(400).json({ error: 'Invalid file path' });
+  }
+  if (!fs.existsSync(abs)) {
+    return res.status(404).json({ error: 'File not found on server' });
+  }
+  try {
+    const st = fs.statSync(abs);
+    if (!st.isFile()) {
+      return res.status(400).json({ error: 'Not a regular file' });
+    }
+    const checksumSha256 = await sha256FileHex(abs);
+    const firmware = await dbOperations.deviceVerification.createFirmwareFile(
+      fileName,
+      `/uploads/nano-firmwares/${fileName}`,
+      st.size || 0,
+      checksumSha256
+    );
+    res.json({ ok: true, firmware });
+  } catch (error) {
+    if (error.message && /unique|duplicate/i.test(error.message)) {
+      return res.status(409).json({ error: 'Firmware already registered' });
+    }
+    console.error('[API Error] POST /api/admin/device-firmwares/register-local:', error.message);
+    res.status(500).json({ error: 'Failed to register local firmware file' });
+  }
+});
+
+app.post('/api/admin/device-firmwares/upload/init', requireAdmin, (req, res) => {
+  const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
+  const fileSize = parseInt(req.body?.fileSize, 10);
+  const totalChunks = parseInt(req.body?.totalChunks, 10);
+  if (!fileName || fileName.length > 255) {
+    return res.status(400).json({ error: 'Invalid fileName' });
+  }
+  if (!Number.isInteger(fileSize) || fileSize <= 0 || fileSize > 500 * 1024 * 1024) {
+    return res.status(400).json({ error: 'Invalid fileSize' });
+  }
+  if (!Number.isInteger(totalChunks) || totalChunks <= 0 || totalChunks > 2000) {
+    return res.status(400).json({ error: 'Invalid totalChunks' });
+  }
+  const ext = path.extname(fileName).toLowerCase();
+  if (!ALLOWED_FIRMWARE_EXTS.includes(ext)) {
+    return res.status(400).json({ error: 'Unsupported firmware file type' });
+  }
+  const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
+  const chunkDir = path.join(nanoFirmwareChunksPath, uploadId);
+  fs.mkdirSync(chunkDir, { recursive: true });
+  firmwareChunkSessions.set(uploadId, {
+    fileName,
+    fileSize,
+    totalChunks,
+    receivedChunks: new Set(),
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+  res.json({
+    ok: true,
+    uploadId,
+    chunkSize: 5 * 1024 * 1024
+  });
+});
+
+app.post('/api/admin/device-firmwares/upload/chunk', requireAdmin, (req, res) => {
+  firmwareChunkUpload.single('chunk')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Chunk too large' });
+      }
+      return res.status(400).json({ error: err.message || 'Chunk upload failed' });
+    }
+    const uploadId = String(req.body?.uploadId || '').trim();
+    const chunkIndex = parseInt(req.body?.chunkIndex, 10);
+    const totalChunks = parseInt(req.body?.totalChunks, 10);
+    if (!/^[a-zA-Z0-9_-]{12,80}$/.test(uploadId)) {
+      return res.status(400).json({ error: 'Invalid uploadId' });
+    }
+    if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex > 100000) {
+      return res.status(400).json({ error: 'Invalid chunkIndex' });
+    }
+    if (!Number.isInteger(totalChunks) || totalChunks <= 0 || totalChunks > 2000) {
+      return res.status(400).json({ error: 'Invalid totalChunks' });
+    }
+    const session = firmwareChunkSessions.get(uploadId);
+    if (!session) {
+      return res.status(404).json({ error: 'Upload session expired' });
+    }
+    if (session.totalChunks !== totalChunks) {
+      return res.status(400).json({ error: 'Chunk metadata mismatch' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No chunk uploaded' });
+    }
+    session.receivedChunks.add(chunkIndex);
+    session.updatedAt = Date.now();
+    res.json({
+      ok: true,
+      receivedChunks: session.receivedChunks.size,
+      totalChunks: session.totalChunks
+    });
+  });
+});
+
+app.post('/api/admin/device-firmwares/upload/complete', requireAdmin, async (req, res) => {
+  const uploadId = String(req.body?.uploadId || '').trim();
+  const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
+  const fileSize = parseInt(req.body?.fileSize, 10);
+  const totalChunks = parseInt(req.body?.totalChunks, 10);
+  if (!/^[a-zA-Z0-9_-]{12,80}$/.test(uploadId)) {
+    return res.status(400).json({ error: 'Invalid uploadId' });
+  }
+  const session = firmwareChunkSessions.get(uploadId);
+  if (!session) {
+    return res.status(404).json({ error: 'Upload session expired' });
+  }
+  if (
+    session.fileName !== fileName ||
+    session.fileSize !== fileSize ||
+    session.totalChunks !== totalChunks
+  ) {
+    cleanupFirmwareChunkSession(uploadId);
+    return res.status(400).json({ error: 'Upload metadata mismatch' });
+  }
+  const chunkDir = path.join(nanoFirmwareChunksPath, uploadId);
+  const missingChunks = [];
+  for (let i = 0; i < totalChunks; i += 1) {
+    const partPath = path.join(chunkDir, `chunk_${i}.part`);
+    if (!fs.existsSync(partPath)) {
+      missingChunks.push(i);
+      if (missingChunks.length >= 5) break;
+    }
+  }
+  if (missingChunks.length > 0) {
+    return res.status(400).json({ error: `Missing chunks: ${missingChunks.join(',')}` });
+  }
+
+  const storedName = buildFirmwareStoredName(fileName);
+  const finalPath = path.join(nanoFirmwareUploadsPath, storedName);
+  let out = null;
+  try {
+    out = fs.createWriteStream(finalPath, { flags: 'wx' });
+    for (let i = 0; i < totalChunks; i += 1) {
+      const partPath = path.join(chunkDir, `chunk_${i}.part`);
+      await appendChunkFile(out, partPath);
+    }
+    await new Promise((resolve, reject) => {
+      out.end(() => resolve());
+      out.on('error', reject);
+    });
+    const stat = fs.statSync(finalPath);
+    if (!stat || !stat.size || stat.size <= 0) {
+      throw new Error('Merged firmware file is empty');
+    }
+    if (Number.isInteger(fileSize) && fileSize > 0 && Math.abs(stat.size - fileSize) > 1024) {
+      throw new Error('Merged firmware size mismatch');
+    }
+    const checksumSha256 = await sha256FileHex(finalPath);
+    const firmware = await dbOperations.deviceVerification.createFirmwareFile(
+      fileName || storedName,
+      `/uploads/nano-firmwares/${storedName}`,
+      stat.size || 0,
+      checksumSha256
+    );
+    cleanupFirmwareChunkSession(uploadId);
+    console.log('[FirmwareUploadChunk] 合并成功', { uploadId, size: stat.size, id: firmware && firmware.id });
+    res.json({ ok: true, firmware });
+  } catch (error) {
+    console.error('[FirmwareUploadChunk] 合并失败', error.message);
+    if (fs.existsSync(finalPath)) {
+      fs.rmSync(finalPath, { force: true });
+    }
+    cleanupFirmwareChunkSession(uploadId);
+    res.status(500).json({ error: error.message || 'Complete firmware upload failed' });
+  }
+});
+
 app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
   const adminName = req.session && req.session.admin && req.session.admin.username;
   console.log('[FirmwareUpload] 收到请求', {
@@ -1897,10 +2604,12 @@ app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
     }
     try {
       const normalizedName = normalizeUploadFileName(req.file.originalname || req.file.filename);
+      const checksumSha256 = await sha256FileHex(req.file.path);
       const firmware = await dbOperations.deviceVerification.createFirmwareFile(
         normalizedName || req.file.filename,
         `/uploads/nano-firmwares/${req.file.filename}`,
-        req.file.size || 0
+        req.file.size || 0,
+        checksumSha256
       );
       console.log('[FirmwareUpload] 成功', { path: req.file.path, size: req.file.size, id: firmware && firmware.id });
       res.json({ ok: true, firmware });

@@ -626,7 +626,13 @@
       "firmwareTitle": "Nano 固件管理",
       "firmwareDesc": "上传固件包，设置默认固件并一键绑定全部设备。",
       "firmwareUpload": "上传固件",
-      "firmwareUploading": "上传中...",
+      "firmwareUploading": "上传中... {progress}%",
+      "firmwareRegisterFromServer": "从服务器导入",
+      "firmwareRegisterFromServerPrompt": "请输入服务器上已有固件文件名（位于 uploads/nano-firmwares 目录，例如 firmware_v1.2.3.zip）",
+      "firmwareRegisterFromServerNameRequired": "请输入有效的文件名",
+      "firmwareRegisterFromServerSuccess": "服务器固件注册成功",
+      "firmwareRegisterFromServerError": "服务器固件注册失败",
+      "firmwareChecksumLabel": "SHA-256:",
       "firmwareListLoading": "固件列表加载中...",
       "firmwareEmpty": "暂无固件，请先上传文件。",
       "firmwareSelectPlaceholder": "请选择固件版本",
@@ -721,7 +727,9 @@
       "loadError": "加载题库数据失败：{message}",
       "nameRequired": "请填写题库名称",
       "saveSuccess": "题库保存成功",
-      "saveError": "保存题库失败，请重试"
+      "saveError": "保存题库失败，请重试",
+      "uploadingProgress": "正在分片上传文件... {progress}%",
+      "uploadInitFailed": "初始化分片上传失败"
     },
     "chatService": "客服服务",
     "chatWorkspace": "聊天工作台"

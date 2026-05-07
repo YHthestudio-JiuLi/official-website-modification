@@ -184,8 +184,8 @@ const dbOperations = {
       rpc('deviceVerification.findAllLogs', { limit, offset }),
     countAllLogs: () => rpc('deviceVerification.countAllLogs'),
     listFirmwareFiles: () => rpc('deviceVerification.listFirmwareFiles'),
-    createFirmwareFile: (fileName, fileUrl, fileSize = 0) =>
-      rpc('deviceVerification.createFirmwareFile', { file_name: fileName, file_url: fileUrl, file_size: fileSize }),
+    createFirmwareFile: (fileName, fileUrl, fileSize = 0, checksumSha256 = null) =>
+      rpc('deviceVerification.createFirmwareFile', { file_name: fileName, file_url: fileUrl, file_size: fileSize, checksum_sha256: checksumSha256 }),
     deleteFirmwareFile: (id) => rpc('deviceVerification.deleteFirmwareFile', { id }),
     setDefaultFirmware: (id) => rpc('deviceVerification.setDefaultFirmware', { id })
   },

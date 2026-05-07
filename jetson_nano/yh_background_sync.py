@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-低资源占用后台轮询：等待服务端白名单授权后拉取签名，并自动同步绑定题库与固件到 YH/。
+可选后台轮询：仅在显式设置 YH_DAEMON=1 并由 run_demo.sh 拉起时才会运行。
+默认 run_demo.sh 不启动本脚本，设备不会自动反复请求官网 API。
 
-说明：网页端无法主动向 NAT 后的设备 TCP「推送」；管理员点击授权后，由本脚本
+说明：网页端无法主动向 NAT 后的设备「推送」；若需无人值守，管理员授权后由本脚本
 周期性请求官网 API（与 fetch_signature / download_bound_artifacts 相同），实现准实时拉取。
 
 环境变量：
@@ -11,8 +12,9 @@
   API_BASE / DEVICE_ID  与 fetch_signature.py 一致
   YH_SKIP_LAUNCH      设为 1 时同步完成后不启动 YHTheStudio
 
-用法（通常由 run_demo.sh 自动 nohup 启动）：
-  python3 yh_background_sync.py
+用法：
+  YH_DAEMON=1 ./run_demo.sh   # 未授权或下载失败时会 nohup 启动本脚本
+  python3 yh_background_sync.py   # 也可手动单独运行（调试用）
 """
 from __future__ import annotations
 
@@ -67,7 +69,7 @@ def _clear_pid() -> None:
 def _one_cycle() -> str:
     """
     执行一轮：拉签名 -> 本地验签 -> 同步下载。
-    返回 "done" | "retry" | "fatal"
+    返回 "done" | "retry" | "fatal"（fatal：验证次数用尽等，不应无限轮询）
     """
     import fetch_signature  # noqa: WPS433 同目录脚本，延迟导入避免循环
 
@@ -75,6 +77,9 @@ def _one_cycle() -> str:
     if fetch_rc == 2:
         # 仍未授权，继续睡
         return "retry"
+    if fetch_rc == 3:
+        # 验证次数已达上限，轮询无意义
+        return "fatal"
     if fetch_rc != 0:
         # 网络或其它错误，稍后重试
         return "retry"
@@ -89,7 +94,7 @@ def _one_cycle() -> str:
     sync_rc = run_sync(LAST_VERIFY)
     if sync_rc == 0:
         return "done"
-    # 1 缺文件 2 验签失败 3 下载失败 — 均可在下一轮由重新拉签名恢复
+    # 1 缺文件 2 验签失败 3 下载失败 4 绑定不完整 — 除 fatal 外均可下一轮重试
     return "retry"
 
 
@@ -144,10 +149,21 @@ def main() -> int:
                     return 0
                 launcher = ROOT / "launch_yh_studio.sh"
                 if launcher.is_file():
-                    print("[信息] 正在启动 YHTheStudio…", flush=True)
+                    # 与 run_demo.sh 在下载完成后启动行为一致
+                    print("系统构建完成，正在启动程序。请稍后！！！", flush=True)
                     return subprocess.run(["bash", str(launcher)], cwd=str(ROOT)).returncode
                 print("[警告] 未找到 launch_yh_studio.sh，跳过启动", flush=True)
                 return 0
+
+            if phase == "fatal":
+                print("[信息] 验证次数已达上限，后台同步退出（请管理员处理后重新运行 run_demo.sh）", flush=True)
+                _clear_pid()
+                try:
+                    fcntl.flock(lock_fp.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
+                lock_fp.close()
+                return 1
 
             time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:

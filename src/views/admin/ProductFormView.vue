@@ -65,6 +65,25 @@
               </div>
             </div>
 
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label for="categoryId">
+                  <i class="fas fa-tags"></i> {{ $t('admin.productForm.category') }}
+                </label>
+                <select id="categoryId" v-model="form.categoryId" class="form-input">
+                  <option :value="null">{{ $t('products.uncategorized') }}</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                    {{ cat.name }}{{ cat.nameEn ? ` / ${cat.nameEn}` : '' }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group form-group-align-end">
+                <router-link to="/admin/product-categories" class="btn btn-secondary btn-manage-categories">
+                  <i class="fas fa-cog"></i> {{ $t('admin.productForm.manageCategories') }}
+                </router-link>
+              </div>
+            </div>
+
             <div class="form-group">
               <label for="description">
                 <i class="fas fa-align-left"></i> {{ $t('admin.productForm.description') }}
@@ -336,8 +355,11 @@ const form = ref({
   description: '',
   image: '',
   priceUsdt: 0,
-  date: new Date().toISOString().split('T')[0]
+  date: new Date().toISOString().split('T')[0],
+  categoryId: null
 })
+
+const categories = ref([])
 
 const imageList = ref([])
 /** 详情页功能卡行，提交时序列化为 featuresJson */
@@ -508,6 +530,7 @@ watch(form, () => {
 }, { deep: true })
 
 onMounted(async () => {
+  await loadCategories()
   if (isEdit.value) {
     loading.value = true
     try {
@@ -517,7 +540,8 @@ onMounted(async () => {
         description: response.data.description || '',
         image: response.data.image || '',
         priceUsdt: response.data.priceUsdt || response.data.price || 0,
-        date: response.data.date || new Date().toISOString().split('T')[0]
+        date: response.data.date || new Date().toISOString().split('T')[0],
+        categoryId: response.data.categoryId ?? null
       }
       imageList.value = parseImageList(response.data.images?.length ? response.data.images : response.data.image)
       loadFeatureRowsFromProduct(response.data)
@@ -535,6 +559,15 @@ onMounted(async () => {
     }
   }
 })
+
+async function loadCategories() {
+  try {
+    const res = await api.get('/api/admin/product-categories')
+    categories.value = res.data || []
+  } catch (_e) {
+    categories.value = []
+  }
+}
 
 function handleImageError() {
   // 占位：预览失败时不影响提交流程
@@ -1135,5 +1168,19 @@ function showToast(message, type = 'success') {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.form-group-align-end {
+  display: flex;
+  align-items: flex-end;
+}
+
+.btn-manage-categories {
+  width: 100%;
+  justify-content: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

@@ -129,6 +129,12 @@ function translateProduct(product) {
     translated.specCards = translateSpecCards(product);
     translated.usageNoticeLines = translateUsageNoticeLines(product);
 
+    if (product.categoryNameEn) {
+        translated.categoryName = product.categoryNameEn;
+    } else if (product.categoryName) {
+        translated.categoryName = translateToEnglish(product.categoryName);
+    }
+
     return translated;
 }
 

@@ -41,11 +41,20 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt }),
-    update: (id, name, description, image, date, price, priceUsdt) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt }),
+    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId }),
+    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId }),
     delete: (id) => rpc('products.delete', { id })
+  },
+  productCategories: {
+    findAll: () => rpc('productCategories.findAll'),
+    findById: (id) => rpc('productCategories.findById', { id }),
+    create: (name, nameEn, slug, sortOrder) =>
+      rpc('productCategories.create', { name, nameEn, slug, sortOrder }),
+    update: (id, name, nameEn, slug, sortOrder) =>
+      rpc('productCategories.update', { id, name, nameEn, slug, sortOrder }),
+    delete: (id) => rpc('productCategories.delete', { id })
   },
   orders: {
     findAll: (statusFilter = '') => rpc('orders.findAll', { statusFilter }),
@@ -81,6 +90,11 @@ const dbOperations = {
     get: () => rpc('paymentSettings.get'),
     update: (walletAddress, network = 'TRC20', autoDeleteMinutes = 30) =>
       rpc('paymentSettings.update', { walletAddress, network, autoDeleteMinutes })
+  },
+  chatCommunitySettings: {
+    get: () => rpc('chatCommunitySettings.get'),
+    update: (telegramGroupUrl, qqGroupUrl) =>
+      rpc('chatCommunitySettings.update', { telegramGroupUrl, qqGroupUrl })
   },
   cart: {
     get: (userId) => rpc('cart.get', { userId }),

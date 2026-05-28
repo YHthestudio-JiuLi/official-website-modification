@@ -4,7 +4,7 @@
   "description": "YHthestudio - Vue 3 E-commerce & Forum Platform",
   "main": "api-server.js",
   "scripts": {
-    "py": "python3 -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
+    "py": ".venv/bin/python -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
     "dev": "npm run build && npm start",
     "build": "vite build",
     "preview": "vite preview",

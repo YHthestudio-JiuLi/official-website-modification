@@ -58,44 +58,16 @@
               <span class="conv-count">{{ conversations.length }}</span>
             </div>
             
-            <!-- 服务类型筛选 -->
-            <div class="service-filter">
-              <button 
-                type="button" 
-                class="filter-btn"
-                :class="{ active: serviceFilter === 'all' }"
-                @click="serviceFilter = 'all'"
-              >
-                <i class="fas fa-inbox"></i> {{ $t('adminChat.workspace.filterAll') }}
-              </button>
-              <button 
-                type="button" 
-                class="filter-btn"
-                :class="{ active: serviceFilter === 'support' }"
-                @click="serviceFilter = 'support'"
-              >
-                <i class="fas fa-headset"></i> {{ $t('adminChat.workspace.filterSupport') }}
-              </button>
-              <button 
-                type="button" 
-                class="filter-btn"
-                :class="{ active: serviceFilter === 'sales' }"
-                @click="serviceFilter = 'sales'"
-              >
-                <i class="fas fa-shopping-cart"></i> {{ $t('adminChat.workspace.filterSales') }}
-              </button>
-            </div>
-            
             <span class="conv-panel-sub">{{ $t('adminChat.workspace.selectUser') }}</span>
           </div>
           
           <div class="conv-list">
-            <div v-if="filteredConversations.length === 0" class="empty-conv">
+            <div v-if="conversations.length === 0" class="empty-conv">
               <i class="fas fa-inbox"></i>
               <p>{{ $t('adminChat.workspace.emptyConversations') }}</p>
             </div>
             <div
-              v-for="conv in filteredConversations"
+              v-for="conv in conversations"
               :key="conv.session_id"
               class="conv-item"
               :class="{ active: activeSessionId === conv.session_id }"
@@ -105,12 +77,8 @@
               <div class="conv-item-body">
                 <div class="conv-item-top">
                   <strong>{{ conv.nickname }}</strong>
-                  <span class="service-type-badge" :class="conv.service_type || 'support'">
-                    {{
-                      (conv.service_type || 'support') === 'support'
-                        ? $t('adminChat.workspace.badgeSupportShort')
-                        : $t('adminChat.workspace.badgeSalesShort')
-                    }}
+                  <span class="service-type-badge support">
+                    {{ $t('adminChat.workspace.badgeSupportShort') }}
                   </span>
                   <time class="conv-time">{{ formatSidebarTime(conv.last_at) }}</time>
                 </div>
@@ -134,13 +102,9 @@
               <div class="title-block">
                 <span class="admin-chat-title">{{ activeMeta?.nickname || $t('adminChat.workspace.selectUser') }}</span>
                 <div class="admin-chat-meta">
-                  <span v-if="activeMeta?.service_type" class="service-badge" :class="activeMeta.service_type">
-                    <i :class="activeMeta.service_type === 'support' ? 'fas fa-headset' : 'fas fa-shopping-cart'"></i>
-                    {{
-                      activeMeta.service_type === 'support'
-                        ? $t('adminChat.workspace.filterSupport')
-                        : $t('adminChat.workspace.filterSales')
-                    }}
+                  <span class="service-badge support">
+                    <i class="fas fa-headset"></i>
+                    {{ $t('adminChat.workspace.filterSupport') }}
                   </span>
                   <span class="admin-chat-sub">{{ activeMeta?.admin_display_name || '' }}</span>
                 </div>
@@ -213,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminStore } from '@/stores/admin'
@@ -240,14 +204,8 @@ const inputMessage = ref('')
 const messagesContainer = ref(null)
 const inputEl = ref(null)
 const loadHistoryLoading = ref(false)
-const serviceFilter = ref('all') // 'all', 'support', 'sales'
 
 const seenMessageIds = new Set()
-
-const filteredConversations = computed(() => {
-  if (serviceFilter.value === 'all') return conversations.value
-  return conversations.value.filter(conv => (conv.service_type || 'support') === serviceFilter.value)
-})
 
 function getInitials(name) {
   const s = String(name || '?').trim()

@@ -9,7 +9,7 @@
           <router-link v-if="authStore.isLoggedIn" to="/forum/post" class="btn btn-primary">
             <i class="fas fa-plus"></i> New Post
           </router-link>
-          <router-link v-else to="/login" class="btn btn-primary">
+          <router-link v-else :to="loginRoute" class="btn btn-primary">
             <i class="fas fa-sign-in-alt"></i> Login to Post
           </router-link>
         </div>
@@ -74,13 +74,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { buildLoginRoute, resolveRedirectFromRoute } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
+const route = useRoute()
 const authStore = useAuthStore()
+const loginRoute = computed(() =>
+  buildLoginRoute(resolveRedirectFromRoute(route) || '/forum')
+)
 const posts = ref([])
 const loading = ref(true)
 

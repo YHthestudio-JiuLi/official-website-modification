@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { isSafeInternalRedirect } from '@/utils/authRedirect'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 import i18n from '@/i18n'
@@ -134,6 +135,12 @@ const routes = [
     meta: { titleKey: 'titles.adminProductEdit', requiresAdmin: true, layout: 'admin' }
   },
   {
+    path: '/admin/product-categories',
+    name: 'admin-product-categories',
+    component: () => import('@/views/admin/ProductCategoriesView.vue'),
+    meta: { titleKey: 'titles.adminProductCategories', requiresAdmin: true, layout: 'admin' }
+  },
+  {
     path: '/admin/posts',
     name: 'admin-posts',
     component: () => import('@/views/admin/PostsView.vue'),
@@ -239,6 +246,17 @@ router.beforeEach(async (to, from, next) => {
   // Logged in users accessing guest pages
   if (to.meta.guest) {
     if (authStore.isLoggedIn && to.name === 'login') {
+      const redirect = to.query.redirect
+      if (typeof redirect === 'string' && isSafeInternalRedirect(redirect)) {
+        return next(redirect)
+      }
+      return next({ name: 'home' })
+    }
+    if (authStore.isLoggedIn && to.name === 'register') {
+      const redirect = to.query.redirect
+      if (typeof redirect === 'string' && isSafeInternalRedirect(redirect)) {
+        return next(redirect)
+      }
       return next({ name: 'home' })
     }
     if (adminStore.isLoggedIn && to.name === 'admin-login') {

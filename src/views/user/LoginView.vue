@@ -47,7 +47,7 @@
           </form>
 
           <div class="auth-footer">
-            <p>Don't have an account? <router-link to="/register">Register Now</router-link></p>
+            <p>Don't have an account? <router-link :to="registerRoute">Register Now</router-link></p>
           </div>
         </div>
       </div>
@@ -57,11 +57,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
-import { isSafeInternalRedirect } from '@/utils/productCheckout'
+import { buildRegisterRoute, navigateAfterAuth } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
@@ -77,18 +77,17 @@ const form = ref({
 const error = ref('')
 const loading = ref(false)
 
+const registerRoute = computed(() =>
+  buildRegisterRoute(typeof route.query.redirect === 'string' ? route.query.redirect : null)
+)
+
 async function handleLogin() {
   loading.value = true
   error.value = ''
 
   try {
     await authStore.login(form.value)
-    const redirect = route.query.redirect
-    if (typeof redirect === 'string' && isSafeInternalRedirect(redirect)) {
-      await router.push(redirect)
-    } else {
-      await router.push('/')
-    }
+    await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
     const status = err.response?.status
     if (status === 429) {

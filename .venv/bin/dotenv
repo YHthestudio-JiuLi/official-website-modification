@@ -1,4 +1,4 @@
-#!/www/wwwroot/yhthestudio.com/official-website-modification_v1.0.1/.venv/bin/python3
+#!/Users/jiuli/Documents/yhthestudio/网页/yh/official-website-modification_v0.1.2/.venv/bin/python3.13
 import sys
 from dotenv.__main__ import cli
 if __name__ == '__main__':

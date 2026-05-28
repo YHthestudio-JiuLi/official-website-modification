@@ -64,9 +64,9 @@
         </template>
 
         <template v-else>
-          <li><router-link to="/login" class="nav-link">{{ $t('nav.login') }}</router-link></li>
+          <li><router-link :to="loginRoute" class="nav-link">{{ $t('nav.login') }}</router-link></li>
           <li>
-            <router-link to="/register" class="nav-link btn-primary">
+            <router-link :to="registerRoute" class="nav-link btn-primary">
               {{ $t('nav.register') }}
             </router-link>
           </li>
@@ -105,6 +105,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { setLanguage } from '@/i18n'
+import { buildLoginRoute, buildRegisterRoute, resolveRedirectFromRoute } from '@/utils/authRedirect'
 
 const authStore = useAuthStore()
 const cartStore = useCartStore()
@@ -112,6 +113,10 @@ const route = useRoute()
 const router = useRouter()
 const { locale, t } = useI18n()
 const menuOpen = ref(false)
+
+const authRedirectTarget = computed(() => resolveRedirectFromRoute(route))
+const loginRoute = computed(() => buildLoginRoute(authRedirectTarget.value))
+const registerRoute = computed(() => buildRegisterRoute(authRedirectTarget.value))
 
 const showProductsSearch = computed(() => route.name === 'products')
 const productsSearchPlaceholder = computed(() => t('products.searchPlaceholder'))

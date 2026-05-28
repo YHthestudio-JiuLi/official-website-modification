@@ -44,6 +44,10 @@
             <i class="fas fa-box-open"></i>
             <span>{{ $t('admin.products.title') }}</span>
           </router-link>
+          <router-link to="/admin/product-categories" class="nav-link" :class="{ active: isActive('/admin/product-categories') }" @click="closeMobileMenu">
+            <i class="fas fa-tags"></i>
+            <span>{{ $t('admin.productCategories.menu') }}</span>
+          </router-link>
         </div>
         <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" v-show="collapsed" :title="$t('admin.products.title')">
           <i class="fas fa-box-open"></i>

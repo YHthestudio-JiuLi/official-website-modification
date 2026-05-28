@@ -2,132 +2,74 @@
   <div class="chat-page">
     <AppHeader />
     
-    <!-- 未登录提示 -->
-    <div v-if="!isLoggedIn" class="auth-required">
-      <div class="auth-card">
-        <div class="auth-icon">
-          <i class="fas fa-comments"></i>
-        </div>
-        <h2>{{ $t('chat.authRequired.title') || 'Login Required' }}</h2>
-        <p>{{ $t('chat.authRequired.desc') || 'Please login to use the customer service chat' }}</p>
-        <div class="auth-actions">
-          <router-link to="/login" class="btn btn-primary">
-            <i class="fas fa-sign-in-alt"></i> {{ $t('nav.login') || 'Login' }}
-          </router-link>
-          <router-link to="/register" class="btn btn-secondary">
-            <i class="fas fa-user-plus"></i> {{ $t('nav.register') || 'Register' }}
-          </router-link>
-        </div>
-      </div>
-    </div>
-
-    <!-- 聊天初始化界面 -->
-    <div v-else-if="!sessionId" class="chat-setup">
+    <!-- 联系我们（无需登录） -->
+    <div v-if="!sessionId || !isLoggedIn" class="chat-setup">
       <div class="setup-card">
         <div class="setup-header">
           <h2 class="setup-title">
             <i class="fas fa-headset"></i>
-            {{ $t('chat.setup.title') || 'Start Conversation' }}
+            {{ $t('chat.hub.title') }}
           </h2>
-          <p class="setup-desc">{{ $t('chat.setup.desc') || 'Select a service type and start chatting with our team' }}</p>
+          <p class="setup-desc">{{ $t('chat.hub.desc') }}</p>
         </div>
 
         <div v-if="error" class="alert alert-error">
           <i class="fas fa-exclamation-circle"></i> {{ error }}
         </div>
 
-        <!-- 客服类型选择 -->
-        <div class="form-section">
-          <label class="section-label">
-            <i class="fas fa-briefcase"></i> {{ $t('chat.serviceType') || 'Service Type' }}
-          </label>
-          <div class="service-type-list">
-            <button
-              type="button"
-              class="service-type-card"
-              :class="{ selected: serviceType === 'support' }"
-              @click="serviceType = 'support'"
-            >
-              <div class="service-icon support">
-                <i class="fas fa-headset"></i>
-              </div>
-              <div class="service-info">
-                <h3>{{ $t('chat.types.support.title') || 'Customer Support' }}</h3>
-                <p>{{ $t('chat.types.support.desc') || 'Technical support and account assistance' }}</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              class="service-type-card"
-              :class="{ selected: serviceType === 'sales' }"
-              @click="serviceType = 'sales'"
-            >
-              <div class="service-icon sales">
-                <i class="fas fa-shopping-cart"></i>
-              </div>
-              <div class="service-info">
-                <h3>{{ $t('chat.types.sales.title') || 'Sales Consultation' }}</h3>
-                <p>{{ $t('chat.types.sales.desc') || 'Product inquiries and purchase assistance' }}</p>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- 选择客服 -->
-        <div class="form-section">
-          <label class="section-label">
-            <i class="fas fa-user"></i> {{ $t('chat.setup.selectAdmin') || 'Select Agent' }}
-          </label>
-          <div v-if="loading" class="loading-state">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>{{ $t('common.loading') || 'Loading...' }}</span>
-          </div>
-          <div v-else-if="filteredAdmins.length === 0" class="empty-state">
-            <i class="fas fa-user-slash"></i>
-            <p>{{ $t('chat.noAgents') || 'No agents available' }}</p>
-          </div>
-          <div v-else class="admin-list">
-            <button
-              v-for="admin in filteredAdmins"
-              :key="admin.id"
-              type="button"
-              class="admin-card"
-              :class="{ selected: selectedAdminId === admin.id }"
-              @click="selectedAdminId = admin.id"
-            >
-              <div class="admin-avatar" :style="{ background: admin.avatar_color }">
-                {{ getInitials(admin.display_name) }}
-              </div>
-              <div class="admin-meta">
-                <h3>{{ admin.display_name }}</h3>
-                <span v-if="admin.bio">{{ admin.bio }}</span>
-                <span v-else class="admin-status">{{ $t('chat.online') || 'Online' }}</span>
-              </div>
-              <i v-if="selectedAdminId === admin.id" class="fas fa-check-circle selected-icon"></i>
-            </button>
-          </div>
-        </div>
-
         <button
           type="button"
-          class="btn btn-primary btn-block btn-large"
-          :disabled="!canStart"
-          @click="startSession"
+          class="btn btn-primary btn-block btn-large hub-btn-online"
+          :disabled="startingChat || (isLoggedIn && loading)"
+          @click="startOnlineChat"
         >
-          <i class="fas fa-comments"></i> {{ $t('chat.setup.startChat') || 'Start Chat' }}
+          <i v-if="startingChat" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-comments"></i>
+          {{ startingChat ? $t('chat.hub.connecting') : $t('chat.hub.onlineChat') }}
         </button>
+
+        <div class="hub-divider">
+          <span>{{ $t('chat.hub.communityTitle') }}</span>
+        </div>
+
+        <div class="community-actions">
+          <button
+            type="button"
+            class="community-btn telegram"
+            :disabled="!communityLinks.telegramGroupUrl"
+            @click="openCommunityLink(communityLinks.telegramGroupUrl)"
+          >
+            <i class="fab fa-telegram-plane"></i>
+            <span>{{ $t('chat.hub.telegramGroup') }}</span>
+          </button>
+          <button
+            type="button"
+            class="community-btn qq"
+            :disabled="!communityLinks.qqGroupUrl"
+            @click="openCommunityLink(communityLinks.qqGroupUrl)"
+          >
+            <i class="fab fa-qq"></i>
+            <span>{{ $t('chat.hub.qqGroup') }}</span>
+          </button>
+        </div>
+        <p v-if="!communityLinks.telegramGroupUrl && !communityLinks.qqGroupUrl" class="community-hint">
+          <i class="fas fa-info-circle"></i> {{ $t('chat.hub.communityEmpty') }}
+        </p>
+        <p v-else class="community-hint">
+          <i class="fas fa-external-link-alt"></i> {{ $t('chat.hub.communityHint') }}
+        </p>
       </div>
     </div>
 
-    <!-- 聊天界面 -->
-    <div v-else class="chat-screen">
+    <!-- 聊天界面（需登录） -->
+    <div v-else-if="sessionId && isLoggedIn" class="chat-screen">
       <header class="chat-header">
         <button class="chat-back" @click="backToSetup">
           <i class="fas fa-arrow-left"></i>
         </button>
         <div class="chat-header-center">
-          <span class="chat-title">{{ sessionMeta?.admin_display_name || $t('chat.admin') }}</span>
-          <span class="chat-subtitle">{{ serviceType === 'support' ? ($t('chat.types.support.title') || 'Support') : ($t('chat.types.sales.title') || 'Sales') }}</span>
+          <span class="chat-title">{{ $t('chat.hub.onlineChat') }}</span>
+          <span class="chat-subtitle">{{ $t('chat.online') }}</span>
         </div>
         <span class="chat-status" :class="{ online: wsConnected }">
           <span class="status-dot" :class="{ on: wsConnected }"></span>
@@ -190,23 +132,26 @@
       </div>
     </div>
 
+    <LoginModal v-model="showLoginModal" @success="onLoginSuccess" @update:model-value="onLoginModalToggle" />
+
     <AppFooter />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import LoginModal from '@/components/common/LoginModal.vue'
+
+const CHAT_AUTO_START_KEY = 'chat_auto_start'
 
 const STORAGE_KEY = 'cs_session_id'
 const SERVICE_TYPE_KEY = 'cs_service_type'
 
 const { t } = useI18n()
-const router = useRouter()
 const authStore = useAuthStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
@@ -220,45 +165,36 @@ let reconnectTimer = null
 
 const admins = ref([])
 const selectedAdminId = ref(null)
-const userSessions = ref([])
 const sessionId = ref(null)
 const sessionMeta = ref(null)
-const serviceType = ref('support') // 'support' or 'sales'
+const serviceType = ref('support')
+const communityLinks = ref({ telegramGroupUrl: '', qqGroupUrl: '' })
 const inputMessage = ref('')
 const messages = ref([])
 const error = ref('')
 const loading = ref(true)
+const startingChat = ref(false)
 const loadHistoryLoading = ref(false)
 const wsConnected = ref(false)
 const messagesContainer = ref(null)
 const inputEl = ref(null)
+const showLoginModal = ref(false)
+const pendingStartChat = ref(false)
 
 const seenMessageIds = new Set()
 
-// 售前/售后与数据库 chat_admins.username（support / sales）对应，避免选了「售前」却仍绑定官方客服导致 Telegram 走错账号
-const filteredAdmins = computed(() => {
-  if (!admins.value.length) return []
-  const want = serviceType.value === 'sales' ? 'sales' : 'support'
-  const byUsername = admins.value.filter((a) => a.username === want)
-  if (byUsername.length) return byUsername
-  return admins.value.filter((admin) => !admin.type || admin.type === serviceType.value || admin.type === 'all')
-})
-
-function syncSelectedAdminForServiceType() {
-  const want = serviceType.value === 'sales' ? 'sales' : 'support'
-  const match = admins.value.find((a) => a.username === want)
-  if (match) {
-    selectedAdminId.value = match.id
-    return
-  }
-  if (admins.value.length === 1) {
-    selectedAdminId.value = admins.value[0].id
-  }
+/** 在线客服固定对接官方客服账号 support */
+function resolveSupportAdmin() {
+  if (!admins.value.length) return null
+  return admins.value.find((a) => a.username === 'support') || admins.value[0]
 }
 
-const canStart = computed(() => {
-  return selectedAdminId.value != null && filteredAdmins.value.length > 0
-})
+function openCommunityLink(url) {
+  const raw = String(url || '').trim()
+  if (!raw) return
+  const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
 
 function getInitials(name) {
   const s = String(name || '?').trim()
@@ -361,7 +297,6 @@ async function loadAdmins() {
     const res = await fetch('/api/chat/admins')
     const data = await res.json()
     admins.value = data.admins || []
-    syncSelectedAdminForServiceType()
   } catch (e) {
     error.value = t('chat.loadAdminsError') || 'Failed to load agents'
   } finally {
@@ -369,17 +304,14 @@ async function loadAdmins() {
   }
 }
 
-async function loadUserSessions() {
+async function loadCommunityLinks() {
   try {
-    const res = await fetch('/api/chat/user-sessions', {
-      headers: { 'Content-Type': 'application/json' }
-    })
+    const res = await fetch('/api/chat/community-links')
     if (res.ok) {
-      const data = await res.json()
-      userSessions.value = data.sessions || []
+      communityLinks.value = await res.json()
     }
   } catch (e) {
-    console.error('Failed to load user sessions:', e)
+    console.error('Failed to load community links:', e)
   }
 }
 
@@ -430,14 +362,55 @@ async function loadHistory() {
   }
 }
 
-async function startSession() {
-  error.value = ''
-  if (!authStore.isLoggedIn) {
-    router.push({ name: 'login', query: { redirect: '/chat' } })
+function onLoginModalToggle(open) {
+  if (!open) pendingStartChat.value = false
+}
+
+async function onLoginSuccess() {
+  await enterOnlineChat()
+}
+
+async function enterOnlineChat() {
+  if (!authStore.isLoggedIn) return
+  if (!admins.value.length) {
+    await loadAdmins()
+  }
+  const supportAdmin = resolveSupportAdmin()
+  if (!supportAdmin) {
+    error.value = t('chat.noAgents')
+    pendingStartChat.value = false
     return
   }
-  if (!canStart.value) return
-  
+  selectedAdminId.value = supportAdmin.id
+  serviceType.value = 'support'
+  startingChat.value = true
+  try {
+    // 优先恢复已有会话，没有再新建，保证点击「在线客服」才进入聊天
+    const restored = await loadUserSession()
+    if (!restored) {
+      await startSession()
+    }
+  } finally {
+    startingChat.value = false
+    pendingStartChat.value = false
+  }
+}
+
+async function startOnlineChat() {
+  error.value = ''
+  if (!authStore.isLoggedIn) {
+    pendingStartChat.value = true
+    showLoginModal.value = true
+    return
+  }
+  await enterOnlineChat()
+}
+
+async function startSession() {
+  error.value = ''
+  if (!authStore.isLoggedIn) return
+  if (!selectedAdminId.value) return
+
   try {
     const res = await fetch('/api/chat/sessions', {
       method: 'POST',
@@ -501,7 +474,6 @@ function backToSetup() {
   wsConnected.value = false
   selectedAdminId.value = null
   serviceType.value = 'support'
-  syncSelectedAdminForServiceType()
 }
 
 watch(() => authStore.isLoggedIn, (newVal) => {
@@ -510,21 +482,22 @@ watch(() => authStore.isLoggedIn, (newVal) => {
   }
 })
 
-watch(serviceType, () => {
-  syncSelectedAdminForServiceType()
-})
-
 onMounted(async () => {
+  await loadCommunityLinks()
+
   if (!authStore.isLoggedIn) {
+    loading.value = false
     return
   }
-  
+
   await loadAdmins()
-  
-  // 尝试从后端恢复用户的活跃会话
-  const restored = await loadUserSession()
-  if (restored) {
-    console.log('[Chat] Restored user session from backend')
+
+  // 仅当用户点击「在线客服」后（自动开聊标记）才进入聊天；
+  // 顶部导航进入客服页时停留在「联系我们」入口页，不自动进入聊天
+  const autoStart = sessionStorage.getItem(CHAT_AUTO_START_KEY) === '1'
+  if (autoStart) {
+    sessionStorage.removeItem(CHAT_AUTO_START_KEY)
+    await enterOnlineChat()
   }
 })
 
@@ -633,6 +606,83 @@ onUnmounted(() => {
 .setup-desc {
   color: var(--text-secondary);
   font-size: 0.95rem;
+}
+
+.hub-btn-online {
+  margin-top: 0.5rem;
+}
+
+.hub-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.75rem 0 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.hub-divider::before,
+.hub-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.community-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.community-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.9rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.community-btn i {
+  font-size: 1.35rem;
+}
+
+.community-btn.telegram:not(:disabled):hover {
+  border-color: #229ed9;
+  background: rgba(34, 158, 217, 0.12);
+  color: #5eb8f0;
+}
+
+.community-btn.qq:not(:disabled):hover {
+  border-color: #12b7f5;
+  background: rgba(18, 183, 245, 0.12);
+  color: #5ecfff;
+}
+
+.community-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.community-hint {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.community-hint i {
+  margin-right: 0.35rem;
+  color: var(--primary-color);
 }
 
 .form-section {

@@ -24,13 +24,13 @@
           <span>{{ $t('common.loading') }}</span>
         </div>
 
-        <div v-else-if="admins.length === 0" class="empty-state">
+        <div v-else-if="onlineSupportAdmins.length === 0" class="empty-state">
           <i class="fas fa-inbox"></i>
           <p>{{ $t('admin.chatSettings.noAdmins') }}</p>
         </div>
 
         <div v-else class="admin-list">
-          <div v-for="admin in admins" :key="admin.id" class="admin-item">
+          <div v-for="admin in onlineSupportAdmins" :key="admin.id" class="admin-item">
             <div class="admin-header">
               <div class="admin-info">
                 <div class="admin-avatar" :style="{ background: admin.avatar_color }">
@@ -39,8 +39,8 @@
                 <div class="admin-meta">
                   <h3>{{ admin.display_name }}</h3>
                   <p class="admin-role">
-                    <i class="fas fa-tag"></i>
-                    {{ admin.username === 'support' ? $t('admin.chatSettings.officialSupport') : $t('admin.chatSettings.salesConsult') }}
+                    <i class="fas fa-headset"></i>
+                    {{ $t('admin.chatSettings.onlineSupport') }}
                   </p>
                 </div>
               </div>
@@ -96,6 +96,32 @@
                     />
                   </div>
                 </div>
+                <div class="form-row form-row-spaced">
+                  <div class="form-group">
+                    <label>
+                      <i class="fab fa-telegram-plane"></i> {{ $t('admin.chatSettings.telegramGroupUrl') }}
+                    </label>
+                    <input
+                      v-model="communityForm.telegramGroupUrl"
+                      type="url"
+                      :placeholder="$t('admin.chatSettings.telegramGroupUrlPh')"
+                      @paste="scheduleCommunitySave"
+                      @blur="saveCommunityLinks"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>
+                      <i class="fab fa-qq"></i> {{ $t('admin.chatSettings.qqGroupUrl') }}
+                    </label>
+                    <input
+                      v-model="communityForm.qqGroupUrl"
+                      type="url"
+                      :placeholder="$t('admin.chatSettings.qqGroupUrlPh')"
+                      @paste="scheduleCommunitySave"
+                      @blur="saveCommunityLinks"
+                    />
+                  </div>
+                </div>
                 <p class="form-hint">
                   <i class="fas fa-info-circle"></i> {{ $t('admin.chatSettings.configAutoSave') }}
                 </p>
@@ -123,16 +149,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
 
 const admins = ref([])
+/** 仅展示在线客服（support），不再区分售前/售后 */
+const onlineSupportAdmins = computed(() =>
+  admins.value.filter((a) => a.username === 'support')
+)
 const loading = ref(true)
 const error = ref('')
 const success = ref('')
+const communityForm = ref({ telegramGroupUrl: '', qqGroupUrl: '' })
+const communitySaved = ref({ telegramGroupUrl: '', qqGroupUrl: '' })
 
 function getInitials(name) {
   const s = String(name || '?').trim()
@@ -195,8 +227,56 @@ async function saveAdminConfig(admin) {
   }
 }
 
+async function loadCommunityLinks() {
+  try {
+    const res = await fetch('/api/admin/chat/community-links', { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      const tg = data.telegramGroupUrl || ''
+      const qq = data.qqGroupUrl || ''
+      communityForm.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
+      communitySaved.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
+    }
+  } catch (e) {
+    console.error('Failed to load community links:', e)
+  }
+}
+
+function scheduleCommunitySave() {
+  nextTick(() => saveCommunityLinks())
+}
+
+async function saveCommunityLinks() {
+  const payload = {
+    telegramGroupUrl: (communityForm.value.telegramGroupUrl || '').trim(),
+    qqGroupUrl: (communityForm.value.qqGroupUrl || '').trim(),
+  }
+  if (
+    payload.telegramGroupUrl === communitySaved.value.telegramGroupUrl &&
+    payload.qqGroupUrl === communitySaved.value.qqGroupUrl
+  ) {
+    return
+  }
+  try {
+    const res = await fetch('/api/admin/chat/community-links', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error('Failed to save')
+    communitySaved.value = { ...payload }
+    success.value = t('admin.chatSettings.settingsSaved')
+    setTimeout(() => { success.value = '' }, 3000)
+  } catch (e) {
+    error.value = e.message || t('admin.chatSettings.communitySaveFailed')
+    setTimeout(() => { error.value = '' }, 3000)
+  }
+}
+
 onMounted(() => {
   loadAdmins()
+  loadCommunityLinks()
 })
 </script>
 
@@ -446,6 +526,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.form-row-spaced {
+  margin-top: 1rem;
 }
 
 .form-group {

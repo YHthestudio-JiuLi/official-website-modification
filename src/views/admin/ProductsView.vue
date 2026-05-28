@@ -15,6 +15,10 @@
           <i class="fas fa-plus"></i>
           <span>Add Product</span>
         </router-link>
+        <router-link to="/admin/product-categories" class="btn btn-secondary" title="Manage product categories">
+          <i class="fas fa-tags"></i>
+          <span>Categories</span>
+        </router-link>
       </div>
 
       <div v-if="loading" class="loading-container">
@@ -46,6 +50,7 @@
               <tr>
                 <th>ID</th>
                 <th>Product</th>
+                <th>Category</th>
                 <th>Description</th>
                 <th>Price</th>
                 <th>Date</th>
@@ -64,6 +69,9 @@
                     </div>
                     <span class="product-name">{{ product.name }}</span>
                   </div>
+                </td>
+                <td>
+                  <span class="category-cell">{{ product.categoryName || '—' }}</span>
                 </td>
                 <td>
                   <span class="description-cell">{{ truncateDescription(product.description) }}</span>
@@ -99,7 +107,7 @@
                 </td>
               </tr>
               <tr v-if="products.length === 0">
-                <td colspan="6" class="empty-state">
+                <td colspan="7" class="empty-state">
                   <i class="fas fa-box-open"></i>
                   <h3>No Products Yet</h3>
                   <p>Your product catalog is empty. Start by adding your first product.</p>

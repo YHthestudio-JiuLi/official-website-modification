@@ -25,35 +25,6 @@
         </div>
       </div>
 
-      <!-- Features Section -->
-      <div class="features-section">
-        <div class="container">
-          <h2 class="section-title">Core Features</h2>
-          <div class="features-grid">
-            <div class="feature-card">
-              <div class="feature-icon">
-                <i class="fas fa-comments"></i>
-              </div>
-              <h3>Tech Forum</h3>
-              <p>Exchange with industry experts and tech enthusiasts, share experiences and insights</p>
-              <router-link to="/forum" class="feature-link">
-                Enter Forum <i class="fas fa-arrow-right"></i>
-              </router-link>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon">
-                <i class="fas fa-box"></i>
-              </div>
-              <h3>Product Showcase</h3>
-              <p>Browse our latest innovative products and solutions</p>
-              <router-link to="/products" class="feature-link">
-                View Products <i class="fas fa-arrow-right"></i>
-              </router-link>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Products Section -->
       <div class="products-preview" v-if="products.length > 0">
         <div class="container">

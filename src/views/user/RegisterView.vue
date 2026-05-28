@@ -61,7 +61,7 @@
           </form>
 
           <div class="auth-footer">
-            <p>Already have an account? <router-link to="/login">Login Now</router-link></p>
+            <p>Already have an account? <router-link :to="loginRoute">Login Now</router-link></p>
           </div>
         </div>
       </div>
@@ -71,14 +71,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { buildLoginRoute, navigateAfterAuth } from '@/utils/authRedirect'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const authStore = useAuthStore()
 
@@ -90,13 +92,17 @@ const form = ref({
 const error = ref('')
 const loading = ref(false)
 
+const loginRoute = computed(() =>
+  buildLoginRoute(typeof route.query.redirect === 'string' ? route.query.redirect : null)
+)
+
 async function handleRegister() {
   loading.value = true
   error.value = ''
 
   try {
     await authStore.register(form.value)
-    router.push('/')
+    await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
     error.value = err.response?.data?.message || t('auth.register.error.usernameExists')
   } finally {

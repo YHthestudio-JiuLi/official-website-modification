@@ -31,6 +31,24 @@ class ProductManager:
         self._ensure_features_json_column()
         self._ensure_specs_json_column()
         self._ensure_usage_notice_json_column()
+        self._ensure_category_id_column()
+
+    def _ensure_category_id_column(self) -> None:
+        """已有库升级：商品分类外键 categoryId"""
+        self.cur.execute("PRAGMA table_info(products)")
+        cols = {row[1] for row in self.cur.fetchall()}
+        if "categoryId" not in cols:
+            self.conn.execute("ALTER TABLE products ADD COLUMN categoryId INTEGER")
+            self.conn.commit()
+
+    _PRODUCT_SELECT = """
+        SELECT p.*,
+               c.name AS categoryName,
+               c.nameEn AS categoryNameEn,
+               c.slug AS categorySlug
+        FROM products p
+        LEFT JOIN product_categories c ON p.categoryId = c.id
+    """
 
     def _ensure_features_json_column(self) -> None:
         """已有库升级：功能卡 JSON 存 featuresJson"""
@@ -57,11 +75,11 @@ class ProductManager:
             self.conn.commit()
 
     def find_all(self) -> List[Dict[str, Any]]:
-        self.cur.execute("SELECT * FROM products ORDER BY date DESC, id DESC")
+        self.cur.execute(f"{self._PRODUCT_SELECT} ORDER BY p.date DESC, p.id DESC")
         return rows_to_dict(self.cur.fetchall())
 
     def find_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
-        self.cur.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+        self.cur.execute(f"{self._PRODUCT_SELECT} WHERE p.id = ?", (product_id,))
         return row_to_dict(self.cur.fetchone())
 
     def create(
@@ -75,10 +93,11 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
+        category_id: Optional[int] = None,
     ) -> int:
         self.cur.execute(
-            "INSERT INTO products (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (name, description, image, date, price, price_usdt, features_json, specs_json, usage_notice_json),
+            "INSERT INTO products (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, description, image, date, price, price_usdt, features_json, specs_json, usage_notice_json, category_id),
         )
         self.conn.commit()
         return int(self.cur.lastrowid)
@@ -95,10 +114,11 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
+        category_id: Optional[int] = None,
     ) -> None:
         self.cur.execute(
-            "UPDATE products SET name = ?, description = ?, image = ?, date = ?, price = ?, priceUsdt = ?, featuresJson = ?, specsJson = ?, usageNoticeJson = ? WHERE id = ?",
-            (name, description, image, date, price, price_usdt, features_json, specs_json, usage_notice_json, product_id),
+            "UPDATE products SET name = ?, description = ?, image = ?, date = ?, price = ?, priceUsdt = ?, featuresJson = ?, specsJson = ?, usageNoticeJson = ?, categoryId = ? WHERE id = ?",
+            (name, description, image, date, price, price_usdt, features_json, specs_json, usage_notice_json, category_id, product_id),
         )
         self.conn.commit()
 

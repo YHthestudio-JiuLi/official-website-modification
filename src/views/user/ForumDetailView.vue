@@ -92,7 +92,7 @@
             <div v-else class="reply-login-prompt">
               <p>
                 <i class="fas fa-info-circle"></i>
-                Please <router-link :to="`/login?redirect=/forum/${post.id}`">login</router-link> to reply
+                Please <router-link :to="loginRoute">login</router-link> to reply
               </p>
             </div>
           </div>
@@ -108,12 +108,19 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { buildLoginRoute } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import ReplyItem from '@/components/user/ReplyItem.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
+
+const loginRoute = computed(() => {
+  const id = route.params.id
+  const path = id ? `/forum/${id}` : '/forum'
+  return buildLoginRoute(path)
+})
 
 const post = ref(null)
 const replies = ref([])

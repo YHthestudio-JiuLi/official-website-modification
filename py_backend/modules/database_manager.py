@@ -5,11 +5,13 @@ from typing import List
 
 from .users import UserManager
 from .products import ProductManager
+from .product_categories import ProductCategoryManager
 from .orders import OrderManager
 from .forum_posts import ForumPostManager
 from .forum_replies import ForumReplyManager
 from .contact_messages import ContactMessageManager
 from .payment_settings import PaymentSettingsManager
+from .chat_community_settings import ChatCommunitySettingsManager
 from .cart import CartManager
 from .chat_admins import ChatAdminManager
 from .chat_sessions import ChatSessionManager
@@ -25,11 +27,13 @@ class DatabaseManager:
         self.conn = conn
         self.users = UserManager(conn)
         self.products = ProductManager(conn)
+        self.product_categories = ProductCategoryManager(conn)
         self.orders = OrderManager(conn)
         self.forum_posts = ForumPostManager(conn)
         self.forum_replies = ForumReplyManager(conn)
         self.contact_messages = ContactMessageManager(conn)
         self.payment_settings = PaymentSettingsManager(conn)
+        self.chat_community_settings = ChatCommunitySettingsManager(conn)
         self.cart = CartManager(conn)
         self.chat_admins = ChatAdminManager(conn)
         self.chat_sessions = ChatSessionManager(conn)
@@ -44,11 +48,13 @@ class DatabaseManager:
         
         self.users.create_table()
         self.products.create_table()
+        self.product_categories.create_table()
         self.orders.create_table()
         self.forum_posts.create_table()
         self.forum_replies.create_table()
         self.contact_messages.create_table()
         self.payment_settings.create_table()
+        self.chat_community_settings.create_table()
         self.cart.create_table()
         self.chat_admins.create_table()
         self.chat_sessions.create_table()
@@ -62,6 +68,7 @@ class DatabaseManager:
 
         self.users.seed_default_admin()
         self.products.seed_sample_data()
+        self.product_categories.seed_defaults()
         self.forum_posts.seed_sample_data()
         self.payment_settings.seed_default()
         self.chat_admins.init_default_admins()

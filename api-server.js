@@ -484,13 +484,44 @@ function buildAttachmentContentDisposition(name, fallback = 'download.bin') {
   return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encoded}`;
 }
 
+function parseProductJsonArray(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'string') return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_e) {
+    return [];
+  }
+}
+
+function serializeProductDetailJson(body) {
+  const toJson = (value) => (Array.isArray(value) ? JSON.stringify(value) : null);
+  return {
+    featuresJson: toJson(body.featureCards),
+    specsJson: toJson(body.specCards),
+    usageNoticeJson: toJson(body.usageNoticeLines)
+  };
+}
+
+function parseProductCategoryId(body) {
+  const raw = body?.categoryId;
+  if (raw === null || raw === '' || raw === undefined) return null;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 function normalizeProductRecord(product) {
   if (!product) return product;
   const images = parseProductImages(product.image);
   return {
     ...product,
     images,
-    image: images[0] || ''
+    image: images[0] || '',
+    featureCards: parseProductJsonArray(product.featureCards ?? product.featuresJson),
+    specCards: parseProductJsonArray(product.specCards ?? product.specsJson),
+    usageNoticeLines: parseProductJsonArray(product.usageNoticeLines ?? product.usageNoticeJson)
   };
 }
 
@@ -706,6 +737,16 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // ==================== 产品 API ====================
+
+app.get('/api/product-categories', async (req, res) => {
+  try {
+    const categories = await dbOperations.productCategories.findAll();
+    res.json(categories);
+  } catch (error) {
+    console.error('[API Error] /api/product-categories:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
 
 app.get('/api/products', async (req, res) => {
   try {
@@ -1201,7 +1242,12 @@ app.post('/api/admin/products', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  await dbOperations.products.create(name, description, image, productDate, price, price);
+  const { featuresJson, specsJson, usageNoticeJson } = serializeProductDetailJson(req.body);
+  const categoryId = parseProductCategoryId(req.body);
+  await dbOperations.products.create(
+    name, description, image, productDate, price, price,
+    featuresJson, specsJson, usageNoticeJson, categoryId
+  );
   res.json({ success: true });
 });
 
@@ -1209,13 +1255,69 @@ app.put('/api/admin/products/:id', requireAdmin, async (req, res) => {
   const { name, description, image, date, priceUsdt } = req.body;
   const price = parseFloat(priceUsdt) || 0;
   const productDate = date || new Date().toISOString().split('T')[0];
-  await dbOperations.products.update(parseInt(req.params.id), name, description, image, productDate, price, price);
+  const { featuresJson, specsJson, usageNoticeJson } = serializeProductDetailJson(req.body);
+  const categoryId = parseProductCategoryId(req.body);
+  await dbOperations.products.update(
+    parseInt(req.params.id), name, description, image, productDate, price, price,
+    featuresJson, specsJson, usageNoticeJson, categoryId
+  );
   res.json({ success: true });
 });
 
 app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
   await dbOperations.products.delete(parseInt(req.params.id));
   res.json({ success: true });
+});
+
+app.get('/api/admin/product-categories', requireAdmin, async (req, res) => {
+  const categories = await dbOperations.productCategories.findAll();
+  res.json(categories);
+});
+
+app.post('/api/admin/product-categories', requireAdmin, async (req, res) => {
+  const { name, nameEn, slug, sortOrder } = req.body || {};
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+  try {
+    const id = await dbOperations.productCategories.create(
+      String(name).trim(),
+      nameEn ? String(nameEn).trim() : null,
+      slug ? String(slug).trim() : null,
+      parseInt(sortOrder, 10) || 0
+    );
+    res.json({ success: true, id });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Failed to create category' });
+  }
+});
+
+app.put('/api/admin/product-categories/:id', requireAdmin, async (req, res) => {
+  const { name, nameEn, slug, sortOrder } = req.body || {};
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+  try {
+    await dbOperations.productCategories.update(
+      parseInt(req.params.id, 10),
+      String(name).trim(),
+      nameEn ? String(nameEn).trim() : null,
+      slug ? String(slug).trim() : null,
+      parseInt(sortOrder, 10) || 0
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Failed to update category' });
+  }
+});
+
+app.delete('/api/admin/product-categories/:id', requireAdmin, async (req, res) => {
+  try {
+    await dbOperations.productCategories.delete(parseInt(req.params.id, 10));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Failed to delete category' });
+  }
 });
 
 app.get('/api/admin/questions', requireAdmin, async (req, res) => {
@@ -1702,9 +1804,21 @@ app.get('/api/chat/user-sessions', async (req, res) => {
   }
 });
 
+app.get('/api/chat/community-links', async (req, res) => {
+  try {
+    const settings = await dbOperations.chatCommunitySettings.get();
+    res.json(settings);
+  } catch (error) {
+    console.error('[API Error] /api/chat/community-links:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 app.get('/api/chat/admins', async (req, res) => {
   try {
-    const admins = await dbOperations.chatAdmins.findAll();
+    const all = await dbOperations.chatAdmins.findAll();
+    // 前台仅对接在线客服，不暴露售前账号
+    const admins = all.filter((a) => a.username === 'support');
     res.json({ admins });
   } catch (error) {
     console.error('[API Error] /api/chat/admins:', error.message);
@@ -1889,6 +2003,30 @@ app.get('/api/chat/admin/conversations', async (req, res) => {
 });
 
 // ==================== Admin Chat Settings ====================
+
+app.get('/api/admin/chat/community-links', requireAdmin, async (req, res) => {
+  try {
+    const settings = await dbOperations.chatCommunitySettings.get();
+    res.json(settings);
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/chat/community-links:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/chat/community-links', requireAdmin, async (req, res) => {
+  const { telegramGroupUrl, qqGroupUrl } = req.body || {};
+  try {
+    await dbOperations.chatCommunitySettings.update(
+      typeof telegramGroupUrl === 'string' ? telegramGroupUrl : '',
+      typeof qqGroupUrl === 'string' ? qqGroupUrl : ''
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[API Error] PUT /api/admin/chat/community-links:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
 
 app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
   const adminId = parseInt(req.params.id, 10);

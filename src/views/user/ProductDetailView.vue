@@ -71,7 +71,6 @@
                   <span class="pdc-cyan">{{ $t('products.detail.coreTitleCyan') }}</span>
                   <span class="pdc-pink">{{ $t('products.detail.coreTitlePink') }}</span>
                 </h2>
-                <p class="pdc-sub">{{ $t('products.detail.coreSub') }}</p>
               </div>
               <div class="pdc-feature-grid">
                 <div
@@ -122,7 +121,6 @@
               <div v-if="displaySpecCards.length" class="pdc-specs-panel">
                 <div class="pdc-specs-panel-head">
                   <h2 class="pdc-specs-title">{{ $t('products.detail.specsTitle') }}</h2>
-                  <p class="pdc-specs-sub">{{ $t('products.detail.specsSub') }}</p>
                 </div>
                 <div class="pdc-specs-grid">
                   <div

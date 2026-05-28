@@ -113,22 +113,15 @@ function cleanTelegramChatId(raw) {
 }
 
 /**
- * 按客服账号解析 Telegram 凭据：数据库优先，售前(sales)额外支持 TELEGRAM_SALES_* 环境变量回退
+ * 解析客服账号的 Telegram 凭据：数据库优先，未配置时回退到全局环境变量
+ * 仅有在线客服，不再区分售前/官方
  */
 function resolveTelegramForAdmin(admin) {
   if (!admin) {
     return { token: getBotToken(), chatId: getChatId() };
   }
-  const uname = String(admin.username || '').toLowerCase();
-  let token = cleanTelegramToken(admin.telegram_token);
-  let chatId = cleanTelegramChatId(admin.telegram_chat_id);
-  if (uname === 'sales') {
-    token = token || cleanTelegramToken(process.env.TELEGRAM_SALES_BOT_TOKEN) || getBotToken();
-    chatId = chatId || cleanTelegramChatId(process.env.TELEGRAM_SALES_CHAT_ID) || getChatId();
-  } else {
-    token = token || getBotToken();
-    chatId = chatId || getChatId();
-  }
+  const token = cleanTelegramToken(admin.telegram_token) || getBotToken();
+  const chatId = cleanTelegramChatId(admin.telegram_chat_id) || getChatId();
   return { token, chatId };
 }
 
@@ -224,8 +217,7 @@ function formatMsg(session, row) {
   console.log('[Telegram] formatMsg called with row:', row ? { id: row.id, body: row.body ? row.body.substring(0, 30) + '...' : 'NULL/EMPTY', type: typeof row } : 'NULL');
   const nick = String(session.nickname).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const sid = String(session.id).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const serviceType = String(session.service_type || 'support');
-  const serviceLabel = serviceType === 'sales' ? '售前咨询' : '官方客服';
+  const serviceLabel = '在线客服';
   const bodyStr = String(row.body || '');
   console.log('[Telegram] formatMsg bodyStr:', bodyStr ? bodyStr.substring(0, 50) + '...' : 'EMPTY STRING');
   const body = truncate(bodyStr, 3500).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -235,7 +227,7 @@ function formatMsg(session, row) {
 }
 
 function formatMsgPlain(session, row) {
-  return `访客：${session.nickname}\n会话：${session.id}\n\n${truncate(row.body, 3500)}\n\n↩ 请回复此消息。`;
+  return `访客：${session.nickname}\n会话：${session.id}\n\n${truncate(row.body, 3500)}\n\n↩ Reply to answer.`;
 }
 
 async function notifyUserMessage(session, messageRow, admin) {
@@ -263,6 +255,11 @@ async function notifyUserMessage(session, messageRow, admin) {
     chat_id: String(chatId),
     text: formatMsg(session, messageRow),
     parse_mode: 'HTML',
+    // 引导客服使用「回复」而非直接发群消息，便于隐私模式下 Bot 收到更新
+    reply_markup: {
+      force_reply: true,
+      input_field_placeholder: '请回复此会话…',
+    },
   };
   
   const payloadStr = JSON.stringify(payload);
@@ -372,9 +369,9 @@ function createTelegramIntegration({ broadcastToChat }) {
     // 检查是否是回复消息
     const reply = msg.reply_to_message;
     if (reply && reply.message_id != null) {
-      console.log('[Telegram] This is a reply to message_id:', reply.message_id);
-      // 查找对应的 session
-      const link = await dbOperations.chatTgLinks.findByTgMessage(Number(chatId), Number(reply.message_id));
+      console.log('[Telegram] This is a reply to message_id:', reply.message_id, 'sender:', describeTgSender(msg));
+      const chainHit = await findSessionLinkByReplyChain(chatId, reply);
+      const link = chainHit ? chainHit.link : null;
       if (link && link.session_id) {
         console.log('[Telegram] Found session:', link.session_id);
         const body = text.trim();
@@ -517,7 +514,7 @@ async function setupMultiBotPolling({ broadcastToChat }) {
   }
 }
 
-// 同一 Bot Token 对应多个 chat（官方客服群 + 售前群等）时，单连接分发
+// 同一 Bot Token 对应多个 chat 时，单连接分发
 function startPollingForTokenGroup(token, entries, broadcastToChat) {
   const chatIdToAdmin = new Map();
   for (const { admin, chatId } of entries) {
@@ -667,6 +664,34 @@ function stopBotPolling(token, chatId) {
   }
 }
 
+/** 记录 Telegram 消息发送者（含匿名管理员 sender_chat） */
+function describeTgSender(msg) {
+  if (!msg) return 'unknown';
+  if (msg.from) {
+    const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') || msg.from.username || '';
+    return `user:${msg.from.id}${msg.from.is_bot ? ':bot' : ''}${name ? `:${name}` : ''}`;
+  }
+  if (msg.sender_chat) {
+    return `sender_chat:${msg.sender_chat.id}:${msg.sender_chat.title || msg.sender_chat.username || ''}`;
+  }
+  return 'no-from';
+}
+
+/** 沿回复链向上查找已关联会话的 Telegram 消息（支持回复群主/客服已同步的中间消息） */
+async function findSessionLinkByReplyChain(chatId, replyMessage) {
+  let current = replyMessage;
+  let depth = 0;
+  while (current && current.message_id != null && depth < 15) {
+    const link = await dbOperations.chatTgLinks.findByTgMessage(Number(chatId), Number(current.message_id));
+    if (link && link.session_id) {
+      return { link, matchedMessageId: current.message_id, depth };
+    }
+    current = current.reply_to_message;
+    depth += 1;
+  }
+  return null;
+}
+
 // 处理单个 Bot 的更新
 async function handleUpdateForBot(update, expectedChatId, admin, broadcastToChat, token) {
   if (!update) return;
@@ -676,12 +701,23 @@ async function handleUpdateForBot(update, expectedChatId, admin, broadcastToChat
   }
   if (!update.message) return;
   const msg = update.message;
+  // 忽略机器人账号；匿名管理员无 from，仅有 sender_chat，不在此过滤
   if (msg.from && msg.from.is_bot) return;
   
   const text = msg.text != null ? String(msg.text) : '';
   const chatId = msg.chat && msg.chat.id;
+  const sender = describeTgSender(msg);
   
-  console.log('[Telegram Multi-Bot]', admin.username, 'received from chatId:', chatId, 'text:', text.substring(0, 50) + '...');
+  console.log(
+    '[Telegram Multi-Bot]',
+    admin.username,
+    'received from chatId:',
+    chatId,
+    'sender:',
+    sender,
+    'text:',
+    text.substring(0, 50) + '...',
+  );
   
   if (String(chatId) !== String(expectedChatId)) {
     console.log('[Telegram Multi-Bot]', admin.username, 'ignoring message from wrong chatId:', chatId);
@@ -692,21 +728,34 @@ async function handleUpdateForBot(update, expectedChatId, admin, broadcastToChat
   if (!reply || reply.message_id == null) {
     if (text.trim()) {
       console.warn(
-        '[Telegram Multi-Bot] 收到群消息但未使用「回复」引用用户通知：无法匹配会话。请在 Telegram 里对网站推送的那条消息点「回复」再输入内容。',
-        { chatId, admin: admin.username },
+        '[Telegram Multi-Bot] 收到群消息但未使用「回复」：Bot 可能未收到该条更新（隐私模式）或无法匹配会话。请对机器人推送的用户通知点「回复」。',
+        { chatId, admin: admin.username, sender },
       );
     }
     return;
   }
 
-  console.log('[Telegram Multi-Bot]', admin.username, 'is reply to:', reply.message_id);
-  const link = await dbOperations.chatTgLinks.findByTgMessage(Number(chatId), Number(reply.message_id));
+  console.log(
+    '[Telegram Multi-Bot]',
+    admin.username,
+    'is reply to:',
+    reply.message_id,
+    'reply-from:',
+    describeTgSender(reply),
+    reply.from && reply.from.is_bot ? '(bot-notification)' : '',
+  );
+  const chainHit = await findSessionLinkByReplyChain(chatId, reply);
+  const link = chainHit ? chainHit.link : null;
   if (!link || !link.session_id) {
     console.warn('[Telegram Multi-Bot] 未找到 chat_tg_links 记录（请确认是对「网站推送的用户消息」点回复，且推送已成功写入关联）', {
       chatId,
       replyToMessageId: reply.message_id,
+      sender,
     });
     return;
+  }
+  if (chainHit.depth > 0) {
+    console.log('[Telegram Multi-Bot]', admin.username, 'matched via reply chain depth', chainHit.depth, 'tg_message_id', chainHit.matchedMessageId);
   }
 
   console.log('[Telegram Multi-Bot]', admin.username, 'found session:', link.session_id);

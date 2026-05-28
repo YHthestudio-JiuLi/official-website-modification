@@ -196,6 +196,10 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
+            args.get("featuresJson"),
+            args.get("specsJson"),
+            args.get("usageNoticeJson"),
+            args.get("categoryId"),
         )
     if op == "products.update":
         return db_manager.products.update(
@@ -206,9 +210,35 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("date"),
             args.get("price", 0),
             args.get("priceUsdt", 0),
+            args.get("featuresJson"),
+            args.get("specsJson"),
+            args.get("usageNoticeJson"),
+            args.get("categoryId"),
         )
     if op == "products.delete":
         return db_manager.products.delete(args["id"])
+
+    if op == "productCategories.findAll":
+        return db_manager.product_categories.find_all()
+    if op == "productCategories.findById":
+        return db_manager.product_categories.find_by_id(args["id"])
+    if op == "productCategories.create":
+        return db_manager.product_categories.create(
+            args["name"],
+            args.get("nameEn"),
+            args.get("slug"),
+            args.get("sortOrder", 0),
+        )
+    if op == "productCategories.update":
+        return db_manager.product_categories.update(
+            args["id"],
+            args["name"],
+            args.get("nameEn"),
+            args.get("slug"),
+            args.get("sortOrder", 0),
+        )
+    if op == "productCategories.delete":
+        return db_manager.product_categories.delete(args["id"])
 
     if op == "orders.findAll":
         status_filter = str(args.get("statusFilter", "") or "").strip()
@@ -281,6 +311,14 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args["walletAddress"],
             args.get("network", "TRC20"),
             int(args.get("autoDeleteMinutes", 30)),
+        )
+
+    if op == "chatCommunitySettings.get":
+        return db_manager.chat_community_settings.get()
+    if op == "chatCommunitySettings.update":
+        return db_manager.chat_community_settings.update(
+            args.get("telegramGroupUrl", ""),
+            args.get("qqGroupUrl", ""),
         )
 
     # Cart operations

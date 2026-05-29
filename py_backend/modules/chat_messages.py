@@ -22,20 +22,18 @@ class ChatMessageManager:
         self.cur = conn.cursor()
 
     def create_table(self) -> None:
+        # id 由应用层用毫秒时间戳显式写入（非自增）
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_messages (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              session_id TEXT NOT NULL,
-              sender TEXT NOT NULL CHECK (sender IN ('user', 'admin')),
+              id BIGINT PRIMARY KEY,
+              session_id VARCHAR(64) NOT NULL,
+              sender VARCHAR(16) NOT NULL,
               body TEXT NOT NULL,
-              created_at TEXT NOT NULL DEFAULT (datetime('now')),
-              FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
-            )
+              created_at VARCHAR(40) NOT NULL,
+              KEY idx_chat_messages_session (session_id, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
-        )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at)"
         )
 
     def find_all(self) -> List[Dict[str, Any]]:

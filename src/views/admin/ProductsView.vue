@@ -71,7 +71,13 @@
                   </div>
                 </td>
                 <td>
-                  <span class="category-cell">{{ product.categoryName || '—' }}</span>
+                  <span class="category-cell">
+                    {{ product.categoryName || '—' }}
+                    <template v-if="product.subCategoryName">
+                      <span class="sub-category-sep"> / </span>
+                      <span class="sub-category-name">{{ product.subCategoryName }}</span>
+                    </template>
+                  </span>
                 </td>
                 <td>
                   <span class="description-cell">{{ truncateDescription(product.description) }}</span>

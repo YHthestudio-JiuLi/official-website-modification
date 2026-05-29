@@ -15,19 +15,19 @@ class ForumReplyManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS forum_replies (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              postId INTEGER NOT NULL,
-              author TEXT NOT NULL,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              postId INT NOT NULL,
+              author VARCHAR(255) NOT NULL,
               content TEXT NOT NULL,
-              parentReplyId INTEGER,
+              parentReplyId INT,
               createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (postId) REFERENCES forum_posts(id) ON DELETE CASCADE,
-              FOREIGN KEY (parentReplyId) REFERENCES forum_replies(id) ON DELETE CASCADE
-            )
+              KEY idx_forum_replies_postId (postId),
+              KEY idx_forum_replies_createdAt (createdAt),
+              CONSTRAINT fk_reply_post FOREIGN KEY (postId) REFERENCES forum_posts(id) ON DELETE CASCADE,
+              CONSTRAINT fk_reply_parent FOREIGN KEY (parentReplyId) REFERENCES forum_replies(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_forum_replies_postId ON forum_replies(postId)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_forum_replies_createdAt ON forum_replies(createdAt)")
 
     def find_by_post_id(self, post_id: int) -> List[Dict[str, Any]]:
         self.cur.execute(

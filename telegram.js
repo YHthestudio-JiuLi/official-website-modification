@@ -1436,6 +1436,16 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** 订单推送：一级 / 二级分类展示 */
+function formatProductCategory(order) {
+  const primary = String(order?.categoryName || '').trim();
+  const sub = String(order?.subCategoryName || '').trim();
+  if (primary && sub) return `${primary} / ${sub}`;
+  if (primary) return primary;
+  if (sub) return sub;
+  return '未分类';
+}
+
 function formatPaidAmountAsUsdt(rawAmount) {
   const raw = String(rawAmount || '').trim();
   if (!raw || raw.toUpperCase() === 'N/A') return 'N/A USDT';
@@ -1464,6 +1474,7 @@ async function notifyOrderPaid(order) {
 🆔 <b>订单号:</b> <code>${esc(order?.id)}</code>
 👤 <b>用户:</b> ${esc(order?.username || '')}
 📦 <b>商品:</b> ${esc(order?.productName || '')}
+🏷 <b>类型:</b> ${esc(formatProductCategory(order))}
 🔢 <b>数量:</b> ${esc(order?.quantity)}
 💰 <b>订单金额:</b> ${esc(order?.totalAmount)} USDT
 💳 <b>支付金额:</b> ${esc(order?.totalAmount)} USDT

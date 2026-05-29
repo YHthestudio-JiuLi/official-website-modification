@@ -13,13 +13,13 @@ class PopupNoticeManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS popup_notices (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              title TEXT NOT NULL,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              title VARCHAR(512) NOT NULL,
               content TEXT NOT NULL,
-              enabled INTEGER NOT NULL DEFAULT 1,
-              created_at TEXT NOT NULL DEFAULT (datetime('now')),
-              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
+              enabled TINYINT NOT NULL DEFAULT 1,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
 
@@ -47,7 +47,7 @@ class PopupNoticeManager:
             return None
         if enabled:
             # 保证同一时刻只有一个启用弹窗，避免前台显示与后台预期不一致
-            self.cur.execute("UPDATE popup_notices SET enabled = 0, updated_at = datetime('now') WHERE enabled = 1")
+            self.cur.execute("UPDATE popup_notices SET enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE enabled = 1")
         self.cur.execute(
             "INSERT INTO popup_notices (title, content, enabled) VALUES (?, ?, ?)",
             (title.strip(), content.strip(), 1 if enabled else 0),
@@ -63,11 +63,11 @@ class PopupNoticeManager:
             return None
         if enabled:
             self.cur.execute(
-                "UPDATE popup_notices SET enabled = 0, updated_at = datetime('now') WHERE enabled = 1 AND id != ?",
+                "UPDATE popup_notices SET enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE enabled = 1 AND id != ?",
                 (int(notice_id),),
             )
         self.cur.execute(
-            "UPDATE popup_notices SET title = ?, content = ?, enabled = ?, updated_at = datetime('now') WHERE id = ?",
+            "UPDATE popup_notices SET title = ?, content = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (title.strip(), content.strip(), 1 if enabled else 0, int(notice_id)),
         )
         self.conn.commit()

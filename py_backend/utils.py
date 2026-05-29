@@ -69,8 +69,17 @@ class DatabaseConnection:
                 cls._conn = None
 
 
-def connect() -> sqlite3.Connection:
-    """获取数据库连接（使用单例模式）"""
+def connect():
+    """获取数据库连接：默认 MySQL，可通过 DB_BACKEND=sqlite 回退到 SQLite。"""
+    backend = os.environ.get("DB_BACKEND", "mysql").strip().lower()
+    if backend == "sqlite":
+        return DatabaseConnection.get_connection()
+    from .db import connect_mysql
+    return connect_mysql()
+
+
+def connect_sqlite() -> sqlite3.Connection:
+    """显式获取 SQLite 连接（数据迁移脚本使用）。"""
     return DatabaseConnection.get_connection()
 
 

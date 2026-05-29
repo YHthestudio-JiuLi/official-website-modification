@@ -13,25 +13,50 @@
             </div>
 
             <template v-if="!loadError">
-              <!-- 分类筛选 -->
-              <div v-if="categories.length" class="category-bar">
+              <!-- 一级分类筛选 -->
+              <div v-if="parentCategories.length" class="category-bar">
                 <span class="category-label">{{ $t('products.filterByCategory') }}</span>
                 <div class="category-chips">
                   <button
                     type="button"
                     class="category-chip"
                     :class="{ active: !activeCategorySlug }"
-                    @click="setCategory('')"
+                    @click="setCategory('', '')"
                   >
                     {{ $t('products.allCategories') }}
                   </button>
                   <button
-                    v-for="cat in categories"
+                    v-for="cat in parentCategories"
                     :key="cat.id"
                     type="button"
                     class="category-chip"
-                    :class="{ active: activeCategorySlug === cat.slug }"
-                    @click="setCategory(cat.slug)"
+                    :class="{ active: activeCategorySlug === cat.slug && !activeSubCategorySlug }"
+                    @click="setCategory(cat.slug, '')"
+                  >
+                    {{ categoryLabel(cat) }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 二级分类筛选 -->
+              <div v-if="activeSubCategories.length" class="category-bar sub-category-bar">
+                <span class="category-label">{{ $t('products.filterBySubCategory') }}</span>
+                <div class="category-chips">
+                  <button
+                    type="button"
+                    class="category-chip category-chip-sub"
+                    :class="{ active: !activeSubCategorySlug }"
+                    @click="setCategory(activeCategorySlug, '')"
+                  >
+                    {{ $t('products.allSubCategories') }}
+                  </button>
+                  <button
+                    v-for="cat in activeSubCategories"
+                    :key="cat.id"
+                    type="button"
+                    class="category-chip category-chip-sub"
+                    :class="{ active: activeSubCategorySlug === cat.slug }"
+                    @click="setCategory(activeCategorySlug, cat.slug)"
                   >
                     {{ categoryLabel(cat) }}
                   </button>
@@ -72,15 +97,18 @@ import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import ProductCard from '@/components/user/ProductCard.vue'
 import { productMatchesSearch } from '@/utils/productSearch'
+import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
+const { locale } = useI18n()
 
 const products = ref([])
 const categories = ref([])
 const loading = ref(true)
 const loadError = ref(false)
+
+const parentCategories = computed(() => getParentCategories(categories.value))
 
 const searchQ = computed(() => {
   const q = route.query.q
@@ -96,7 +124,23 @@ const activeCategorySlug = computed(() => {
   return ''
 })
 
-const hasActiveFilter = computed(() => !!(searchQ.value.trim() || activeCategorySlug.value))
+const activeSubCategorySlug = computed(() => {
+  const c = route.query.subCategory
+  if (typeof c === 'string') return c
+  if (Array.isArray(c)) return c[0] || ''
+  return ''
+})
+
+const activeSubCategories = computed(() => {
+  if (!activeCategorySlug.value) return []
+  const parent = parentCategories.value.find((c) => c.slug === activeCategorySlug.value)
+  if (!parent) return []
+  return getSubCategories(categories.value, parent.id)
+})
+
+const hasActiveFilter = computed(() =>
+  !!(searchQ.value.trim() || activeCategorySlug.value || activeSubCategorySlug.value)
+)
 
 function categoryLabel(cat) {
   if (locale.value === 'en' && cat.nameEn) return cat.nameEn
@@ -105,10 +149,15 @@ function categoryLabel(cat) {
 
 const filteredProducts = computed(() => {
   let list = products.value
+  const subSlug = activeSubCategorySlug.value
   const slug = activeCategorySlug.value
-  if (slug) {
+
+  if (subSlug) {
+    list = list.filter((p) => p.subCategorySlug === subSlug)
+  } else if (slug) {
     list = list.filter((p) => p.categorySlug === slug)
   }
+
   const q = searchQ.value
   if (q.trim()) {
     list = list.filter((p) => productMatchesSearch(p, q))
@@ -116,12 +165,17 @@ const filteredProducts = computed(() => {
   return list
 })
 
-function setCategory(slug) {
+function setCategory(categorySlug, subCategorySlug) {
   const query = { ...route.query }
-  if (slug) {
-    query.category = slug
+  if (categorySlug) {
+    query.category = categorySlug
   } else {
     delete query.category
+  }
+  if (subCategorySlug) {
+    query.subCategory = subCategorySlug
+  } else {
+    delete query.subCategory
   }
   router.push({ path: route.path, query })
 }
@@ -158,6 +212,12 @@ onMounted(async () => {
   margin-bottom: 20px;
 }
 
+.sub-category-bar {
+  margin-top: -8px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(0, 212, 255, 0.2);
+}
+
 .category-label {
   display: block;
   font-size: 13px;
@@ -182,15 +242,31 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
+.category-chip-sub {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-color: rgba(255, 0, 170, 0.2);
+  background: rgba(255, 0, 170, 0.05);
+}
+
 .category-chip:hover {
   border-color: rgba(0, 212, 255, 0.5);
   color: #fff;
+}
+
+.category-chip-sub:hover {
+  border-color: rgba(255, 0, 170, 0.45);
 }
 
 .category-chip.active {
   background: linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(255, 0, 170, 0.2));
   border-color: rgba(0, 212, 255, 0.6);
   color: #fff;
+}
+
+.category-chip-sub.active {
+  background: linear-gradient(135deg, rgba(255, 0, 170, 0.22), rgba(0, 212, 255, 0.15));
+  border-color: rgba(255, 0, 170, 0.5);
 }
 
 .results-info {
@@ -201,6 +277,12 @@ onMounted(async () => {
   font-size: 14px;
 }
 
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -209,45 +291,29 @@ onMounted(async () => {
 
 .empty-state i {
   font-size: 48px;
-  margin-bottom: 15px;
-  display: block;
+  margin-bottom: 16px;
   opacity: 0.5;
 }
 
 .load-error {
   text-align: center;
-  padding: 32px 20px 48px;
-  color: #f0a96e;
-  border: 1px solid rgba(240, 169, 110, 0.35);
-  border-radius: 12px;
-  background: rgba(240, 169, 110, 0.06);
-  margin-bottom: 24px;
+  padding: 60px 20px;
+  color: #8892b0;
 }
+
 .load-error i {
-  font-size: 40px;
-  margin-bottom: 12px;
-  display: block;
-  opacity: 0.9;
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #f87171;
 }
+
 .load-error-title {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: #f5c09a;
+  font-size: 16px;
 }
 
-.products-grid {
-  width: 100%;
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 22px;
-}
-
-@media (max-width: 768px) {
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-  }
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: #8892b0;
 }
 </style>

@@ -72,11 +72,29 @@
                 </label>
                 <select id="categoryId" v-model="form.categoryId" class="form-input">
                   <option :value="null">{{ $t('products.uncategorized') }}</option>
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                  <option v-for="cat in parentCategories" :key="cat.id" :value="cat.id">
                     {{ cat.name }}{{ cat.nameEn ? ` / ${cat.nameEn}` : '' }}
                   </option>
                 </select>
               </div>
+              <div class="form-group">
+                <label for="subCategoryId">
+                  <i class="fas fa-tag"></i> {{ $t('admin.productForm.subCategory') }}
+                </label>
+                <select
+                  id="subCategoryId"
+                  v-model="form.subCategoryId"
+                  class="form-input"
+                  :disabled="!form.categoryId || subCategories.length === 0"
+                >
+                  <option :value="null">{{ $t('admin.productForm.subCategoryNone') }}</option>
+                  <option v-for="cat in subCategories" :key="cat.id" :value="cat.id">
+                    {{ cat.name }}{{ cat.nameEn ? ` / ${cat.nameEn}` : '' }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
               <div class="form-group form-group-align-end">
                 <router-link to="/admin/product-categories" class="btn btn-secondary btn-manage-categories">
                   <i class="fas fa-cog"></i> {{ $t('admin.productForm.manageCategories') }}
@@ -343,6 +361,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
+import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
 const route = useRoute()
 const router = useRouter()
@@ -356,10 +375,18 @@ const form = ref({
   image: '',
   priceUsdt: 0,
   date: new Date().toISOString().split('T')[0],
-  categoryId: null
+  categoryId: null,
+  subCategoryId: null
 })
 
 const categories = ref([])
+
+const parentCategories = computed(() => getParentCategories(categories.value))
+
+const subCategories = computed(() => {
+  if (!form.value.categoryId) return []
+  return getSubCategories(categories.value, form.value.categoryId)
+})
 
 const imageList = ref([])
 /** 详情页功能卡行，提交时序列化为 featuresJson */
@@ -529,6 +556,12 @@ watch(form, () => {
   error.value = ''
 }, { deep: true })
 
+watch(() => form.value.categoryId, () => {
+  if (!form.value.subCategoryId) return
+  const valid = subCategories.value.some((c) => c.id === form.value.subCategoryId)
+  if (!valid) form.value.subCategoryId = null
+})
+
 onMounted(async () => {
   await loadCategories()
   if (isEdit.value) {
@@ -541,7 +574,8 @@ onMounted(async () => {
         image: response.data.image || '',
         priceUsdt: response.data.priceUsdt || response.data.price || 0,
         date: response.data.date || new Date().toISOString().split('T')[0],
-        categoryId: response.data.categoryId ?? null
+        categoryId: response.data.categoryId ?? null,
+        subCategoryId: response.data.subCategoryId ?? null
       }
       imageList.value = parseImageList(response.data.images?.length ? response.data.images : response.data.image)
       loadFeatureRowsFromProduct(response.data)

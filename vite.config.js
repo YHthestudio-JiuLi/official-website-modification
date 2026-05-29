@@ -1,9 +1,27 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
-export default defineConfig({
-  plugins: [vue()],
+/** 注入站点 URL，供 index.html 中 Open Graph 使用（Telegram 等链接预览） */
+function siteMetaPlugin(siteUrl) {
+  const base = String(siteUrl || 'https://yhthestudio.com').replace(/\/$/, '')
+  const ogImage = `${base}/favicon.png`
+  return {
+    name: 'html-site-meta',
+    transformIndexHtml(html) {
+      return html
+        .replaceAll('__SITE_URL__', base)
+        .replaceAll('__OG_IMAGE__', ogImage)
+    }
+  }
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const siteUrl = env.VITE_SITE_URL || 'https://yhthestudio.com'
+
+  return {
+  plugins: [vue(), siteMetaPlugin(siteUrl)],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
@@ -38,4 +56,4 @@ export default defineConfig({
       }
     }
   }
-})
+}})

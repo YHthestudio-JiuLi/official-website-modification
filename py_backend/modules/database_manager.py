@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import List
 
 from .users import UserManager
+from .images import ImageManager
 from .products import ProductManager
 from .product_categories import ProductCategoryManager
 from .orders import OrderManager
@@ -23,9 +23,10 @@ from .questions import QuestionManager
 
 
 class DatabaseManager:
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn):
         self.conn = conn
         self.users = UserManager(conn)
+        self.images = ImageManager(conn)
         self.products = ProductManager(conn)
         self.product_categories = ProductCategoryManager(conn)
         self.orders = OrderManager(conn)
@@ -44,8 +45,7 @@ class DatabaseManager:
         self.questions = QuestionManager(conn)
 
     def init_db(self) -> None:
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        
+        self.images.create_table()
         self.users.create_table()
         self.products.create_table()
         self.product_categories.create_table()
@@ -64,8 +64,6 @@ class DatabaseManager:
         self.device_verification.create_table()
         self.questions.create_table()
 
-        self._apply_pragmas()
-
         self.users.seed_default_admin()
         self.products.seed_sample_data()
         self.product_categories.seed_defaults()
@@ -74,17 +72,3 @@ class DatabaseManager:
         self.chat_admins.init_default_admins()
 
         self.conn.commit()
-
-    def _apply_pragmas(self) -> None:
-        statements = [
-            "PRAGMA journal_mode = WAL",
-            "PRAGMA synchronous = NORMAL",
-            "PRAGMA cache_size = -64000",
-            "PRAGMA temp_store = MEMORY",
-        ]
-        cur = self.conn.cursor()
-        for stmt in statements:
-            try:
-                cur.execute(stmt)
-            except sqlite3.OperationalError:
-                pass

@@ -89,6 +89,11 @@ async def lifespan(app: FastAPI):
     yield
     from .utils import DatabaseConnection
     DatabaseConnection.close()
+    try:
+        from .db import close_mysql
+        close_mysql()
+    except Exception:
+        pass
     if hasattr(app.state, 'chat_cleanup'):
         app.state.chat_cleanup.cancel()
     logger.info("Python backend shutdown complete")
@@ -101,8 +106,8 @@ app.include_router(questions_router)
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    from .utils import DB_PATH
-    return {"ok": True, "db_path": str(DB_PATH)}
+    backend = os.environ.get("DB_BACKEND", "mysql").strip().lower()
+    return {"ok": True, "backend": backend}
 
 
 @app.post("/rpc")
@@ -140,9 +145,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return default
 
     if op == "meta.listTables":
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name ASC")
-        return [r["name"] for r in cur.fetchall()]
+        from .db import list_table_names
+        return sorted(list_table_names(conn))
     if op == "meta.tableData":
         table = str(args["table"])
         if not validate_table_name(table):
@@ -158,6 +162,17 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         cur.execute(f"SELECT COUNT(*) AS count FROM {table}")
         row = cur.fetchone()
         return int(row["count"] if row else 0)
+
+    if op == "images.create":
+        return db_manager.images.create(
+            args["dataBase64"],
+            args.get("mime", "application/octet-stream"),
+            args.get("filename"),
+        )
+    if op == "images.get":
+        return db_manager.images.get(int(args["id"]))
+    if op == "images.delete":
+        return db_manager.images.delete(int(args["id"]))
 
     if op == "users.findAll":
         return db_manager.users.find_all()
@@ -200,6 +215,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("specsJson"),
             args.get("usageNoticeJson"),
             args.get("categoryId"),
+            args.get("subCategoryId"),
         )
     if op == "products.update":
         return db_manager.products.update(
@@ -214,6 +230,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("specsJson"),
             args.get("usageNoticeJson"),
             args.get("categoryId"),
+            args.get("subCategoryId"),
         )
     if op == "products.delete":
         return db_manager.products.delete(args["id"])
@@ -228,6 +245,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("nameEn"),
             args.get("slug"),
             args.get("sortOrder", 0),
+            args.get("parentId"),
         )
     if op == "productCategories.update":
         return db_manager.product_categories.update(
@@ -236,6 +254,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("nameEn"),
             args.get("slug"),
             args.get("sortOrder", 0),
+            args.get("parentId"),
         )
     if op == "productCategories.delete":
         return db_manager.product_categories.delete(args["id"])

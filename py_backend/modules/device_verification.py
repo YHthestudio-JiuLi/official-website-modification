@@ -61,99 +61,74 @@ class DeviceVerificationManager:
         ]
 
     def create_table(self) -> None:
+        from ..db import add_column_if_missing
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS device_verifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                device_id TEXT UNIQUE NOT NULL,
-                verification_count INTEGER NOT NULL DEFAULT 0,
-                max_verifications INTEGER NOT NULL DEFAULT 10,
-                is_whitelisted INTEGER NOT NULL DEFAULT 0,
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                device_id VARCHAR(255) UNIQUE NOT NULL,
+                verification_count INT NOT NULL DEFAULT 0,
+                max_verifications INT NOT NULL DEFAULT 10,
+                is_whitelisted TINYINT NOT NULL DEFAULT 0,
                 private_key TEXT NOT NULL,
                 public_key TEXT NOT NULL,
-                question_id INTEGER,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+                question_id INT,
+                firmware_id INT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_device_verifications_device_id (device_id),
+                KEY idx_device_verifications_question_id (question_id),
+                KEY idx_device_verifications_firmware_id (firmware_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_device_verifications_device_id ON device_verifications(device_id)"
-        )
-        
-        # 迁移：如果旧表没有 question_id 字段，则添加
-        self.cur.execute("PRAGMA table_info(device_verifications)")
-        columns = [col[1] for col in self.cur.fetchall()]
-        if "question_id" not in columns:
-            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN question_id INTEGER")
-        if "firmware_id" not in columns:
-            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN firmware_id INTEGER")
-        if "is_whitelisted" not in columns:
-            # 迁移：历史设备默认按已授权处理，避免升级后现有设备全部失效
-            self.conn.execute("ALTER TABLE device_verifications ADD COLUMN is_whitelisted INTEGER NOT NULL DEFAULT 1")
-        
-        # 创建索引（迁移后）
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_device_verifications_question_id ON device_verifications(question_id)"
-        )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_device_verifications_firmware_id ON device_verifications(firmware_id)"
-        )
-        
+        # 已有库升级兼容
+        add_column_if_missing(self.conn, "device_verifications", "question_id", "INT")
+        add_column_if_missing(self.conn, "device_verifications", "firmware_id", "INT")
+        add_column_if_missing(self.conn, "device_verifications", "is_whitelisted", "TINYINT NOT NULL DEFAULT 1")
+
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS device_verification_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                device_id TEXT NOT NULL,
-                issued_at INTEGER NOT NULL,
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                device_id VARCHAR(255) NOT NULL,
+                issued_at BIGINT NOT NULL,
                 signature TEXT NOT NULL,
-                ip_address TEXT,
-                user_agent TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+                ip_address VARCHAR(64),
+                user_agent VARCHAR(512),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_device_verification_logs_device_id (device_id),
+                KEY idx_device_verification_logs_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
-        )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_device_verification_logs_device_id ON device_verification_logs(device_id)"
-        )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_device_verification_logs_created_at ON device_verification_logs(created_at)"
         )
         # 全局策略：同一 device_id 在 N 秒内重复调用 /verify 不增加 verification_count（返回最近一次签名）
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS device_verification_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                verify_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
-                default_firmware_id INTEGER
-            )
+                id INT PRIMARY KEY,
+                verify_cooldown_seconds INT NOT NULL DEFAULT 0,
+                default_firmware_id INT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.cur.execute("PRAGMA table_info(device_verification_settings)")
-        settings_columns = [col[1] for col in self.cur.fetchall()]
-        if "default_firmware_id" not in settings_columns:
-            self.conn.execute("ALTER TABLE device_verification_settings ADD COLUMN default_firmware_id INTEGER")
+        add_column_if_missing(self.conn, "device_verification_settings", "default_firmware_id", "INT")
         self.conn.execute(
-            "INSERT OR IGNORE INTO device_verification_settings (id, verify_cooldown_seconds) VALUES (1, 0)"
+            "INSERT IGNORE INTO device_verification_settings (id, verify_cooldown_seconds) VALUES (1, 0)"
         )
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS nano_firmware_files (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_name TEXT NOT NULL,
-                file_url TEXT NOT NULL UNIQUE,
-                file_size INTEGER NOT NULL DEFAULT 0,
-                checksum_sha256 TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                file_name VARCHAR(255) NOT NULL,
+                file_url VARCHAR(500) NOT NULL UNIQUE,
+                file_size BIGINT NOT NULL DEFAULT 0,
+                checksum_sha256 VARCHAR(64),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_nano_firmware_files_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.cur.execute("PRAGMA table_info(nano_firmware_files)")
-        firmware_columns = [col[1] for col in self.cur.fetchall()]
-        if "checksum_sha256" not in firmware_columns:
-            self.conn.execute("ALTER TABLE nano_firmware_files ADD COLUMN checksum_sha256 TEXT")
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_nano_firmware_files_created_at ON nano_firmware_files(created_at)"
-        )
+        add_column_if_missing(self.conn, "nano_firmware_files", "checksum_sha256", "VARCHAR(64)")
 
     def get_settings(self) -> Dict[str, Any]:
         """读取设备验证全局设置（单行）。"""
@@ -349,9 +324,9 @@ class DeviceVerificationManager:
             SELECT device_id
             FROM device_verifications
             WHERE COALESCE(is_whitelisted, 0) = 0
-              AND datetime(created_at) <= datetime('now', ?)
+              AND created_at <= (UTC_TIMESTAMP() - INTERVAL ? MINUTE)
             """,
-            (f"-{ttl} minutes",),
+            (ttl,),
         )
         rows = self.cur.fetchall()
         if not rows:

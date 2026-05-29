@@ -15,12 +15,12 @@ class PaymentSettingsManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS payment_settings (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              wallet_address TEXT NOT NULL,
-              network TEXT DEFAULT 'TRC20',
-              autoDeleteMinutes INTEGER DEFAULT 30,
-              updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              wallet_address VARCHAR(255) NOT NULL,
+              network VARCHAR(32) DEFAULT 'TRC20',
+              autoDeleteMinutes INT DEFAULT 30,
+              updatedAt VARCHAR(40)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
 
@@ -48,7 +48,7 @@ class PaymentSettingsManager:
             """
             UPDATE payment_settings
             SET wallet_address = ?, network = ?, autoDeleteMinutes = ?, updatedAt = ?
-            WHERE id = (SELECT id FROM payment_settings ORDER BY id DESC LIMIT 1)
+            WHERE id = (SELECT id FROM (SELECT id FROM payment_settings ORDER BY id DESC LIMIT 1) t)
             """,
             (wallet_address, network, auto_delete_minutes, updated),
         )

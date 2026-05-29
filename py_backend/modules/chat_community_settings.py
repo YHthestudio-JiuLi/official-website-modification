@@ -17,11 +17,11 @@ class ChatCommunitySettingsManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_community_settings (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              telegramGroupUrl TEXT,
-              qqGroupUrl TEXT,
-              updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              telegramGroupUrl VARCHAR(512),
+              qqGroupUrl VARCHAR(512),
+              updatedAt VARCHAR(40)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
 
@@ -51,7 +51,7 @@ class ChatCommunitySettingsManager:
                 """
                 UPDATE chat_community_settings
                 SET telegramGroupUrl = ?, qqGroupUrl = ?, updatedAt = ?
-                WHERE id = (SELECT id FROM chat_community_settings ORDER BY id DESC LIMIT 1)
+                WHERE id = (SELECT id FROM (SELECT id FROM chat_community_settings ORDER BY id DESC LIMIT 1) t)
                 """,
                 (tg or None, qq or None, updated),
             )

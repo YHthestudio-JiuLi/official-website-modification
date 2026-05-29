@@ -13,30 +13,18 @@ class ChatAdminManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_admins (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              username TEXT UNIQUE NOT NULL,
-              display_name TEXT NOT NULL,
-              bio TEXT DEFAULT '',
-              avatar_color TEXT DEFAULT '#07c160',
-              telegram_chat_id TEXT,
-              telegram_token TEXT,
-              chatbot_enabled INTEGER DEFAULT 0,
-              created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              username VARCHAR(255) UNIQUE NOT NULL,
+              display_name VARCHAR(255) NOT NULL,
+              bio TEXT,
+              avatar_color VARCHAR(32) DEFAULT '#07c160',
+              telegram_chat_id VARCHAR(255),
+              telegram_token VARCHAR(255),
+              chatbot_enabled TINYINT DEFAULT 0,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        for col, default in [
-            ("telegram_chat_id", None),
-            ("telegram_token", None),
-            ("chatbot_enabled", "0"),
-        ]:
-            try:
-                if default is None:
-                    self.conn.execute(f"ALTER TABLE chat_admins ADD COLUMN {col} TEXT")
-                else:
-                    self.conn.execute(f"ALTER TABLE chat_admins ADD COLUMN {col} INTEGER DEFAULT {default}")
-            except Exception:
-                pass
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute(

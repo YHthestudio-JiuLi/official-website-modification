@@ -15,19 +15,19 @@ class ForumPostManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS forum_posts (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              title TEXT NOT NULL,
-              author TEXT NOT NULL,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              title VARCHAR(512) NOT NULL,
+              author VARCHAR(255) NOT NULL,
               content TEXT NOT NULL,
-              date TEXT,
-              replies INTEGER DEFAULT 0,
-              isPinned INTEGER DEFAULT 0,
-              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              date VARCHAR(64),
+              replies INT DEFAULT 0,
+              isPinned TINYINT DEFAULT 0,
+              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+              KEY idx_forum_posts_createdAt (createdAt),
+              KEY idx_forum_posts_isPinned (isPinned)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_forum_posts_createdAt ON forum_posts(createdAt)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_forum_posts_isPinned ON forum_posts(isPinned)")
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute("SELECT * FROM forum_posts ORDER BY isPinned DESC, date DESC, id DESC")

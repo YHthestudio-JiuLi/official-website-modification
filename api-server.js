@@ -254,17 +254,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// 产品图片改为存入 MySQL（BLOB），使用内存存储拿到 buffer 后入库
 const productImageUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, productUploadsPath);
-    },
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-      const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'].includes(ext) ? ext : '.jpg';
-      cb(null, `product_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${safeExt}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024
   },
@@ -507,6 +499,20 @@ function serializeProductDetailJson(body) {
 
 function parseProductCategoryId(body) {
   const raw = body?.categoryId;
+  if (raw === null || raw === '' || raw === undefined) return null;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseProductSubCategoryId(body) {
+  const raw = body?.subCategoryId;
+  if (raw === null || raw === '' || raw === undefined) return null;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseCategoryParentId(body) {
+  const raw = body?.parentId;
   if (raw === null || raw === '' || raw === undefined) return null;
   const n = parseInt(raw, 10);
   return Number.isNaN(n) ? null : n;
@@ -1199,26 +1205,64 @@ app.get('/api/admin/products/:id', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/upload/product-image', requireAdmin, (req, res) => {
-  productImageUpload.single('image')(req, res, (err) => {
+  productImageUpload.single('image')(req, res, async (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'Image is too large (max 5MB)' });
       }
       return res.status(400).json({ error: err.message || 'Image upload failed' });
     }
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: 'No image uploaded' });
     }
-    const imageUrl = `/uploads/products/${req.file.filename}`;
-    res.json({
-      ok: true,
-      image: imageUrl
-    });
+    try {
+      // 入库为 BLOB，返回可访问的图片 URL
+      const dataBase64 = req.file.buffer.toString('base64');
+      const mime = req.file.mimetype || 'application/octet-stream';
+      const filename = req.file.originalname || null;
+      const imageId = await dbOperations.images.create(dataBase64, mime, filename);
+      return res.json({ ok: true, image: `/api/product-images/${imageId}` });
+    } catch (e) {
+      console.error('[API Error] upload product-image:', e.message);
+      return res.status(503).json({ error: 'Failed to store image' });
+    }
   });
 });
 
-app.delete('/api/admin/upload/product-image', requireAdmin, (req, res) => {
+// 从 MySQL 读取并输出图片二进制
+app.get('/api/product-images/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'Invalid image id' });
+  }
+  try {
+    const img = await dbOperations.images.get(id);
+    if (!img) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+    const buffer = Buffer.from(img.dataBase64 || '', 'base64');
+    res.setHeader('Content-Type', img.mime || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.end(buffer);
+  } catch (e) {
+    console.error('[API Error] get product-image:', e.message);
+    return res.status(503).json({ error: 'Failed to load image' });
+  }
+});
+
+app.delete('/api/admin/upload/product-image', requireAdmin, async (req, res) => {
   const imagePath = req.body?.image || '';
+  // 新格式：/api/product-images/<id> → 删除 MySQL BLOB
+  const apiMatch = typeof imagePath === 'string' && imagePath.match(/^\/api\/product-images\/(\d+)$/);
+  if (apiMatch) {
+    try {
+      await dbOperations.images.delete(parseInt(apiMatch[1], 10));
+    } catch (e) {
+      console.error('[API Error] delete product-image:', e.message);
+    }
+    return res.json({ ok: true });
+  }
+  // 兼容旧的磁盘图片路径
   if (typeof imagePath !== 'string' || !imagePath.startsWith('/uploads/products/')) {
     return res.status(400).json({ error: 'Invalid image path' });
   }
@@ -1244,9 +1288,10 @@ app.post('/api/admin/products', requireAdmin, async (req, res) => {
   const productDate = date || new Date().toISOString().split('T')[0];
   const { featuresJson, specsJson, usageNoticeJson } = serializeProductDetailJson(req.body);
   const categoryId = parseProductCategoryId(req.body);
+  const subCategoryId = parseProductSubCategoryId(req.body);
   await dbOperations.products.create(
     name, description, image, productDate, price, price,
-    featuresJson, specsJson, usageNoticeJson, categoryId
+    featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId
   );
   res.json({ success: true });
 });
@@ -1257,9 +1302,10 @@ app.put('/api/admin/products/:id', requireAdmin, async (req, res) => {
   const productDate = date || new Date().toISOString().split('T')[0];
   const { featuresJson, specsJson, usageNoticeJson } = serializeProductDetailJson(req.body);
   const categoryId = parseProductCategoryId(req.body);
+  const subCategoryId = parseProductSubCategoryId(req.body);
   await dbOperations.products.update(
     parseInt(req.params.id), name, description, image, productDate, price, price,
-    featuresJson, specsJson, usageNoticeJson, categoryId
+    featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId
   );
   res.json({ success: true });
 });
@@ -1276,6 +1322,7 @@ app.get('/api/admin/product-categories', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/product-categories', requireAdmin, async (req, res) => {
   const { name, nameEn, slug, sortOrder } = req.body || {};
+  const parentId = parseCategoryParentId(req.body);
   if (!name || !String(name).trim()) {
     return res.status(400).json({ error: 'Category name is required' });
   }
@@ -1284,7 +1331,8 @@ app.post('/api/admin/product-categories', requireAdmin, async (req, res) => {
       String(name).trim(),
       nameEn ? String(nameEn).trim() : null,
       slug ? String(slug).trim() : null,
-      parseInt(sortOrder, 10) || 0
+      parseInt(sortOrder, 10) || 0,
+      parentId
     );
     res.json({ success: true, id });
   } catch (error) {
@@ -1294,6 +1342,7 @@ app.post('/api/admin/product-categories', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/product-categories/:id', requireAdmin, async (req, res) => {
   const { name, nameEn, slug, sortOrder } = req.body || {};
+  const parentId = parseCategoryParentId(req.body);
   if (!name || !String(name).trim()) {
     return res.status(400).json({ error: 'Category name is required' });
   }
@@ -1303,7 +1352,8 @@ app.put('/api/admin/product-categories/:id', requireAdmin, async (req, res) => {
       String(name).trim(),
       nameEn ? String(nameEn).trim() : null,
       slug ? String(slug).trim() : null,
-      parseInt(sortOrder, 10) || 0
+      parseInt(sortOrder, 10) || 0,
+      parentId
     );
     res.json({ success: true });
   } catch (error) {

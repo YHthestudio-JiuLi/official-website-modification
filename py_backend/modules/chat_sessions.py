@@ -10,31 +10,20 @@ class ChatSessionManager:
         self.cur = conn.cursor()
 
     def create_table(self) -> None:
-        # 创建基础表结构（不包含新列）
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_sessions (
-              id TEXT PRIMARY KEY,
-              nickname TEXT NOT NULL,
-              admin_id INTEGER NOT NULL,
-              created_at TEXT NOT NULL DEFAULT (datetime('now')),
-              FOREIGN KEY (admin_id) REFERENCES chat_admins(id)
-            )
+              id VARCHAR(64) PRIMARY KEY,
+              nickname VARCHAR(255) NOT NULL,
+              admin_id INT NOT NULL,
+              user_id INT,
+              service_type VARCHAR(32) DEFAULT 'support',
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              KEY idx_chat_sessions_admin (admin_id),
+              KEY idx_chat_sessions_user (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chat_sessions_admin ON chat_sessions(admin_id)"
-        )
-        # 尝试添加新列（如果表已存在但没有这些列）
-        try:
-            self.conn.execute("ALTER TABLE chat_sessions ADD COLUMN user_id INTEGER")
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
-        except Exception:
-            pass
-        try:
-            self.conn.execute("ALTER TABLE chat_sessions ADD COLUMN service_type TEXT DEFAULT 'support'")
-        except Exception:
-            pass
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute(
@@ -132,7 +121,7 @@ class ChatSessionManager:
                 GROUP BY session_id
               ) x ON x.session_id = m1.session_id AND x.max_id = m1.id
             ) lm ON lm.session_id = s.id
-            ORDER BY datetime(lm.last_at) DESC
+            ORDER BY lm.last_at DESC
             """
         )
         return [dict(row) for row in self.cur.fetchall()]

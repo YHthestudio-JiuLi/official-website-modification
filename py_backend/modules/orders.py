@@ -39,32 +39,30 @@ class OrderManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS orders (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              userId INTEGER NOT NULL,
-              username TEXT NOT NULL,
-              productId INTEGER NOT NULL,
-              productName TEXT NOT NULL,
-              quantity INTEGER DEFAULT 1,
-              price REAL NOT NULL,
-              totalAmount REAL NOT NULL,
-              status TEXT DEFAULT 'pending',
-              paymentMethod TEXT DEFAULT 'USDT',
-              usdtWallet TEXT,
-              network TEXT DEFAULT 'TRC20',
-              txHash TEXT,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              userId INT NOT NULL,
+              username VARCHAR(255) NOT NULL,
+              productId INT NOT NULL,
+              productName VARCHAR(512) NOT NULL,
+              quantity INT DEFAULT 1,
+              price DOUBLE NOT NULL,
+              totalAmount DOUBLE NOT NULL,
+              status VARCHAR(32) DEFAULT 'pending',
+              paymentMethod VARCHAR(32) DEFAULT 'USDT',
+              usdtWallet VARCHAR(255),
+              network VARCHAR(32) DEFAULT 'TRC20',
+              txHash VARCHAR(255),
               shippingAddress TEXT,
-              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-              paidAt DATETIME,
-              completedAt DATETIME,
-              FOREIGN KEY (userId) REFERENCES users(id),
-              FOREIGN KEY (productId) REFERENCES products(id)
-            )
+              createdAt VARCHAR(40),
+              paidAt VARCHAR(40),
+              completedAt VARCHAR(40),
+              KEY idx_orders_userId (userId),
+              KEY idx_orders_status (status),
+              KEY idx_orders_productId (productId),
+              KEY idx_orders_createdAt (createdAt)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_userId ON orders(userId)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_productId ON orders(productId)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_orders_createdAt ON orders(createdAt)")
 
     def find_all(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if status_filter:
@@ -76,8 +74,18 @@ class OrderManager:
             self.cur.execute("SELECT * FROM orders ORDER BY createdAt DESC")
         return rows_to_dict(self.cur.fetchall())
 
+    _ORDER_DETAIL_SELECT = """
+        SELECT o.*,
+               c.name AS categoryName,
+               sc.name AS subCategoryName
+        FROM orders o
+        LEFT JOIN products p ON o.productId = p.id
+        LEFT JOIN product_categories c ON p.categoryId = c.id
+        LEFT JOIN product_categories sc ON p.subCategoryId = sc.id
+    """
+
     def find_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
-        self.cur.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        self.cur.execute(f"{self._ORDER_DETAIL_SELECT} WHERE o.id = ?", (order_id,))
         return row_to_dict(self.cur.fetchone())
 
     def find_by_user_id(self, user_id: int) -> List[Dict[str, Any]]:

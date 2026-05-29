@@ -21,20 +21,20 @@ class CartManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS cart (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              userId INTEGER NOT NULL,
-              productId INTEGER NOT NULL,
-              quantity INTEGER NOT NULL DEFAULT 1,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              userId INT NOT NULL,
+              productId INT NOT NULL,
+              quantity INT NOT NULL DEFAULT 1,
               createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
               updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-              FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE,
-              UNIQUE(userId, productId)
-            )
+              UNIQUE KEY uniq_cart_user_product (userId, productId),
+              KEY idx_cart_userId (userId),
+              KEY idx_cart_productId (productId),
+              CONSTRAINT fk_cart_user FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+              CONSTRAINT fk_cart_product FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_cart_userId ON cart(userId)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_cart_productId ON cart(productId)")
 
     def get_cart(self, user_id: int) -> List[Dict[str, Any]]:
         """获取用户购物车列表（只读操作，无需锁）"""
@@ -66,8 +66,8 @@ class CartManager:
                 """
                 INSERT INTO cart (userId, productId, quantity)
                 VALUES (?, ?, ?)
-                ON CONFLICT(userId, productId) DO UPDATE SET
-                    quantity = quantity + excluded.quantity,
+                ON DUPLICATE KEY UPDATE
+                    quantity = quantity + VALUES(quantity),
                     updatedAt = CURRENT_TIMESTAMP
                 """,
                 (user_id, product_id, quantity),

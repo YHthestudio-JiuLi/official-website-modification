@@ -27,6 +27,12 @@ async function rpc(op, args = {}) {
 }
 
 const dbOperations = {
+  images: {
+    // 图片以 BLOB 存于 MySQL，Node 端用 base64 在 RPC 间传输
+    create: (dataBase64, mime, filename) => rpc('images.create', { dataBase64, mime, filename }),
+    get: (id) => rpc('images.get', { id }),
+    delete: (id) => rpc('images.delete', { id })
+  },
   users: {
     findAll: () => rpc('users.findAll'),
     findById: (id) => rpc('users.findById', { id }),
@@ -41,19 +47,19 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId }),
-    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId }),
+    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
+    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
     delete: (id) => rpc('products.delete', { id })
   },
   productCategories: {
     findAll: () => rpc('productCategories.findAll'),
     findById: (id) => rpc('productCategories.findById', { id }),
-    create: (name, nameEn, slug, sortOrder) =>
-      rpc('productCategories.create', { name, nameEn, slug, sortOrder }),
-    update: (id, name, nameEn, slug, sortOrder) =>
-      rpc('productCategories.update', { id, name, nameEn, slug, sortOrder }),
+    create: (name, nameEn, slug, sortOrder, parentId) =>
+      rpc('productCategories.create', { name, nameEn, slug, sortOrder, parentId }),
+    update: (id, name, nameEn, slug, sortOrder, parentId) =>
+      rpc('productCategories.update', { id, name, nameEn, slug, sortOrder, parentId }),
     delete: (id) => rpc('productCategories.delete', { id })
   },
   orders: {

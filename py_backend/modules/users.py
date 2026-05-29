@@ -15,17 +15,17 @@ class UserManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              username TEXT UNIQUE NOT NULL,
-              email TEXT UNIQUE NOT NULL,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              username VARCHAR(255) UNIQUE NOT NULL,
+              email VARCHAR(255) UNIQUE NOT NULL,
               password TEXT NOT NULL,
-              isAdmin INTEGER DEFAULT 0,
-              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              isAdmin TINYINT DEFAULT 0,
+              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+              KEY idx_users_username (username),
+              KEY idx_users_email (email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute("SELECT * FROM users ORDER BY createdAt DESC")

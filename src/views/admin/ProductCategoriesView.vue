@@ -20,6 +20,27 @@
         <form class="form" @submit.prevent="handleSave">
           <div class="form-row form-row-2">
             <div class="form-group">
+              <label>{{ $t('admin.productCategories.parentCategory') }}</label>
+              <select v-model="form.parentId" class="form-input" :disabled="!!editingHasChildren">
+                <option :value="null">{{ $t('admin.productCategories.level1') }}</option>
+                <option
+                  v-for="parent in parentCategories"
+                  :key="parent.id"
+                  :value="parent.id"
+                  :disabled="editingId === parent.id"
+                >
+                  {{ parent.name }}{{ parent.nameEn ? ` / ${parent.nameEn}` : '' }}
+                </option>
+              </select>
+              <p class="field-hint">{{ $t('admin.productCategories.parentHint') }}</p>
+            </div>
+            <div class="form-group">
+              <label>{{ $t('admin.productCategories.sortOrder') }}</label>
+              <input v-model.number="form.sortOrder" type="number" class="form-input" min="0" />
+            </div>
+          </div>
+          <div class="form-row form-row-2">
+            <div class="form-group">
               <label>{{ $t('admin.productCategories.name') }} <span class="required">*</span></label>
               <input v-model="form.name" type="text" class="form-input" required />
               <p class="field-hint">{{ $t('admin.productCategories.nameHint') }}</p>
@@ -30,15 +51,9 @@
               <p class="field-hint">{{ $t('admin.productCategories.nameEnHint') }}</p>
             </div>
           </div>
-          <div class="form-row form-row-2">
-            <div class="form-group">
-              <label>{{ $t('admin.productCategories.slug') }}</label>
-              <input v-model="form.slug" type="text" class="form-input" :placeholder="$t('admin.productCategories.slugPlaceholder')" />
-            </div>
-            <div class="form-group">
-              <label>{{ $t('admin.productCategories.sortOrder') }}</label>
-              <input v-model.number="form.sortOrder" type="number" class="form-input" min="0" />
-            </div>
+          <div class="form-group">
+            <label>{{ $t('admin.productCategories.slug') }}</label>
+            <input v-model="form.slug" type="text" class="form-input" :placeholder="$t('admin.productCategories.slugPlaceholder')" />
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" :disabled="saving">
@@ -58,15 +73,20 @@
             <tr>
               <th>{{ $t('admin.productCategories.name') }}</th>
               <th>{{ $t('admin.productCategories.nameEn') }}</th>
+              <th>{{ $t('admin.productCategories.parentCategory') }}</th>
               <th>{{ $t('admin.productCategories.slug') }}</th>
               <th>{{ $t('admin.productCategories.sortOrder') }}</th>
               <th>{{ $t('admin.products.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="cat in categories" :key="cat.id">
-              <td>{{ cat.name }}</td>
+            <tr v-for="cat in displayCategories" :key="cat.id" :class="{ 'sub-row': cat.parentId }">
+              <td>
+                <span v-if="cat.parentId" class="sub-indent">↳</span>
+                {{ cat.name }}
+              </td>
               <td>{{ cat.nameEn || '—' }}</td>
+              <td>{{ parentLabel(cat.parentId) }}</td>
               <td><code>{{ cat.slug }}</code></td>
               <td>{{ cat.sortOrder }}</td>
               <td class="actions">
@@ -78,8 +98,8 @@
                 </button>
               </td>
             </tr>
-            <tr v-if="categories.length === 0">
-              <td colspan="5" class="empty">{{ $t('admin.productCategories.empty') }}</td>
+            <tr v-if="displayCategories.length === 0">
+              <td colspan="6" class="empty">{{ $t('admin.productCategories.empty') }}</td>
             </tr>
           </tbody>
         </table>
@@ -89,17 +109,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
 const { t } = useI18n()
 const categories = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const editingId = ref(null)
-const form = ref({ name: '', nameEn: '', slug: '', sortOrder: 0 })
+const form = ref({ name: '', nameEn: '', slug: '', sortOrder: 0, parentId: null })
+
+const parentCategories = computed(() => getParentCategories(categories.value))
+
+const displayCategories = computed(() => {
+  const result = []
+  for (const root of parentCategories.value) {
+    result.push(root)
+    result.push(...getSubCategories(categories.value, root.id))
+  }
+  return result
+})
+
+const editingHasChildren = computed(() => {
+  if (!editingId.value) return false
+  return categories.value.some((c) => c.parentId === editingId.value)
+})
 
 onMounted(fetchCategories)
 
@@ -115,9 +152,15 @@ async function fetchCategories() {
   }
 }
 
+function parentLabel(parentId) {
+  if (!parentId) return t('admin.productCategories.level1')
+  const parent = categories.value.find((c) => c.id === parentId)
+  return parent ? parent.name : '—'
+}
+
 function resetForm() {
   editingId.value = null
-  form.value = { name: '', nameEn: '', slug: '', sortOrder: 0 }
+  form.value = { name: '', nameEn: '', slug: '', sortOrder: 0, parentId: null }
 }
 
 function startEdit(cat) {
@@ -126,7 +169,8 @@ function startEdit(cat) {
     name: cat.name || '',
     nameEn: cat.nameEn || '',
     slug: cat.slug || '',
-    sortOrder: cat.sortOrder ?? 0
+    sortOrder: cat.sortOrder ?? 0,
+    parentId: cat.parentId ?? null
   }
 }
 
@@ -137,7 +181,8 @@ async function handleSave() {
       name: form.value.name.trim(),
       nameEn: form.value.nameEn.trim() || null,
       slug: form.value.slug.trim() || null,
-      sortOrder: form.value.sortOrder || 0
+      sortOrder: Number(form.value.sortOrder) || 0,
+      parentId: form.value.parentId || null
     }
     if (editingId.value) {
       await api.put(`/api/admin/product-categories/${editingId.value}`, payload)
@@ -237,6 +282,13 @@ async function handleDelete(cat) {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.sub-row td:first-child {
+  padding-left: 28px;
+}
+.sub-indent {
+  color: #8892b0;
+  margin-right: 6px;
 }
 .actions {
   display: flex;

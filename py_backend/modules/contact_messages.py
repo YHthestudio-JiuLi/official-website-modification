@@ -15,14 +15,14 @@ class ContactMessageManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS contact_messages (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL,
-              email TEXT NOT NULL,
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(255) NOT NULL,
+              email VARCHAR(255) NOT NULL,
               message TEXT NOT NULL,
-              read INTEGER DEFAULT 0,
-              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              `read` TINYINT DEFAULT 0,
+              createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+              KEY idx_contact_messages_read (`read`),
+              KEY idx_contact_messages_createdAt (createdAt)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_read ON contact_messages(read)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_contact_messages_createdAt ON contact_messages(createdAt)")

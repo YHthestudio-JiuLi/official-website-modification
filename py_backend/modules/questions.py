@@ -15,21 +15,19 @@ class QuestionManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS questions (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL,
-              category_name TEXT,
-              db_file_path TEXT,
-              vector_file_path TEXT,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              name VARCHAR(255) NOT NULL,
+              category_name VARCHAR(255),
+              db_file_path VARCHAR(500),
+              vector_file_path VARCHAR(500),
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              KEY idx_questions_category_name (category_name),
+              KEY idx_questions_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.cur.execute("PRAGMA table_info(questions)")
-        columns = [col[1] for col in self.cur.fetchall()]
-        if "category_name" not in columns:
-            self.conn.execute("ALTER TABLE questions ADD COLUMN category_name TEXT")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_questions_category_name ON questions(category_name)")
-        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_questions_created_at ON questions(created_at)")
+        from ..db import add_column_if_missing
+        add_column_if_missing(self.conn, "questions", "category_name", "VARCHAR(255)")
 
     def find_all(self) -> List[Dict[str, Any]]:
         self.cur.execute("SELECT * FROM questions ORDER BY created_at DESC, id DESC")

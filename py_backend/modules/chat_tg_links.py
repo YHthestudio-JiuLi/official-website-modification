@@ -15,54 +15,17 @@ class ChatTgLinkManager:
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chat_tg_links (
-              chat_id INTEGER NOT NULL,
-              tg_message_id INTEGER NOT NULL,
-              session_id TEXT NOT NULL,
-              created_at TEXT NOT NULL DEFAULT (datetime('now')),
-              PRIMARY KEY (chat_id, tg_message_id)
-            )
+              chat_id BIGINT NOT NULL,
+              tg_message_id BIGINT NOT NULL,
+              session_id VARCHAR(64) NOT NULL,
+              chat_message_id BIGINT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (chat_id, tg_message_id),
+              KEY idx_chat_tg_session (session_id),
+              KEY idx_chat_tg_chat_message (chat_message_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
-        self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chat_tg_session ON chat_tg_links(session_id)"
-        )
-        try:
-            self.conn.execute("ALTER TABLE chat_tg_links ADD COLUMN chat_message_id INTEGER")
-        except Exception:
-            pass
-        try:
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_tg_chat_message ON chat_tg_links(chat_message_id)")
-        except Exception:
-            pass
-        
-        # Migration: rename old column if exists
-        try:
-            cur = self.conn.cursor()
-            cur.execute("PRAGMA table_info(chat_tg_links)")
-            cols = [row[1] for row in cur.fetchall()]
-            if "message_id" in cols and "tg_message_id" not in cols:
-                # Recreate table with correct column name
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS chat_tg_links_new (
-                      chat_id INTEGER NOT NULL,
-                      tg_message_id INTEGER NOT NULL,
-                      session_id TEXT NOT NULL,
-                      chat_message_id INTEGER,
-                      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                      PRIMARY KEY (chat_id, tg_message_id)
-                    )
-                """)
-                cur.execute("""
-                    INSERT OR IGNORE INTO chat_tg_links_new (chat_id, tg_message_id, session_id, chat_message_id, created_at)
-                    SELECT chat_id, message_id, session_id, chat_message_id, created_at FROM chat_tg_links
-                """)
-                cur.execute("DROP TABLE chat_tg_links")
-                cur.execute("ALTER TABLE chat_tg_links_new RENAME TO chat_tg_links")
-                cur.execute("CREATE INDEX IF NOT EXISTS idx_chat_tg_session ON chat_tg_links(session_id)")
-                self.conn.commit()
-                print("[Migration] Renamed message_id to tg_message_id in chat_tg_links")
-        except Exception as e:
-            print(f"[Migration] Skip rename: {e}")
 
     def create(self, chat_id, tg_message_id: int, session_id: str, chat_message_id: int = None) -> None:
         try:
@@ -71,7 +34,7 @@ class ChatTgLinkManager:
         except (TypeError, ValueError):
             return
         self.cur.execute(
-            "INSERT OR REPLACE INTO chat_tg_links (chat_id, tg_message_id, session_id, chat_message_id) VALUES (?, ?, ?, ?)",
+            "REPLACE INTO chat_tg_links (chat_id, tg_message_id, session_id, chat_message_id) VALUES (?, ?, ?, ?)",
             (cid, tid, session_id, chat_message_id),
         )
         self.conn.commit()

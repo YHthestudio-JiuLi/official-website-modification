@@ -1,8 +1,8 @@
-# YHthestudio - Vue 3 电商与论坛平台
+# YHthestudio - Vue 3 YHthestudio官网
 
 [![Branch](https://img.shields.io/badge/branch-vue__0.2.0-blue)](https://github.com/YHthestudio-JiuLi/official-website-modification/tree/vue_0.2.0)
 
-YHthestudio 官方站点：双语（中/英）电商 + 技术论坛 + 在线客服 + 设备验签与固件管理。前端 Vue 3，后端 Node.js（API/会话）+ Python FastAPI（数据库 RPC）。
+YHthestudio 官方站点：双语（中/英）官网 + 技术论坛 + 在线客服 + 设备验签与固件管理。前端 Vue 3，后端 Node.js（API/会话）+ Python FastAPI（数据库 RPC）。
 
 **仓库：** https://github.com/YHthestudio-JiuLi/official-website-modification.git  
 **当前版本分支：** `vue_0.2.0`

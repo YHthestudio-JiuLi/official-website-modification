@@ -31,13 +31,51 @@ npm run build
 
 ## 3. Python 虚拟环境与依赖（数据库 / RPC 后端）
 
-> 若 `.venv` 已存在且依赖未变，可跳过 `python3 -m venv .venv`，直接 `activate` 后执行 `pip install`。
+> OpenCloudOS / CentOS 等若提示 `pip: command not found`，先装系统包，再用 **`python -m pip`**（见下方「pip 不可用」）。
 
 ```bash
+# 系统级 Python（首次部署必装）
+dnf install -y python3 python3-pip python3-devel
+# 或：yum install -y python3 python3-pip python3-devel
+
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r py_backend/requirements.txt
+
+# 推荐：不要直接敲 pip，用 python -m pip
+python -m ensurepip --upgrade
+python -m pip install -U pip
+python -m pip install -r py_backend/requirements.txt
 deactivate
+```
+
+### pip 不可用 / `bash: pip: command not found`
+
+1. 确认在 venv 里且用模块方式安装：
+
+```bash
+cd /www/wwwroot/你的域名/official-website-modification_v0.1.2
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install pymysql
+python -m pip install -r py_backend/requirements.txt
+```
+
+2. 若仍报错，删除 venv 重建：
+
+```bash
+deactivate 2>/dev/null || true
+rm -rf .venv
+dnf install -y python3 python3-pip python3-devel
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -r py_backend/requirements.txt
+```
+
+3. 不激活 venv 也可（路径按实际项目目录改）：
+
+```bash
+.venv/bin/python -m pip install -r py_backend/requirements.txt
 ```
 
 ---

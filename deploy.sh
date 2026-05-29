@@ -31,10 +31,10 @@ if [ ! -x "$PY_BIN" ]; then
 fi
 
 echo "[6/8] 安装 Python 依赖"
-source .venv/bin/activate
-pip install -U pip
-pip install -r py_backend/requirements.txt
-deactivate
+# 使用 python -m pip，避免部分系统 venv 内无 pip 可执行文件
+"$PY_BIN" -m ensurepip --upgrade 2>/dev/null || true
+"$PY_BIN" -m pip install -U pip
+"$PY_BIN" -m pip install -r py_backend/requirements.txt
 
 echo "[7/8] 启动/重载 PM2"
 # 固定按 ecosystem 统一拉起，确保 yh-py 始终使用 uvicorn 启动

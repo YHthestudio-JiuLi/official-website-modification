@@ -5,13 +5,15 @@ import { resolve } from 'path'
 /** 注入站点 URL，供 index.html 中 Open Graph 使用（Telegram 等链接预览） */
 function siteMetaPlugin(siteUrl) {
   const base = String(siteUrl || 'https://yhthestudio.com').replace(/\/$/, '')
-  const ogImage = `${base}/favicon.png`
+  const ogImage = `${base}/og-image.jpg`
   return {
     name: 'html-site-meta',
     transformIndexHtml(html) {
       return html
         .replaceAll('__SITE_URL__', base)
         .replaceAll('__OG_IMAGE__', ogImage)
+        .replaceAll('__OG_IMAGE_WIDTH__', '1200')
+        .replaceAll('__OG_IMAGE_HEIGHT__', '630')
     }
   }
 }

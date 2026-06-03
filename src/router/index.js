@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { setDocumentTitle } from '@/utils/documentTitle'
 import { isSafeInternalRedirect } from '@/utils/authRedirect'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
@@ -215,12 +216,7 @@ const router = createRouter({
 
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
-  const titleKey = to.meta.titleKey
-  const pageTitle =
-    typeof titleKey === 'string' && titleKey
-      ? i18n.global.t(titleKey)
-      : (typeof to.meta.title === 'string' && to.meta.title ? to.meta.title : i18n.global.t('titles.fallback'))
-  document.title = `${pageTitle} - YHthestudio`
+  setDocumentTitle(to, i18n.global.t)
 
   const authStore = useAuthStore()
   const adminStore = useAdminStore()

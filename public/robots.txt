@@ -1,0 +1,11 @@
+# https://yhthestudio.com/robots.txt
+User-agent: *
+Allow: /
+
+# 不上传敏感目录与接口
+Disallow: /api/
+Disallow: /uploads/questions/
+Disallow: /uploads/nano-firmwares/
+Disallow: /admin/
+
+Sitemap: https://yhthestudio.com/sitemap.xml

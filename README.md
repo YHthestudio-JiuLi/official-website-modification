@@ -1,8 +1,20 @@
-# YHthestudio - Vue 3 YHthestudio官网
+# YHthestudio | Official
 
-[![Branch](https://img.shields.io/badge/branch-vue__0.2.0-blue)](https://github.com/YHthestudio-JiuLi/official-website-modification/tree/vue_0.2.0)
+[![Branch](https://img.shields.io/badge/branch-vue__0.2.0-blue?style=for-the-badge)](https://github.com/YHthestudio-JiuLi/official-website-modification/tree/vue_0.2.0)
+
+**Innovative Technology · Leading the Future**
 
 YHthestudio 官方站点：双语（中/英）官网 + 技术论坛 + 在线客服 + 设备验签与固件管理。前端 Vue 3，后端 Node.js（API/会话）+ Python FastAPI（数据库 RPC）。
+
+---
+
+## 联系我们 / Contact
+
+🌐 [官方网站 yhthestudio.com](https://yhthestudio.com)  
+✈️ [Telegram 技术交流群](https://t.me/YH_TechnicalExchange)  
+🐧 [QQ 群](https://qm.qq.com/q/PADe3iD2os)  
+🍠 [小红书](https://www.xiaohongshu.com/user/profile/你的主页ID)  
+💬 [在线客服中心](https://yhthestudio.com/#/chat)
 
 **仓库：** https://github.com/YHthestudio-JiuLi/official-website-modification.git  
 **当前版本分支：** `vue_0.2.0`

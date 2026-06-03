@@ -141,6 +141,14 @@ app.use('/api', (req, res, next) => {
   return limiter(req, res, next);
 });
 
+// API 响应不参与搜索引擎索引（前台 HTML 页面允许收录）
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
+  next();
+});
+
 // 中间件配置
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -245,14 +253,6 @@ app.use(express.static(distPath, {
     }
   }
 }));
-
-// 降低前台页面被搜索引擎收录的概率（合规爬虫会参考；恶意爬虫不受约束）
-app.use((req, res, next) => {
-  if (req.method === 'GET' || req.method === 'HEAD') {
-    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
-  }
-  next();
-});
 
 // 产品图片改为存入 MySQL（BLOB），使用内存存储拿到 buffer 后入库
 const productImageUpload = multer({

@@ -4,7 +4,10 @@
     <main>
       <div class="page-header">
         <div class="container">
-          <h1><i class="fas fa-receipt"></i> Order Details #{{ order?.id }}</h1>
+          <h1>
+            <i class="fas fa-truck"></i>
+            {{ $t('orders.tracking.title') }}
+          </h1>
         </div>
       </div>
 
@@ -13,87 +16,82 @@
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
           <div v-else-if="!order" class="empty-state">
-            Order not found
+            {{ $t('orders.notFound') }}
           </div>
 
           <div v-else class="order-detail-container">
-            <div class="order-detail-card">
-              <h3><i class="fas fa-info-circle"></i> Order Information</h3>
-              <div class="info-grid">
-                <div class="info-item">
-                  <span class="label">Order Number:</span>
-                  <span class="value">#{{ order.id }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Order Date:</span>
-                  <span class="value">{{ formatDate(order.createdAt) }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Product:</span>
-                  <span class="value">{{ order.productName }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Quantity:</span>
-                  <span class="value">{{ order.quantity }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Unit Price:</span>
-                  <span class="value">{{ order.price }} USDT</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Total Amount:</span>
-                  <span class="value amount-highlight">{{ order.totalAmount }} USDT</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Order Status:</span>
-                  <span :class="['status-badge', 'status-' + order.status]">
-                    {{ getStatusText(order.status) }}
-                  </span>
-                </div>
-                <div class="info-item">
-                  <span class="label">Payment Method:</span>
-                  <span class="value">{{ order.paymentMethod }} ({{ order.network || 'TRC20' }})</span>
-                </div>
+            <div class="order-detail-card tracking-card">
+              <div class="tracking-head">
+                <h3><i class="fas fa-truck"></i> {{ $t('orders.tracking.title') }}</h3>
+                <button
+                  v-if="tracking?.trackingNumber"
+                  type="button"
+                  class="btn-refresh"
+                  :disabled="trackingLoading"
+                  @click="loadTracking"
+                >
+                  <i :class="trackingLoading ? 'fas fa-spinner fa-spin' : 'fas fa-sync-alt'"></i>
+                  {{ $t('orders.tracking.refresh') }}
+                </button>
               </div>
-            </div>
 
-            <div v-if="order.shippingAddress" class="order-detail-card">
-              <h3><i class="fas fa-map-marker-alt"></i> Shipping Address</h3>
-              <div class="address-box" @dblclick="copyAddress" title="Double click to copy">
-                <p>{{ order.shippingAddress }}</p>
-                <span v-if="addressCopied" class="copy-feedback">
-                  <i class="fas fa-check"></i> Copied!
-                </span>
+              <div v-if="trackingLoading && !tracking" class="tracking-loading">
+                {{ $t('orders.tracking.loading') }}
               </div>
-            </div>
 
-            <div v-if="order.txHash" class="order-detail-card">
-              <h3><i class="fas fa-link"></i> Transaction Hash</h3>
-              <div class="tx-hash-box" @dblclick="copyTxHash" title="Double click to copy">
-                <code>{{ order.txHash }}</code>
-                <span v-if="txCopied" class="copy-feedback">
-                  <i class="fas fa-check"></i> Copied!
-                </span>
-              </div>
-            </div>
+              <template v-else-if="tracking?.trackingNumber">
+                <div class="tracking-meta">
+                  <div class="tracking-row">
+                    <span class="label">{{ $t('orders.tracking.number') }}</span>
+                    <code class="tracking-no" @dblclick="copyTrackingNumber" :title="$t('orders.copyHint')">
+                      {{ tracking.trackingNumber }}
+                    </code>
+                  </div>
+                  <div class="tracking-row">
+                    <span class="label">{{ $t('orders.tracking.carrier') }}</span>
+                    <span class="value">{{ $t('orders.tracking.carrierSf') }}</span>
+                  </div>
+                </div>
 
-            <div v-if="order.paidAt" class="order-detail-card">
-              <h3><i class="fas fa-clock"></i> Payment Time</h3>
-              <p class="value">{{ formatDate(order.paidAt) }}</p>
-            </div>
+                <p v-if="tracking.routes?.length" class="tracking-live-hint">
+                  <i class="fas fa-satellite-dish"></i> {{ $t('orders.tracking.liveHint') }}
+                </p>
 
-            <div v-if="order.completedAt" class="order-detail-card">
-              <h3><i class="fas fa-check-circle"></i> Completion Time</h3>
-              <p class="value">{{ formatDate(order.completedAt) }}</p>
+                <ul v-if="tracking.routes?.length" class="route-timeline">
+                  <li v-for="(route, idx) in tracking.routes" :key="idx" class="route-item">
+                    <span class="route-dot" aria-hidden="true"></span>
+                    <div class="route-body">
+                      <time>{{ route.time }}</time>
+                      <p v-if="route.location" class="route-loc">{{ route.location }}</p>
+                      <p class="route-remark">{{ route.remark }}</p>
+                    </div>
+                  </li>
+                </ul>
+
+                <p v-else-if="!trackingLoading && !tracking.routes?.length && tracking.apiEnabled" class="tracking-empty">
+                  {{ $t('orders.tracking.noRoutes') }}
+                </p>
+
+                <button
+                  v-if="tracking.externalUrl"
+                  type="button"
+                  class="btn btn-secondary btn-sf-link"
+                  @click="openSfTracking"
+                >
+                  <i class="fas fa-external-link-alt"></i> {{ $t('orders.tracking.viewOnSf') }}
+                </button>
+                <p v-if="externalCopiedHint" class="tracking-copy-hint">{{ externalCopiedHint }}</p>
+              </template>
+
+              <p v-else class="tracking-empty">
+                {{ $t('orders.tracking.noTracking') }}
+              </p>
             </div>
 
             <div class="action-buttons">
               <router-link to="/orders" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Back to Orders
+                <i class="fas fa-arrow-left"></i> {{ $t('orders.backToOrders') }}
               </router-link>
-              <a v-if="order.usdtWallet" :href="`/orders/${order.id}/pay`" class="btn btn-primary">
-                <i class="fas fa-credit-card"></i> Go to Payment
-              </a>
             </div>
           </div>
         </div>
@@ -106,20 +104,24 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
 const route = useRoute()
+const { t } = useI18n()
 const order = ref(null)
 const loading = ref(true)
-const addressCopied = ref(false)
-const txCopied = ref(false)
+const tracking = ref(null)
+const trackingLoading = ref(false)
+const externalCopiedHint = ref('')
 
 onMounted(async () => {
   try {
     const response = await api.get(`/api/orders/${route.params.id}`)
     order.value = response.data
+    await loadTracking()
   } catch (error) {
     console.error('Failed to fetch order:', error)
   } finally {
@@ -127,41 +129,43 @@ onMounted(async () => {
   }
 })
 
-function getStatusText(status) {
-  const statusMap = {
-    'pending': 'Pending',
-    'paid': 'Paid',
-    'completed': 'Completed',
-    'cancelled': 'Cancelled'
-  }
-  return statusMap[status] || status
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('en-US')
-}
-
-async function copyAddress() {
-  if (!order.value?.shippingAddress) return
+async function loadTracking() {
+  trackingLoading.value = true
   try {
-    await navigator.clipboard.writeText(order.value.shippingAddress)
-    addressCopied.value = true
-    setTimeout(() => { addressCopied.value = false }, 2000)
+    const response = await api.get(`/api/orders/${route.params.id}/tracking`)
+    tracking.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch tracking:', error)
+    tracking.value = order.value?.trackingNumber
+      ? { trackingNumber: order.value.trackingNumber, routes: [], externalUrl: null }
+      : null
+  } finally {
+    trackingLoading.value = false
+  }
+}
+
+async function copyTrackingNumber() {
+  if (!tracking.value?.trackingNumber) return
+  try {
+    await navigator.clipboard.writeText(tracking.value.trackingNumber)
   } catch (err) {
     console.error('Failed to copy:', err)
   }
 }
 
-async function copyTxHash() {
-  if (!order.value?.txHash) return
-  try {
-    await navigator.clipboard.writeText(order.value.txHash)
-    txCopied.value = true
-    setTimeout(() => { txCopied.value = false }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
+async function openSfTracking() {
+  const num = tracking.value?.trackingNumber
+  const url = tracking.value?.externalUrl || 'https://www.sf-express.com/chn/sc/waybill'
+  if (num) {
+    try {
+      await navigator.clipboard.writeText(num)
+      externalCopiedHint.value = t('orders.tracking.externalCopied')
+      setTimeout(() => { externalCopiedHint.value = '' }, 4000)
+    } catch (err) {
+      externalCopiedHint.value = t('orders.tracking.externalHint')
+    }
   }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 </script>
 
@@ -190,110 +194,6 @@ async function copyTxHash() {
   align-items: center;
   gap: 0.5rem;
   color: var(--text-primary);
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-item .label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.info-item .value {
-  font-size: 1rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.amount-highlight {
-  color: var(--primary-color);
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status-badge.status-pending {
-  background: rgba(255, 193, 7, 0.15);
-  color: #ffc107;
-}
-
-.status-badge.status-paid {
-  background: rgba(0, 212, 255, 0.15);
-  color: var(--primary-color);
-}
-
-.status-badge.status-completed {
-  background: rgba(67, 233, 123, 0.15);
-  color: #43e97b;
-}
-
-.status-badge.status-cancelled {
-  background: rgba(245, 87, 108, 0.15);
-  color: #f5576c;
-}
-
-.address-box,
-.tx-hash-box {
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid var(--primary-color);
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.address-box:hover,
-.tx-hash-box:hover {
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.address-box p {
-  margin: 0;
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-
-.tx-hash-box code {
-  font-family: 'Courier New', monospace;
-  color: var(--primary-color);
-  font-size: 0.9rem;
-  word-break: break-all;
-}
-
-.copy-feedback {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: #43e97b;
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .action-buttons {
@@ -325,15 +225,6 @@ async function copyTxHash() {
   background: rgba(154, 157, 180, 0.25);
 }
 
-.btn-primary {
-  background: var(--primary-color);
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #00b8e6;
-}
-
 .empty-state {
   text-align: center;
   padding: 3rem;
@@ -344,5 +235,152 @@ async function copyTxHash() {
   text-align: center;
   padding: 3rem;
   color: var(--primary-color);
+}
+
+.tracking-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tracking-head h3 {
+  margin: 0;
+}
+
+.btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 212, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tracking-loading,
+.tracking-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.tracking-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.tracking-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.tracking-row .label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.tracking-no {
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  color: var(--primary-color);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.08);
+  cursor: pointer;
+}
+
+.tracking-live-hint {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tracking-live-hint i {
+  color: var(--primary-color);
+  margin-right: 0.35rem;
+}
+
+.tracking-copy-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+  color: #43e97b;
+}
+
+.route-timeline {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0 0 0 0.5rem;
+  border-left: 2px solid rgba(0, 212, 255, 0.25);
+}
+
+.route-item {
+  position: relative;
+  padding: 0 0 1.1rem 1.25rem;
+}
+
+.route-dot {
+  position: absolute;
+  left: -0.55rem;
+  top: 0.35rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+}
+
+.route-item:first-child .route-dot {
+  background: #43e97b;
+  box-shadow: 0 0 0 3px rgba(67, 233, 123, 0.2);
+}
+
+.route-body time {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.route-loc {
+  margin: 0 0 0.15rem;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.route-remark {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.btn-sf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border: none;
 }
 </style>

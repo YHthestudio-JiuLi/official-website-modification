@@ -1,0 +1,229 @@
+/**
+ * 管理后台 Element Plus 深色主题（与 --bg-card / --bg-dark 一致）
+ */
+.admin-layout {
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-dark);
+  --el-bg-color-overlay: var(--bg-card);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-secondary);
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-color);
+  --el-border-color-lighter: rgba(42, 47, 74, 0.6);
+  --el-fill-color-blank: var(--bg-card);
+  --el-color-white: var(--bg-card);
+  --el-card-bg-color: var(--bg-card);
+  --el-dialog-bg-color: var(--bg-card);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(0, 0, 0, 0.28);
+  --el-table-row-hover-bg-color: rgba(0, 212, 255, 0.08);
+  --el-table-current-row-bg-color: rgba(0, 212, 255, 0.12);
+  --el-table-border-color: var(--border-color);
+  --el-table-text-color: var(--text-primary);
+  --el-table-header-text-color: var(--text-secondary);
+  --el-mask-color: rgba(10, 14, 39, 0.75);
+}
+
+.admin-layout .el-card {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary);
+  border-radius: 12px;
+}
+
+.admin-layout .el-card__header {
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.admin-layout .el-card__body {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.admin-layout .el-table {
+  background-color: transparent !important;
+  color: var(--text-primary);
+}
+
+.admin-layout .el-table__inner-wrapper::before {
+  background-color: var(--border-color);
+}
+
+.admin-layout .el-table th.el-table__cell {
+  background: rgba(0, 0, 0, 0.28) !important;
+  color: var(--text-secondary) !important;
+}
+
+.admin-layout .el-table tr {
+  background-color: transparent !important;
+}
+
+.admin-layout .el-table td.el-table__cell {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-color) !important;
+}
+
+.admin-layout .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.admin-layout .el-table__body tr:hover > td.el-table__cell {
+  background-color: rgba(0, 212, 255, 0.08) !important;
+}
+
+.admin-layout .el-table__body tr.current-row > td.el-table__cell {
+  background-color: rgba(0, 212, 255, 0.12) !important;
+}
+
+.admin-layout .el-empty__description {
+  color: var(--text-secondary);
+}
+
+.admin-layout .el-alert {
+  --el-alert-bg-color: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.22);
+}
+
+.admin-layout .el-alert__title {
+  color: var(--text-primary);
+}
+
+.admin-layout .el-alert--warning {
+  --el-alert-bg-color: rgba(250, 173, 20, 0.1);
+  border-color: rgba(250, 173, 20, 0.35);
+}
+
+.admin-layout .el-checkbox {
+  --el-checkbox-text-color: var(--text-primary);
+}
+
+.admin-layout .el-checkbox__inner {
+  background: var(--bg-dark);
+  border-color: var(--border-color);
+}
+
+.admin-layout .el-checkbox__input.is-checked .el-checkbox__inner {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.admin-layout .el-dialog {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.admin-layout .el-dialog__header {
+  border-bottom: 1px solid var(--border-color);
+  margin-right: 0;
+  padding-bottom: 0.75rem;
+}
+
+.admin-layout .el-dialog__title,
+.admin-layout .el-form-item__label {
+  color: var(--text-primary);
+}
+
+.admin-layout .el-input__wrapper,
+.admin-layout .el-textarea__inner,
+.admin-layout .el-select__wrapper {
+  background: var(--bg-dark) !important;
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
+
+.admin-layout .el-input__inner,
+.admin-layout .el-textarea__inner {
+  color: var(--text-primary);
+}
+
+.admin-layout .el-input-number {
+  width: 100%;
+}
+
+.admin-layout .el-input-number .el-input__wrapper {
+  background: var(--bg-dark) !important;
+}
+
+.admin-layout .el-loading-mask {
+  background-color: rgba(10, 14, 39, 0.72);
+}
+
+.admin-layout .el-popper.is-light {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.admin-layout .el-select-dropdown__item {
+  color: var(--text-primary);
+}
+
+.admin-layout .el-select-dropdown__item.hover,
+.admin-layout .el-select-dropdown__item.is-hovering {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.admin-layout .el-tag {
+  --el-tag-bg-color: rgba(0, 212, 255, 0.12);
+  --el-tag-border-color: rgba(0, 212, 255, 0.25);
+  --el-tag-text-color: var(--text-primary);
+}
+
+.admin-layout .el-tag.el-tag--success {
+  --el-tag-bg-color: rgba(67, 233, 123, 0.12);
+  --el-tag-border-color: rgba(67, 233, 123, 0.35);
+}
+
+.admin-layout .el-row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 后台下拉（teleport 到 body，需单独 popper-class） */
+.admin-select-popper.el-popper {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.admin-select-popper .el-select-dropdown__item {
+  color: var(--text-primary);
+}
+
+.admin-select-popper .el-select-dropdown__item.is-hovering,
+.admin-select-popper .el-select-dropdown__item.hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.admin-select-popper .el-popper__arrow::before {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.admin-layout .el-tree {
+  background: transparent;
+  color: var(--text-primary);
+  --el-tree-node-hover-bg-color: rgba(0, 212, 255, 0.08);
+}
+
+.admin-layout .el-tree-node__content {
+  height: auto;
+  min-height: 32px;
+  padding: 4px 0;
+  border-radius: 6px;
+}
+
+.admin-layout .el-tree-node__content:hover {
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.admin-layout .el-tree-node__label {
+  color: var(--text-primary);
+}
+
+.admin-layout .el-tree-node__expand-icon {
+  color: var(--text-secondary);
+}

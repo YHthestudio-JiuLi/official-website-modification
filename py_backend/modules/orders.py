@@ -40,6 +40,7 @@ class OrderManager:
             """
             CREATE TABLE IF NOT EXISTS orders (
               id INT AUTO_INCREMENT PRIMARY KEY,
+              orderNo VARCHAR(8) UNIQUE,
               userId INT NOT NULL,
               username VARCHAR(255) NOT NULL,
               productId INT NOT NULL,
@@ -53,6 +54,7 @@ class OrderManager:
               network VARCHAR(32) DEFAULT 'TRC20',
               txHash VARCHAR(255),
               shippingAddress TEXT,
+              trackingNumber VARCHAR(64),
               createdAt VARCHAR(40),
               paidAt VARCHAR(40),
               completedAt VARCHAR(40),
@@ -63,6 +65,20 @@ class OrderManager:
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """
         )
+        self._ensure_tracking_number_column()
+        self._ensure_order_no_column()
+
+    def _ensure_order_no_column(self) -> None:
+        """已有库升级：8 位业务订单号"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "orderNo", "VARCHAR(8) UNIQUE")
+
+    def _ensure_tracking_number_column(self) -> None:
+        """已有库升级：物流快递单号"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "trackingNumber", "VARCHAR(64)")
 
     def find_all(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if status_filter:
@@ -95,16 +111,50 @@ class OrderManager:
         )
         return rows_to_dict(self.cur.fetchall())
 
+    def _resolve_product_category_meta(self, product_id: int) -> Dict[str, Any]:
+        """下单时读取商品一二级分类，用于生成订单号"""
+        self.cur.execute(
+            """
+            SELECT c.slug AS categorySlug, sc.slug AS subCategorySlug,
+                   c.name AS categoryName, sc.name AS subCategoryName
+            FROM products p
+            LEFT JOIN product_categories c ON p.categoryId = c.id
+            LEFT JOIN product_categories sc ON p.subCategoryId = sc.id
+            WHERE p.id = ?
+            """,
+            (product_id,),
+        )
+        return row_to_dict(self.cur.fetchone()) or {}
+
+    def _generate_unique_order_no(self, product_id: int) -> str:
+        from ..order_no import build_order_no
+
+        meta = self._resolve_product_category_meta(product_id)
+        for _ in range(20):
+            order_no = build_order_no(
+                meta.get("categorySlug"),
+                meta.get("subCategorySlug"),
+                meta.get("categoryName"),
+                meta.get("subCategoryName"),
+            )
+            self.cur.execute("SELECT id FROM orders WHERE orderNo = ? LIMIT 1", (order_no,))
+            if not self.cur.fetchone():
+                return order_no
+        raise RuntimeError("Failed to generate unique order number")
+
     def create(self, order_data: Dict[str, Any]) -> int:
         created_at = now_iso()
+        product_id = int(order_data["productId"])
+        order_no = self._generate_unique_order_no(product_id)
         self.cur.execute(
             """
             INSERT INTO orders (
-              userId, username, productId, productName, quantity, price, totalAmount,
+              orderNo, userId, username, productId, productName, quantity, price, totalAmount,
               status, paymentMethod, usdtWallet, network, shippingAddress, createdAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                order_no,
                 order_data["userId"],
                 order_data["username"],
                 order_data["productId"],
@@ -150,6 +200,14 @@ class OrderManager:
         self.cur.execute(
             "UPDATE orders SET shippingAddress = ? WHERE id = ?",
             (shipping_address, order_id),
+        )
+        self.conn.commit()
+
+    def update_tracking_number(self, order_id: int, tracking_number: Optional[str]) -> None:
+        value = (tracking_number or "").strip() or None
+        self.cur.execute(
+            "UPDATE orders SET trackingNumber = ? WHERE id = ?",
+            (value, order_id),
         )
         self.conn.commit()
 

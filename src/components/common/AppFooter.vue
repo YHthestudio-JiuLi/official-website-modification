@@ -3,7 +3,10 @@
     <div class="container">
       <div class="footer-content">
         <div class="footer-brand">
-          <h3><i class="fas fa-cube"></i> YHthestudio</h3>
+          <h3>
+            <img src="/favicon.png" alt="YHthestudio" class="footer-brand-icon" width="28" height="28" />
+            YHthestudio
+          </h3>
           <p>Professional Digital Solutions</p>
         </div>
         <div class="footer-sections">
@@ -55,13 +58,19 @@
 }
 
 .footer-brand h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: #00d4ff;
   font-size: 1.5rem;
   margin: 0 0 0.5rem 0;
 }
 
-.footer-brand h3 i {
-  margin-right: 0.5rem;
+.footer-brand-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .footer-brand p {

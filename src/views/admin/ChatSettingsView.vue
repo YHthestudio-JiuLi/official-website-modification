@@ -150,9 +150,18 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
 
+const router = useRouter()
+const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
+const { has } = useAdminPermissions()
 const { t } = useI18n()
 
 const admins = ref([])
@@ -175,14 +184,28 @@ async function loadAdmins() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/chat/admins')
-    const data = await res.json()
+    const res = await fetch('/api/admin/chat-admins', { credentials: 'include' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      if (await handleUnauthorized(res)) return
+      throw new Error(data.error || `HTTP ${res.status}`)
+    }
     admins.value = data.admins || []
   } catch (e) {
     error.value = t('admin.chatSettings.loadError')
+    admins.value = []
   } finally {
     loading.value = false
   }
+}
+
+async function handleUnauthorized(res) {
+  if (res?.status === 401) {
+    error.value = t('admin.chatSettings.sessionExpired')
+    await forceAdminReauth(router, adminStore, adminV2Store)
+    return true
+  }
+  return false
 }
 
 async function updateChatbotStatus(adminId, enabled) {
@@ -190,9 +213,13 @@ async function updateChatbotStatus(adminId, enabled) {
     const res = await fetch('/api/admin/chat-admins/' + adminId + '/chatbot', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ enabled }),
     })
-    if (!res.ok) throw new Error('Failed to update')
+    if (!res.ok) {
+      if (await handleUnauthorized(res)) return
+      throw new Error('Failed to update')
+    }
     success.value = enabled ? t('admin.chatSettings.chatbotEnabled') : t('admin.chatSettings.chatbotDisabled')
     setTimeout(() => { success.value = '' }, 3000)
     await loadAdmins()
@@ -208,6 +235,7 @@ async function saveAdminConfig(admin) {
     const res = await fetch('/api/admin/chat-admins/' + admin.id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         display_name: admin.display_name,
         bio: admin.bio || '',
@@ -217,7 +245,10 @@ async function saveAdminConfig(admin) {
         chatbot_enabled: !!admin.chatbot_enabled,
       }),
     })
-    if (!res.ok) throw new Error('Failed to update')
+    if (!res.ok) {
+      if (await handleUnauthorized(res)) return
+      throw new Error('Failed to update')
+    }
     success.value = t('admin.chatSettings.settingsSaved')
     setTimeout(() => { success.value = '' }, 3000)
   } catch (e) {
@@ -264,7 +295,10 @@ async function saveCommunityLinks() {
       credentials: 'include',
       body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error('Failed to save')
+    if (!res.ok) {
+      if (await handleUnauthorized(res)) return
+      throw new Error('Failed to save')
+    }
     communitySaved.value = { ...payload }
     success.value = t('admin.chatSettings.settingsSaved')
     setTimeout(() => { success.value = '' }, 3000)
@@ -274,9 +308,18 @@ async function saveCommunityLinks() {
   }
 }
 
-onMounted(() => {
-  loadAdmins()
-  loadCommunityLinks()
+onMounted(async () => {
+  if (!has('chat.settings')) {
+    router.replace('/admin')
+    return
+  }
+  const hasNodeSession = await hasLegacyNodeAdminSession()
+  if (!hasNodeSession) {
+    error.value = t('admin.chatSettings.requireReauth')
+    await forceAdminReauth(router, adminStore, adminV2Store)
+    return
+  }
+  await Promise.all([loadAdmins(), loadCommunityLinks()])
 })
 </script>
 

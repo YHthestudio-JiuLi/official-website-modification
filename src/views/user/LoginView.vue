@@ -5,8 +5,8 @@
       <div class="auth-container">
         <div class="auth-card">
           <div class="auth-header">
-            <h1><i class="fas fa-sign-in-alt"></i> Login</h1>
-            <p>Welcome back to YHthestudio</p>
+            <h1><i class="fas fa-sign-in-alt"></i> {{ $t('auth.login.title') }}</h1>
+            <p>{{ $t('auth.login.subtitle') }}</p>
           </div>
 
           <div v-if="error" class="alert alert-error">
@@ -16,7 +16,7 @@
           <form @submit.prevent="handleLogin" class="auth-form">
             <div class="form-group">
               <label for="username">
-                <i class="fas fa-user"></i> Username
+                <i class="fas fa-user"></i> {{ $t('auth.login.username') }}
               </label>
               <input
                 type="text"
@@ -30,7 +30,7 @@
 
             <div class="form-group">
               <label for="password">
-                <i class="fas fa-lock"></i> Password
+                <i class="fas fa-lock"></i> {{ $t('auth.login.password') }}
               </label>
               <input
                 type="password"
@@ -42,12 +42,15 @@
             </div>
 
             <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-              <i class="fas fa-sign-in-alt"></i> {{ loading ? $t('common.loading') : 'Login' }}
+              <i class="fas fa-sign-in-alt"></i> {{ loading ? $t('common.loading') : $t('auth.login.submit') }}
             </button>
           </form>
 
           <div class="auth-footer">
-            <p>Don't have an account? <router-link :to="registerRoute">Register Now</router-link></p>
+            <p>
+              {{ $t('auth.login.noAccount') }}
+              <router-link :to="registerRoute">{{ $t('auth.login.registerNow') }}</router-link>
+            </p>
           </div>
         </div>
       </div>
@@ -61,6 +64,8 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
 import { buildRegisterRoute, navigateAfterAuth } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
@@ -69,6 +74,8 @@ const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
 
 const form = ref({
   username: '',
@@ -87,6 +94,8 @@ async function handleLogin() {
 
   try {
     await authStore.login(form.value)
+    // 同步后台登录态（不踢线，仅刷新 Pinia）
+    await Promise.all([adminStore.checkAuth(), adminV2Store.checkAuth()])
     await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
     const status = err.response?.status

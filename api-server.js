@@ -18,8 +18,10 @@ const FormData = require('form-data');
 const { dbOperations } = require('./database');
 const { translateProduct, translateProducts } = require('./translate');
 const { createTelegramIntegration, notifyForumNewPost, notifyForumNewReply, canSendTelegramForAdmin, notifyOrderPaid } = require('./telegram');
+const { verifyOrderPaymentTx, messageForVerifyFailure } = require('./usdt-tx-verify');
 const { fetchMessagesFromTelegram, getSessionTelegramInfo } = require('./telegram-fetcher');
 const questionsService = require('./services/questionsService');
+const { isLegacyNodeAllowedPath, isLegacyMigratedApiBlocked } = require('./legacy-node-allowlist');
 
 // 加载环境变量
 dotenv.config();
@@ -96,6 +98,15 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 设备验签接口单独限流（避免刷接口占用资源）
+const deviceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { error: 'Too many device API requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // 挂载在 /api 下时，不同 Express 版本 req.path 可能是 /admin/... 或 /api/admin/...，用 originalUrl 兜底
 function _apiPathNoQuery(req) {
   return String(req.originalUrl || req.url || '').split('?')[0];
@@ -136,9 +147,31 @@ app.use('/api', (req, res, next) => {
     return next();
   }
   if (isDeviceApiRequest(req)) {
+    return deviceLimiter(req, res, next);
+  }
+  // 客服聊天轮询、会话同步请求频繁，不参与 100/15min 通用限流
+  if (isChatApiRequest(req)) {
     return next();
   }
   return limiter(req, res, next);
+});
+
+// 已迁入 Laravel /api/v2 的旧 Node 路由一律拒绝，防止旁路攻击
+app.use('/api', (req, res, next) => {
+  if (!isLegacyMigratedApiBlocked()) {
+    return next();
+  }
+  const fullPath = _apiPathNoQuery(req);
+  if (isLegacyNodeAllowedPath(fullPath)) {
+    return next();
+  }
+  return res.status(410).json({
+    success: false,
+    error: 'legacy_api_retired',
+    message: 'This API endpoint has been retired. Please use /api/v2 instead.',
+    message_zh: '该接口已停用，请使用 /api/v2 访问。',
+    v2_path: fullPath.replace(/^\/api\//, '/api/v2/'),
+  });
 });
 
 // API 响应不参与搜索引擎索引（前台 HTML 页面允许收录）
@@ -159,10 +192,11 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false,
+    secure: process.env.NODE_ENV === 'production' && process.env.SESSION_COOKIE_SECURE !== 'false',
+    httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: 'lax'
-  }
+    sameSite: 'lax',
+  },
 }));
 
 // CSRF 保护配置（必须在 session 之后）
@@ -174,7 +208,7 @@ const csrfProtection = csrf({
 
 // 应用 CSRF 保护中间件到所有 API 路由（除了聊天 API、管理员 API 和认证 API）
 app.use('/api', (req, res, next) => {
-  if (isChatApiRequest(req) || isAdminApiRequest(req) || isAuthApiRequest(req) || isDeviceApiRequest(req)) {
+  if (isChatApiRequest(req) || isAdminApiRequest(req) || isAuthApiRequest(req) || isDeviceApiRequest(req) || req.path.startsWith('/internal/')) {
     return next();
   }
   csrfProtection(req, res, next);
@@ -465,6 +499,14 @@ function normalizeUploadFileName(name) {
   }
 }
 
+/** 固件备注：去首尾空白，最长 500 字符，空则存 null */
+function normalizeFirmwareRemark(raw) {
+  if (raw == null) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+  return text.slice(0, 500);
+}
+
 function buildAttachmentContentDisposition(name, fallback = 'download.bin') {
   const inputName = normalizeUploadFileName(String(name || '').trim()) || fallback;
   const safeAscii = inputName
@@ -629,13 +671,21 @@ function requireUser(req, res, next) {
   next();
 }
 
+/** 与 Laravel canAccessAdmin 对齐：超管 / 运营 / 代理均可访问 Node 后台 API */
+function canAccessLegacyAdminApi(user) {
+  if (!user) return false;
+  if (user.isAdmin === 1 || user.isAdmin === true || user.isAdmin === '1') return true;
+  const userType = String(user.user_type || 'customer').toLowerCase();
+  return ['agent', 'staff', 'super_admin'].includes(userType);
+}
+
 async function requireAdmin(req, res, next) {
   if (!req.session.admin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
     const user = await dbOperations.users.findById(req.session.admin.id);
-    if (!user || !user.isAdmin) {
+    if (!canAccessLegacyAdminApi(user)) {
       req.session.admin = null;
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -852,13 +902,62 @@ app.post('/api/orders/:id/confirm', requireUser, async (req, res) => {
   }
 
   if (txHash && txHash.trim()) {
+    const trimmedHash = txHash.trim();
+    const settings = await getPaymentSettings();
+    const verification = await verifyOrderPaymentTx({
+      network: order.network || 'TRC20',
+      txHash: trimmedHash,
+      expectedAmountUsdt: Number(order.totalAmount),
+      expectedWalletAddress: settings?.wallet_address || order.usdtWallet || '',
+      maxUnderpayUsdt: settings?.txVerifyMaxUnderpayUsdt != null
+        ? Number(settings.txVerifyMaxUnderpayUsdt)
+        : 5,
+      maxAgeHours: settings?.txVerifyMaxAgeHours != null
+        ? Number(settings.txVerifyMaxAgeHours)
+        : 2,
+    });
+
+    if (!verification.valid) {
+      if (verification.deleteOrder) {
+        await dbOperations.orders.delete(id);
+        const locale = String(req.headers['accept-language'] || 'zh');
+        const msg = messageForVerifyFailure(verification.reason, {
+          locale,
+          expectedAmountUsdt: Number(order.totalAmount),
+          paidAmount: verification.paidAmount,
+          maxUnderpayUsdt: settings?.txVerifyMaxUnderpayUsdt != null
+            ? Number(settings.txVerifyMaxUnderpayUsdt)
+            : 5,
+          maxAgeHours: settings?.txVerifyMaxAgeHours != null
+            ? Number(settings.txVerifyMaxAgeHours)
+            : 2,
+        });
+        return res.status(422).json({ success: false, deleted: true, reason: verification.reason, message: msg });
+      }
+      const locale = String(req.headers['accept-language'] || 'zh');
+      const msg = verification.reason === 'tx_not_found'
+        ? messageForVerifyFailure('tx_not_found', { locale })
+        : messageForVerifyFailure(verification.reason, { locale });
+      return res.status(422).json({ success: false, deleted: false, reason: verification.reason, message: msg });
+    }
+
     await dbOperations.orders.updateShippingAddress(id, shippingAddress.trim());
-    await dbOperations.orders.updateTxHash(id, txHash.trim());
+    await dbOperations.orders.updateTxHash(id, trimmedHash);
     await dbOperations.orders.updateStatus(id, 'paid');
     try {
       const updatedOrder = await dbOperations.orders.findById(id);
       if (updatedOrder) {
-        notifyOrderPaid(updatedOrder).catch((err) => {
+        const underpay = settings?.txVerifyMaxUnderpayUsdt != null
+          ? Number(settings.txVerifyMaxUnderpayUsdt)
+          : 5;
+        const maxAge = settings?.txVerifyMaxAgeHours != null
+          ? Number(settings.txVerifyMaxAgeHours)
+          : 2;
+        const notifyPayload = {
+          ...updatedOrder,
+          txVerifyDisabled: underpay <= 0 && maxAge <= 0,
+        };
+        notifyOrderPaid(notifyPayload).catch((err) => {
           console.error('[Order Telegram] notify error:', err.message || err);
         });
       }
@@ -1081,7 +1180,7 @@ app.post('/api/admin/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const user = await dbOperations.users.findByUsername(username);
 
-  if (user && user.isAdmin && await bcrypt.compare(password, user.password)) {
+  if (user && canAccessLegacyAdminApi(user) && await bcrypt.compare(password, user.password)) {
     req.session.admin = { id: user.id, username: user.username, email: user.email };
     res.json({ admin: req.session.admin });
   } else {
@@ -1794,6 +1893,42 @@ app.put('/api/admin/orders/:id/status', requireAdmin, async (req, res) => {
   }
 });
 
+app.put('/api/admin/orders/:id/tracking', requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { trackingNumber } = req.body || {};
+  await dbOperations.orders.updateTrackingNumber(id, trackingNumber ?? '');
+  const order = await dbOperations.orders.findById(id);
+  res.json({ success: true, order });
+});
+
+app.get('/api/orders/:id/tracking', requireUser, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const order = await dbOperations.orders.findById(id);
+  if (!order || order.userId !== req.session.user.id) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  const trackingNumber = (order.trackingNumber || '').trim();
+  if (!trackingNumber) {
+    return res.json({
+      trackingNumber: null,
+      carrier: 'SF',
+      routes: [],
+      source: 'none',
+      externalUrl: null,
+      apiEnabled: false,
+    });
+  }
+  res.json({
+    trackingNumber,
+    carrier: 'SF',
+    routes: [],
+    source: 'external',
+    externalUrl: 'https://www.sf-express.com/chn/sc/waybill',
+    apiEnabled: false,
+    message: 'Configure SF API in Laravel for live routes',
+  });
+});
+
 app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
   await dbOperations.orders.delete(parseInt(req.params.id));
   res.json({ success: true });
@@ -1801,11 +1936,22 @@ app.delete('/api/admin/orders/:id', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/payment-settings', requireAdmin, async (req, res) => {
   const settings = await getPaymentSettings();
-  res.json(settings || { network: 'TRC20', autoDeleteMinutes: 30 });
+  res.json(settings || {
+    network: 'TRC20',
+    autoDeleteMinutes: 30,
+    txVerifyMaxUnderpayUsdt: 5,
+    txVerifyMaxAgeHours: 2,
+  });
 });
 
 app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
-  const { wallet_address, network, autoDeleteMinutes } = req.body;
+  const {
+    wallet_address,
+    network,
+    autoDeleteMinutes,
+    txVerifyMaxUnderpayUsdt,
+    txVerifyMaxAgeHours,
+  } = req.body;
   if (!wallet_address || wallet_address.trim() === '') {
     return res.status(400).json({ message: 'Wallet address required' });
   }
@@ -1813,7 +1959,15 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
   if (deleteMinutes < 1) {
     return res.status(400).json({ message: 'Auto delete time must be at least 1 minute' });
   }
-  await dbOperations.paymentSettings.update(wallet_address.trim(), network || 'TRC20', deleteMinutes);
+  const underpay = Math.max(0, parseFloat(txVerifyMaxUnderpayUsdt) || 0);
+  const maxAge = Math.max(0, parseInt(txVerifyMaxAgeHours, 10) || 0);
+  await dbOperations.paymentSettings.update(
+    wallet_address.trim(),
+    network || 'TRC20',
+    deleteMinutes,
+    underpay,
+    maxAge
+  );
   clearPaymentSettingsCache();
   res.json({ success: true });
 });
@@ -1998,15 +2152,12 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
 
     console.log('[Debug] Created message row:', { id: row.id, body: row.body.substring(0, 50) + '...' });
 
-    const payload = { type: 'message', message: row };
+    const payload = { type: 'message', message: { ...row, session_id: row.session_id || sid } };
     broadcastToChat(sid, payload);
 
-    // Send to Telegram instead of storing locally
     if (useTelegram) {
       console.log('[Telegram] Sending message to Telegram for session:', session.id, 'sender:', who);
-      console.log('[Telegram] row.body:', row.body ? '"' + row.body.substring(0, 100) + '..."' : 'EMPTY/NULL');
       if (who === 'user') {
-        console.log('[Telegram] Calling notifyUserMessage with row:', row ? { id: row.id, body: row.body } : 'NULL');
         telegram.notifyUserMessage(session, row, adminInfo).catch((err) => {
           console.error('[Telegram] notify:', err.message || err);
         });
@@ -2078,6 +2229,17 @@ app.put('/api/admin/chat/community-links', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/chat-admins', requireAdmin, async (req, res) => {
+  try {
+    const all = await dbOperations.chatAdmins.findAll();
+    const admins = all.filter((a) => a.username === 'support');
+    res.json({ admins });
+  } catch (error) {
+    console.error('[API Error] GET /api/admin/chat-admins:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
   const adminId = parseInt(req.params.id, 10);
   const { display_name, bio, avatar_color, telegram_chat_id, telegram_token, chatbot_enabled } = req.body || {};
@@ -2096,6 +2258,9 @@ app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
     );
     const updated = await dbOperations.chatAdmins.findById(adminId);
     res.json({ admin: updated });
+    telegram.restartMultiBotPolling?.().catch((err) => {
+      console.error('[Telegram] restart polling after config update:', err.message || err);
+    });
   } catch (error) {
     console.error('[API Error] PUT /api/admin/chat-admins/:id:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
@@ -2112,6 +2277,9 @@ app.put('/api/admin/chat-admins/:id/chatbot', requireAdmin, async (req, res) => 
     await dbOperations.chatAdmins.updateChatbotEnabled(adminId, Boolean(enabled));
     const updated = await dbOperations.chatAdmins.findById(adminId);
     res.json({ admin: updated });
+    telegram.restartMultiBotPolling?.().catch((err) => {
+      console.error('[Telegram] restart polling after chatbot toggle:', err.message || err);
+    });
   } catch (error) {
     console.error('[API Error] PUT /api/admin/chat-admins/:id/chatbot:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
@@ -2611,7 +2779,8 @@ app.post('/api/admin/device-firmwares/register-local', requireAdmin, async (req,
       fileName,
       `/uploads/nano-firmwares/${fileName}`,
       st.size || 0,
-      checksumSha256
+      checksumSha256,
+      normalizeFirmwareRemark(req.body?.remark)
     );
     res.json({ ok: true, firmware });
   } catch (error) {
@@ -2756,7 +2925,8 @@ app.post('/api/admin/device-firmwares/upload/complete', requireAdmin, async (req
       fileName || storedName,
       `/uploads/nano-firmwares/${storedName}`,
       stat.size || 0,
-      checksumSha256
+      checksumSha256,
+      normalizeFirmwareRemark(req.body?.remark)
     );
     cleanupFirmwareChunkSession(uploadId);
     console.log('[FirmwareUploadChunk] 合并成功', { uploadId, size: stat.size, id: firmware && firmware.id });
@@ -2797,7 +2967,8 @@ app.post('/api/admin/device-firmwares/upload', requireAdmin, (req, res) => {
         normalizedName || req.file.filename,
         `/uploads/nano-firmwares/${req.file.filename}`,
         req.file.size || 0,
-        checksumSha256
+        checksumSha256,
+        normalizeFirmwareRemark(req.body?.remark)
       );
       console.log('[FirmwareUpload] 成功', { path: req.file.path, size: req.file.size, id: firmware && firmware.id });
       res.json({ ok: true, firmware });
@@ -2821,6 +2992,26 @@ app.put('/api/admin/device-firmwares/:id/default', requireAdmin, async (req, res
       return res.status(404).json({ error: 'Firmware not found' });
     }
     console.error('[API Error] PUT /api/admin/device-firmwares/:id/default:', error.message);
+    res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
+app.put('/api/admin/device-firmwares/:id/remark', requireAdmin, async (req, res) => {
+  const firmwareId = parseInt(req.params.id, 10);
+  if (Number.isNaN(firmwareId) || firmwareId <= 0) {
+    return res.status(400).json({ error: 'Invalid firmware id' });
+  }
+  try {
+    const firmware = await dbOperations.deviceVerification.updateFirmwareRemark(
+      firmwareId,
+      normalizeFirmwareRemark(req.body?.remark)
+    );
+    res.json({ ok: true, firmware });
+  } catch (error) {
+    if (error.message && error.message.includes('not found')) {
+      return res.status(404).json({ error: 'Firmware not found' });
+    }
+    console.error('[API Error] PUT /api/admin/device-firmwares/:id/remark:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });
   }
 });
@@ -3092,6 +3283,44 @@ wss.on('connection', (ws) => {
 
 // ==================== Telegram Webhook ====================
 
+const NODE_INTERNAL_SECRET = process.env.NODE_INTERNAL_SECRET || '';
+
+function requireInternalSecret(req, res, next) {
+  if (!NODE_INTERNAL_SECRET) {
+    return res.status(503).json({ error: 'Internal API disabled' });
+  }
+  const provided = req.headers['x-internal-secret'] || req.body?.secret;
+  if (provided !== NODE_INTERNAL_SECRET) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+/** Laravel V2 回调：论坛/订单 Telegram 推送仍由 Node telegram.js 处理 */
+app.post('/api/internal/telegram/forum-post', express.json(), requireInternalSecret, (req, res) => {
+  res.json({ ok: true });
+  notifyForumNewPost(req.body || {}).catch((err) => {
+    console.error('[Forum Telegram] internal notify error:', err.message || err);
+  });
+});
+
+app.post('/api/internal/telegram/forum-reply', express.json(), requireInternalSecret, (req, res) => {
+  res.json({ ok: true });
+  const { reply, post, parentReply } = req.body || {};
+  if (reply && post) {
+    notifyForumNewReply(reply, post, parentReply || null).catch((err) => {
+      console.error('[Forum Telegram] internal reply notify error:', err.message || err);
+    });
+  }
+});
+
+app.post('/api/internal/telegram/order-paid', express.json(), requireInternalSecret, (req, res) => {
+  res.json({ ok: true });
+  notifyOrderPaid(req.body || {}).catch((err) => {
+    console.error('[Order Telegram] internal notify error:', err.message || err);
+  });
+});
+
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
 app.post('/telegram/webhook', express.json(), (req, res) => {
@@ -3114,6 +3343,18 @@ server.listen(PORT, HOST, () => {
   console.log(`API server running on http://${HOST}:${PORT}`);
   console.log(`WebSocket server running on ws://${HOST}:${PORT}/ws`);
   console.log(`Serving Vue frontend from: ${distPath}`);
+
+  if (isLegacyMigratedApiBlocked()) {
+    console.log('[Security] Legacy migrated /api/* routes are BLOCKED (use /api/v2). Set BLOCK_LEGACY_MIGRATED_API=false to rollback.');
+  } else {
+    console.warn('[Security] BLOCK_LEGACY_MIGRATED_API is disabled — migrated legacy routes are exposed.');
+  }
+  if (!SESSION_SECRET || SESSION_SECRET === 'your-secret-key-here') {
+    console.warn('[Security] SESSION_SECRET is default or empty — change it in production.');
+  }
+  if (!process.env.NODE_INTERNAL_SECRET) {
+    console.warn('[Security] NODE_INTERNAL_SECRET is not set — Laravel cannot call internal Telegram API.');
+  }
 
   // 启动 Telegram polling（如果启用）
   // startPollingIfEnabled(); // 已改用 setupMultiBotPolling，避免重复

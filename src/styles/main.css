@@ -83,8 +83,11 @@ img {
     background-clip: text;
 }
 
-.nav-brand i {
-    font-size: 1.8rem;
+.nav-brand-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .nav-menu {
@@ -140,29 +143,6 @@ img {
 
 .nav-link:hover::after {
     width: 100%;
-}
-
-/* 购物车链接样式 */
-.cart-link {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.cart-count {
-    position: absolute;
-    top: -8px;
-    right: -12px;
-    background: var(--gradient-3);
-    color: white;
-    font-size: 0.7rem;
-    font-weight: bold;
-    padding: 0.2rem 0.5rem;
-    border-radius: 10px;
-    min-width: 18px;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
 }
 
 .btn-primary {
@@ -1309,8 +1289,9 @@ a.product-card-link:focus-visible {
         font-size: 1.2rem;
     }
     
-    .nav-brand i {
-        font-size: 1.5rem;
+    .nav-brand-icon {
+        width: 1.5rem;
+        height: 1.5rem;
     }
     
     /* Hero 区域 */
@@ -2084,8 +2065,9 @@ a.product-card-link:focus-visible {
         font-size: 1.1rem;
     }
     
-    .nav-brand i {
-        font-size: 1.3rem;
+    .nav-brand-icon {
+        width: 1.3rem;
+        height: 1.3rem;
     }
     
     .hero-title {

@@ -129,6 +129,10 @@ class DeviceVerificationManager:
             """
         )
         add_column_if_missing(self.conn, "nano_firmware_files", "checksum_sha256", "VARCHAR(64)")
+        add_column_if_missing(self.conn, "nano_firmware_files", "remark", "VARCHAR(500)")
+
+    def _firmware_columns(self) -> str:
+        return "id, file_name, file_url, file_size, checksum_sha256, remark, created_at"
 
     def get_settings(self) -> Dict[str, Any]:
         """读取设备验证全局设置（单行）。"""
@@ -523,8 +527,8 @@ class DeviceVerificationManager:
         settings = self.get_settings()
         default_id = settings.get("default_firmware_id")
         self.cur.execute(
-            """
-            SELECT id, file_name, file_url, file_size, checksum_sha256, created_at
+            f"""
+            SELECT {self._firmware_columns()}
             FROM nano_firmware_files
             ORDER BY created_at DESC, id DESC
             """
@@ -534,21 +538,29 @@ class DeviceVerificationManager:
             row["is_default"] = row.get("id") == default_id
         return rows
 
-    def create_firmware_file(self, file_name: str, file_url: str, file_size: int = 0, checksum_sha256: str = None) -> Dict[str, Any]:
+    def create_firmware_file(
+        self,
+        file_name: str,
+        file_url: str,
+        file_size: int = 0,
+        checksum_sha256: str = None,
+        remark: str = None,
+    ) -> Dict[str, Any]:
         normalized_checksum = (checksum_sha256 or "").strip().lower() or None
         if normalized_checksum is not None and (len(normalized_checksum) != 64 or any(ch not in "0123456789abcdef" for ch in normalized_checksum)):
             raise ValueError("checksum_sha256 must be a 64-char hex string")
+        normalized_remark = (remark or "").strip()[:500] or None
         self.cur.execute(
             """
-            INSERT INTO nano_firmware_files (file_name, file_url, file_size, checksum_sha256)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO nano_firmware_files (file_name, file_url, file_size, checksum_sha256, remark)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (file_name, file_url, int(file_size or 0), normalized_checksum),
+            (file_name, file_url, int(file_size or 0), normalized_checksum, normalized_remark),
         )
         firmware_id = self.cur.lastrowid
         self.conn.commit()
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
+            f"SELECT {self._firmware_columns()} FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())
@@ -558,7 +570,7 @@ class DeviceVerificationManager:
 
     def delete_firmware_file(self, firmware_id: int) -> Optional[Dict[str, Any]]:
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
+            f"SELECT {self._firmware_columns()} FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())
@@ -576,7 +588,7 @@ class DeviceVerificationManager:
 
     def set_default_firmware(self, firmware_id: int) -> Dict[str, Any]:
         self.cur.execute(
-            "SELECT id, file_name, file_url, file_size, checksum_sha256, created_at FROM nano_firmware_files WHERE id = ?",
+            f"SELECT {self._firmware_columns()} FROM nano_firmware_files WHERE id = ?",
             (firmware_id,),
         )
         row = row_to_dict(self.cur.fetchone())
@@ -592,4 +604,22 @@ class DeviceVerificationManager:
         )
         self.conn.commit()
         row["is_default"] = True
+        return row
+
+    def update_firmware_remark(self, firmware_id: int, remark: str = None) -> Dict[str, Any]:
+        normalized_remark = (remark or "").strip()[:500] or None
+        self.cur.execute(
+            f"SELECT {self._firmware_columns()} FROM nano_firmware_files WHERE id = ?",
+            (firmware_id,),
+        )
+        row = row_to_dict(self.cur.fetchone())
+        if not row:
+            raise ValueError("Firmware not found")
+        self.cur.execute(
+            "UPDATE nano_firmware_files SET remark = ? WHERE id = ?",
+            (normalized_remark, firmware_id),
+        )
+        self.conn.commit()
+        row["remark"] = normalized_remark
+        row["is_default"] = row.get("id") == self.get_settings().get("default_firmware_id")
         return row

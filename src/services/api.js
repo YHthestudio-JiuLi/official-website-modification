@@ -1,142 +1,186 @@
-  import axios from 'axios'
+import axios from 'axios'
+import { resolveApiPath, useV2Api } from '@/utils/apiPath'
 
-  const api = axios.create({
-    baseURL: '',
-    timeout: 15000,
-    withCredentials: true
-  })
+const USE_V2 = useV2Api()
 
-  // CSRF token storage
-  let csrfToken = null
-  let isRefreshingToken = false
-  let failedQueue = []
-  const MAX_RETRIES = 1
-
-  // Process failed requests queue
-  const processQueue = (error, token = null) => {
-    failedQueue.forEach(prom => {
-      if (error) {
-        prom.reject(error)
-      } else {
-        prom.resolve(token)
-      }
-    })
-    failedQueue = []
+const api = axios.create({
+  baseURL: '',
+  timeout: 15000,
+  withCredentials: true,
+  headers: {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
   }
+})
 
-  // Request interceptor
-  api.interceptors.request.use(
-    async (config) => {
-      // Skip CSRF token for CSRF token endpoint itself to avoid infinite loop
-      if (config.url === '/api/csrf-token') {
-        return config
-      }
+// 旧 Node CSRF
+let csrfToken = null
+let isRefreshingToken = false
+let failedQueue = []
+const MAX_RETRIES = 1
 
-      // For FormData, let axios handle Content-Type automatically (don't set it)
-      if (config.data instanceof FormData) {
-        // 大文件上传：默认 15s、页面误写的 60s 等都会失败，凡不足 10 分钟的一律提到 2 小时
-        if (!Number.isFinite(config.timeout) || config.timeout < 600000) {
-          config.timeout = 7200000
-        }
-      } else {
-        // Set Content-Type for non-FormData requests
-        config.headers['Content-Type'] = 'application/json'
-      }
+// Laravel Sanctum CSRF
+let sanctumReady = false
+let sanctumPending = null
 
-      // 管理端 /api/admin 在服务端已豁免 CSRF，不必先拉 token，也避免大文件上传前多一次请求失败
-      const method = (config.method || 'get').toLowerCase()
-      const reqUrl = String(config.url || '')
-      const isAdminApiWrite =
-        ['post', 'put', 'delete', 'patch'].includes(method) && reqUrl.startsWith('/api/admin')
-      // For POST, PUT, DELETE requests, ensure we have a CSRF token（非管理端）
-      if (['post', 'put', 'delete', 'patch'].includes(method) && !isAdminApiWrite) {
-        if (!csrfToken && !isRefreshingToken) {
-          isRefreshingToken = true
-          try {
-            const response = await axios.get('/api/csrf-token', { withCredentials: true })
-            csrfToken = response.data.csrfToken
-          } catch (error) {
-            console.error('Failed to get CSRF token:', error)
-          } finally {
-            isRefreshingToken = false
-          }
-        }
-        if (csrfToken) {
-          config.headers['x-csrf-token'] = csrfToken
-        }
-      }
+async function ensureSanctumCsrf() {
+  if (sanctumReady) return
+  if (sanctumPending) {
+    await sanctumPending
+    return
+  }
+  sanctumPending = axios.get('/sanctum/csrf-cookie', {
+    withCredentials: true,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(() => {
+    sanctumReady = true
+  }).finally(() => {
+    sanctumPending = null
+  })
+  await sanctumPending
+}
+
+function isV2Request(url) {
+  const resolved = resolveApiPath(url)
+  return USE_V2 && resolved.startsWith('/api/v2/')
+}
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
+api.interceptors.request.use(
+  async (config) => {
+    if (USE_V2 && config.url) {
+      config.url = resolveApiPath(config.url)
+    }
+
+    if (config.url === '/api/csrf-token') {
       return config
-    },
-    (error) => Promise.reject(error)
-  )
+    }
 
-  // Response interceptor
-  api.interceptors.response.use(
-    (response) => {
-      // If we get a new CSRF token in response headers, store it (token rotation)
-      const newToken = response.headers['x-csrf-token']
-      if (newToken && newToken !== csrfToken) {
-        csrfToken = newToken
+    if (config.data instanceof FormData) {
+      if (!Number.isFinite(config.timeout) || config.timeout < 600000) {
+        config.timeout = 7200000
       }
-      return response
-    },
-    async (error) => {
-      const originalRequest = error.config
-      const errorCode = error.response?.data?.code
-      const errorText = String(
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.message ||
-        ''
-      ).toLowerCase()
+    } else if (!config.headers['Content-Type']) {
+      config.headers['Content-Type'] = 'application/json'
+    }
 
-      // If we get a CSRF token error, try to get a new token and retry
-      if (error.response?.status === 403 &&
-          (errorCode === 'INVALID_CSRF_TOKEN' || errorText.includes('csrf')) &&
-          !originalRequest._retry) {
-        
-        if (isRefreshingToken) {
-          // If already refreshing, queue this request
-          return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject })
-          })
-            .then(token => {
-              originalRequest.headers['x-csrf-token'] = token
-              return api.request(originalRequest)
-            })
-            .catch(err => Promise.reject(err))
-        }
+    const method = (config.method || 'get').toLowerCase()
+    if (!['post', 'put', 'delete', 'patch'].includes(method)) {
+      return config
+    }
 
-        originalRequest._retry = true
-        originalRequest._retryCount = (originalRequest._retryCount || 0) + 1
+    if (isV2Request(config.url)) {
+      await ensureSanctumCsrf()
+      return config
+    }
 
-        // Check retry count to prevent infinite loop
-        if (originalRequest._retryCount > MAX_RETRIES) {
-          console.error('Max CSRF token retry attempts reached')
-          return Promise.reject(error)
-        }
+    const reqUrl = String(config.url || '')
+    const isAdminApiWrite =
+      ['post', 'put', 'delete', 'patch'].includes(method) && reqUrl.startsWith('/api/admin')
 
+    if (!isAdminApiWrite) {
+      if (!csrfToken && !isRefreshingToken) {
         isRefreshingToken = true
         try {
           const response = await axios.get('/api/csrf-token', { withCredentials: true })
           csrfToken = response.data.csrfToken
-          processQueue(null, csrfToken)
-          
-          // Retry the original request with the new token
-          originalRequest.headers['x-csrf-token'] = csrfToken
-          return api.request(originalRequest)
-        } catch (refreshError) {
-          processQueue(refreshError, null)
-          console.error('Failed to refresh CSRF token:', refreshError)
-          return Promise.reject(error)
+        } catch (error) {
+          console.error('Failed to get CSRF token:', error)
         } finally {
           isRefreshingToken = false
         }
       }
+      if (csrfToken) {
+        config.headers['x-csrf-token'] = csrfToken
+      }
+    }
 
-      console.error('API Error:', error.response?.data || error.message)
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+api.interceptors.response.use(
+  (response) => {
+    const newToken = response.headers['x-csrf-token']
+    if (newToken && newToken !== csrfToken) {
+      csrfToken = newToken
+    }
+    return response
+  },
+  async (error) => {
+    const originalRequest = error.config
+    if (!originalRequest || isV2Request(originalRequest.url)) {
+      if (error.response?.status === 401) {
+        sanctumReady = false
+      }
       return Promise.reject(error)
     }
-  )
 
-  export default api
+    const errorCode = error.response?.data?.code
+    const errorText = String(
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      ''
+    ).toLowerCase()
+
+    if (error.response?.status === 403 &&
+        (errorCode === 'INVALID_CSRF_TOKEN' || errorText.includes('csrf')) &&
+        !originalRequest._retry) {
+      if (isRefreshingToken) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then((token) => {
+            originalRequest.headers['x-csrf-token'] = token
+            return api.request(originalRequest)
+          })
+          .catch((err) => Promise.reject(err))
+      }
+
+      originalRequest._retry = true
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1
+
+      if (originalRequest._retryCount > MAX_RETRIES) {
+        console.error('Max CSRF token retry attempts reached')
+        return Promise.reject(error)
+      }
+
+      isRefreshingToken = true
+      try {
+        const response = await axios.get('/api/csrf-token', { withCredentials: true })
+        csrfToken = response.data.csrfToken
+        processQueue(null, csrfToken)
+        originalRequest.headers['x-csrf-token'] = csrfToken
+        return api.request(originalRequest)
+      } catch (refreshError) {
+        processQueue(refreshError, null)
+        console.error('Failed to refresh CSRF token:', refreshError)
+        return Promise.reject(error)
+      } finally {
+        isRefreshingToken = false
+      }
+    }
+
+    console.error('API Error:', error.response?.data || error.message)
+    return Promise.reject(error)
+  }
+)
+
+export function resetApiCsrf() {
+  csrfToken = null
+  sanctumReady = false
+}
+
+export default api

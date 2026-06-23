@@ -33,6 +33,20 @@ export default defineConfig(({ mode }) => {
   server: {
     port: 5173,
     proxy: {
+      // Laravel v2 API（须在 /api 之前）
+      '/api/v2': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/sanctum': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      },
+      '/ws': {
+        target: 'http://localhost:3000',
+        ws: true,
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true

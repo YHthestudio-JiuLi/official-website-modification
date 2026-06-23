@@ -65,7 +65,7 @@
               </div>
             </div>
 
-            <div class="form-row form-row-2">
+            <div v-if="!isScopedAgent" class="form-row form-row-2">
               <div class="form-group">
                 <label for="categoryId">
                   <i class="fas fa-tags"></i> {{ $t('admin.productForm.category') }}
@@ -94,7 +94,7 @@
                 </select>
               </div>
             </div>
-            <div class="form-row">
+            <div v-if="!isScopedAgent" class="form-row">
               <div class="form-group form-group-align-end">
                 <router-link to="/admin/product-categories" class="btn btn-secondary btn-manage-categories">
                   <i class="fas fa-cog"></i> {{ $t('admin.productForm.manageCategories') }}
@@ -358,14 +358,16 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import * as catalogApi from '@/services/catalog'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { isScopedAgent } = useAdminPermissions()
 
 const isEdit = computed(() => route.name === 'admin-product-edit')
 
@@ -563,11 +565,13 @@ watch(() => form.value.categoryId, () => {
 })
 
 onMounted(async () => {
-  await loadCategories()
+  if (!isScopedAgent.value) {
+    await loadCategories()
+  }
   if (isEdit.value) {
     loading.value = true
     try {
-      const response = await api.get(`/api/admin/products/${route.params.id}`)
+      const response = await catalogApi.getAdminProduct(route.params.id)
       form.value = {
         name: response.data.name || '',
         description: response.data.description || '',
@@ -596,7 +600,7 @@ onMounted(async () => {
 
 async function loadCategories() {
   try {
-    const res = await api.get('/api/admin/product-categories')
+    const res = await catalogApi.getAdminCategories()
     categories.value = res.data || []
   } catch (_e) {
     categories.value = []
@@ -621,11 +625,7 @@ async function handleImageSelect(event) {
       }
       const formData = new FormData()
       formData.append('image', file)
-      const response = await api.post('/api/admin/upload/product-image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const response = await catalogApi.uploadProductImage(formData)
       const imageUrl = response.data?.image
       if (!imageUrl) {
         throw new Error(t('admin.productForm.errors.invalidUpload'))
@@ -646,9 +646,9 @@ async function removeImage(index) {
   if (!target) return
   imageList.value.splice(index, 1)
   form.value.image = imageList.value[0] || ''
-  if (typeof target === 'string' && target.startsWith('/uploads/products/')) {
+  if (typeof target === 'string' && (target.startsWith('/uploads/products/') || target.includes('/product-images/'))) {
     try {
-      await api.delete('/api/admin/upload/product-image', { data: { image: target } })
+      await catalogApi.deleteProductImage(target)
     } catch (_e) {}
   }
 }
@@ -692,11 +692,15 @@ async function handleSubmit() {
       specCards,
       usageNoticeLines
     }
+    if (isScopedAgent.value) {
+      submitData.categoryId = null
+      submitData.subCategoryId = null
+    }
 
     if (isEdit.value) {
-      await api.put(`/api/admin/products/${route.params.id}`, submitData)
+      await catalogApi.saveProduct(route.params.id, submitData)
     } else {
-      await api.post('/api/admin/products', submitData)
+      await catalogApi.saveProduct(null, submitData)
     }
 
     showToast(t('admin.productForm.success.saved'), 'success')

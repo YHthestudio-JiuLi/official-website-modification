@@ -7,116 +7,116 @@
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
           <div v-else-if="!order" class="empty-state">
-            Order not found
+            {{ $t('payment.notFound') }}
           </div>
 
           <div v-else class="payment-container">
             <div class="payment-info">
               <div class="order-info-card">
-                <h3><i class="fas fa-receipt"></i> Order Information</h3>
+                <h3><i class="fas fa-receipt"></i> {{ $t('payment.orderInfo') }}</h3>
                 <div class="info-item">
-                  <span>Order Number: </span>
-                  <span>#{{ order.id }}</span>
+                  <span>{{ $t('payment.orderNumber') }}: </span>
+                  <span>{{ displayOrderNo(order) }}</span>
                 </div>
                 <div class="info-item">
-                  <span>Product: </span>
+                  <span>{{ $t('payment.productName') }}: </span>
                   <span>{{ order.productName }}</span>
                 </div>
                 <div class="info-item">
-                  <span>Quantity: </span>
+                  <span>{{ $t('payment.quantity') }}: </span>
                   <span>{{ order.quantity }}</span>
                 </div>
                 <div class="info-item">
-                  <span>Payment Amount: </span>
+                  <span>{{ $t('payment.paymentAmount') }}: </span>
                   <span class="amount-highlight">{{ order.totalAmount }} USDT</span>
                 </div>
                 <div v-if="order.status === 'pending'" class="info-item">
-                  <span>Order Status: </span>
+                  <span>{{ $t('payment.orderStatus') }}: </span>
                   <span :class="['status-badge', 'status-' + order.status]">
                     {{ getStatusText(order.status) }}
                   </span>
                 </div>
                 <div v-if="order.shippingAddress && order.status !== 'pending'" class="info-item">
-                  <span>Recipient Info: </span>
+                  <span>{{ $t('payment.recipientInfo') }}: </span>
                   <span>{{ order.shippingAddress }}</span>
                 </div>
               </div>
 
               <div v-if="order.status === 'pending'" class="payment-instructions">
-                <h3><i class="fab fa-bitcoin"></i> USDT Payment Instructions</h3>
+                <h3><i class="fab fa-bitcoin"></i> {{ $t('payment.instructionsTitle') }}</h3>
                 <div class="wallet-address">
-                  <label>Wallet Address ({{ order.network || 'TRC20' }}): </label>
+                  <label>{{ $t('payment.walletAddressLabel', { network: order.network || 'TRC20' }) }}: </label>
                   <div class="address-box">
                     <code id="wallet-address">{{ order.usdtWallet }}</code>
                     <button type="button" @click="copyAddress" class="btn-copy">
-                      <i class="fas fa-copy"></i> {{ copied ? 'Copied!' : 'Copy' }}
+                      <i class="fas fa-copy"></i> {{ copied ? $t('payment.copied') : $t('payment.copyAddress') }}
                     </button>
                   </div>
                 </div>
                 <div class="payment-steps">
-                  <h4>Payment Steps:</h4>
+                  <h4>{{ $t('payment.stepsTitle') }}:</h4>
                   <ol>
-                    <li>Open your USDT wallet (supporting {{ order.network || 'TRC20' }} network)</li>
-                    <li>Transfer <strong>{{ order.totalAmount }} USDT</strong> to the address above</li>
-                    <li>Wait for blockchain confirmation (usually takes a few minutes)</li>
-                    <li>Copy the transaction hash (TX Hash) and submit</li>
+                    <li>{{ $t('payment.step1', { network: order.network || 'TRC20' }) }}</li>
+                    <li>{{ $t('payment.step2', { amount: order.totalAmount }) }}</li>
+                    <li>{{ $t('payment.step3') }}</li>
+                    <li>{{ $t('payment.step4') }}</li>
                   </ol>
                 </div>
               </div>
             </div>
 
             <div v-if="order.status === 'pending'" class="payment-form-card">
-              <h3><i class="fas fa-check-circle"></i> Confirm Payment</h3>
+              <h3><i class="fas fa-check-circle"></i> {{ $t('payment.confirmTitle') }}</h3>
               <form @submit.prevent="handleConfirmPayment" class="payment-form">
                 <div class="form-group">
                   <label for="recipientName">
-                    <i class="fas fa-user"></i> Recipient Name *
+                    <i class="fas fa-user"></i> {{ $t('payment.recipientName') }} *
                   </label>
                   <input
                     type="text"
                     id="recipientName"
                     v-model="recipientName"
                     required
-                    placeholder="Please enter recipient name"
+                    :placeholder="$t('payment.recipientNamePlaceholder')"
                   />
                 </div>
                 <div class="form-group">
                   <label for="recipientPhone">
-                    <i class="fas fa-phone"></i> Recipient Phone *
+                    <i class="fas fa-phone"></i> {{ $t('payment.recipientPhone') }} *
                   </label>
                   <input
                     type="text"
                     id="recipientPhone"
                     v-model="recipientPhone"
                     required
-                    placeholder="Please enter recipient phone number"
+                    :placeholder="$t('payment.recipientPhonePlaceholder')"
                   />
                 </div>
                 <div class="form-group">
                   <label for="shippingAddressDetail">
-                    <i class="fas fa-map-marker-alt"></i> Recipient Address *
+                    <i class="fas fa-map-marker-alt"></i> {{ $t('payment.recipientAddress') }} *
                   </label>
                   <input
                     type="text"
                     id="shippingAddressDetail"
                     v-model="shippingAddressDetail"
                     required
-                    placeholder="Please enter full recipient address"
+                    :placeholder="$t('payment.recipientAddressPlaceholder')"
                   />
-                  <small>Please ensure recipient info is correct, otherwise the order cannot be confirmed</small>
+                  <small>{{ $t('payment.recipientHint') }}</small>
                 </div>
                 <div class="form-group">
                   <label for="txHash">
-                    <i class="fas fa-hashtag"></i> Transaction Hash (TX Hash) *
+                    <i class="fas fa-hashtag"></i> {{ $t('payment.txHash') }} *
                   </label>
                   <input
                     type="text"
                     id="txHash"
                     v-model="txHash"
                     required
-                    placeholder="Please enter your USDT transaction hash"
+                    :placeholder="$t('payment.txHashPlaceholder')"
                   />
-                  <small>Please ensure the transaction hash is correct, otherwise the order cannot be confirmed</small>
+                  <small>{{ $t('payment.txHashHint') }}</small>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block btn-large" :disabled="submitting">
                   <i class="fas fa-check"></i> {{ submitting ? $t('common.loading') : $t('payment.submit') }}
@@ -126,13 +126,13 @@
 
             <div v-else-if="order.status === 'paid'" class="payment-success">
               <i class="fas fa-check-circle success-icon"></i>
-              <h3>Payment Successful!</h3>
-              <p>Your order payment has been confirmed, we are processing it.</p>
+              <h3>{{ $t('payment.successTitle') }}</h3>
+              <p>{{ $t('payment.successDesc') }}</p>
               <div v-if="order.txHash" class="tx-hash">
-                <span>Transaction Hash: </span>
+                <span>{{ $t('payment.txHashDisplay') }}: </span>
                 <code>{{ order.txHash }}</code>
               </div>
-              <router-link to="/orders" class="btn btn-primary">View My Orders</router-link>
+              <router-link to="/orders" class="btn btn-primary">{{ $t('payment.viewOrders') }}</router-link>
             </div>
           </div>
 
@@ -150,6 +150,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
+import { displayOrderNo } from '@/utils/orderNo'
 
 const route = useRoute()
 const router = useRouter()
@@ -176,17 +177,12 @@ onMounted(async () => {
 })
 
 function getStatusText(status) {
-  const statusMap = {
-    'pending': 'Pending',
-    'paid': 'Paid',
-    'completed': 'Completed',
-    'cancelled': 'Cancelled'
-  }
-  return statusMap[status] || status
+  const key = `orders.status.${status}`
+  const translated = t(key)
+  return translated !== key ? translated : status
 }
 
 async function copyAddress() {
-  // 先尝试复制地址，失败时使用兼容回退
   const copiedOk = await copyText(order.value.usdtWallet || '')
   if (copiedOk) {
     copied.value = true
@@ -195,7 +191,6 @@ async function copyAddress() {
     console.error('Failed to copy wallet address')
   }
 
-  // 再执行跳转，尽量保持点击手势链路
   openOkxAfterCopy()
 }
 
@@ -231,8 +226,6 @@ async function copyText(text) {
 function openOkxAfterCopy() {
   const { deepLink, universalLink } = buildOkxLinks()
   if (isMobileBrowser()) {
-    // 手机端：只拉起 App，不再跳转网页兜底
-    // Android 上先用 iframe 触发 deeplink，iOS 用 location.href
     if (/Android/i.test(navigator.userAgent || '')) {
       const iframe = document.createElement('iframe')
       iframe.style.display = 'none'
@@ -246,7 +239,6 @@ function openOkxAfterCopy() {
     }
     return
   }
-  // 桌面端：不弹二维码，直接打开 OKX 网页
   window.open(universalLink, '_blank', 'noopener,noreferrer')
 }
 
@@ -274,29 +266,32 @@ function isMobileBrowser() {
 
 async function handleConfirmPayment() {
   if (!recipientName.value || !recipientName.value.trim()) {
-    alert('Please enter recipient name')
+    alert(t('payment.recipientNameRequired'))
     return
   }
   if (!recipientPhone.value || !recipientPhone.value.trim()) {
-    alert('Please enter recipient phone number')
+    alert(t('payment.recipientPhoneRequired'))
     return
   }
   if (!shippingAddressDetail.value || !shippingAddressDetail.value.trim()) {
-    alert('Please enter recipient address')
+    alert(t('payment.addressRequired'))
     return
   }
   if (!txHash.value || !txHash.value.trim()) {
-    alert('Please enter your transaction hash')
+    alert(t('payment.txHashRequired'))
     return
   }
-  const shippingAddress = `Name: ${recipientName.value.trim()} | Phone: ${recipientPhone.value.trim()} | Address: ${shippingAddressDetail.value.trim()}`
+  const shippingAddress = t('payment.shippingAddressValue', {
+    name: recipientName.value.trim(),
+    phone: recipientPhone.value.trim(),
+    address: shippingAddressDetail.value.trim(),
+  })
   submitting.value = true
   try {
     await api.post(`/api/orders/${route.params.id}/confirm`, {
-      txHash: txHash.value,
+      txHash: txHash.value.trim(),
       shippingAddress
     })
-    // Reload order data after successful payment
     try {
       const response = await api.get(`/api/orders/${route.params.id}`)
       order.value = response.data
@@ -305,7 +300,13 @@ async function handleConfirmPayment() {
     }
   } catch (error) {
     console.error('Failed to confirm payment:', error)
-    alert(error.response?.data?.message || 'Submission failed, please try again')
+    const data = error.response?.data || {}
+    if (data.deleted) {
+      alert(data.message || t('payment.orderDeleted'))
+      router.push('/orders')
+      return
+    }
+    alert(data.message || data.errors?.txHash?.[0] || t('payment.submitFailed'))
   } finally {
     submitting.value = false
   }

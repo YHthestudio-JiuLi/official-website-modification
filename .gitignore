@@ -24,6 +24,9 @@ coverage/
 # Database
 data/*.db
 
+# 用户上传文件（运行时数据，不入库）
+uploads/
+
 # Environment variables
 .env
 .env.local
@@ -39,3 +42,8 @@ data/*.db
 *.njsproj
 *.sln
 *.sw?
+
+# Laravel API v2
+laravel-api/.env
+laravel-api/vendor/
+laravel-api/node_modules/

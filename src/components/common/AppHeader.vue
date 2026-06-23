@@ -2,7 +2,7 @@
   <header class="navbar">
     <div class="container">
       <router-link to="/" class="nav-brand">
-        <i class="fas fa-cube"></i>
+        <img src="/favicon.png" alt="YHthestudio" class="nav-brand-icon" width="32" height="32" />
         <span>YHthestudio</span>
       </router-link>
 
@@ -11,7 +11,7 @@
         <li><router-link to="/products" class="nav-link">{{ $t('nav.products') }}</router-link></li>
         <li><router-link to="/forum" class="nav-link">{{ $t('nav.forum') }}</router-link></li>
         <li><router-link to="/chat" class="nav-link">{{ $t('nav.chat') }}</router-link></li>
-        <!-- 产品页：搜索放在主导航与购物车之间（桌面）；移动端用顶栏第二行副本，避免藏在 fixed 抽屉里 -->
+        <!-- 产品页：搜索放在主导航与工具区之间（桌面）；移动端用顶栏第二行副本，避免藏在 fixed 抽屉里 -->
         <li v-if="showProductsSearch" class="nav-products-search-li nav-products-search-desktop">
           <div class="nav-products-search-wrap">
             <div class="nav-products-search">
@@ -29,12 +29,6 @@
         </li>
         <!-- 桌面端弹性占位：主导航靠左、工具区靠右，避免整栏菜单挤在极右侧 -->
         <li class="nav-menu-spacer" aria-hidden="true" />
-        <li>
-          <router-link to="/cart" class="nav-link cart-link">
-            <i class="fas fa-shopping-cart"></i>
-            <span class="cart-count" v-if="cartStore.itemCount > 0">{{ cartStore.itemCount }}</span>
-          </router-link>
-        </li>
 
         <!-- 语言切换 -->
         <li class="lang-switcher">
@@ -103,12 +97,10 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useCartStore } from '@/stores/cart'
 import { setLanguage } from '@/i18n'
 import { buildLoginRoute, buildRegisterRoute, resolveRedirectFromRoute } from '@/utils/authRedirect'
 
 const authStore = useAuthStore()
-const cartStore = useCartStore()
 const route = useRoute()
 const router = useRouter()
 const { locale, t } = useI18n()
@@ -218,7 +210,7 @@ async function handleLogout() {
   }
 }
 
-/* 产品页顶栏搜索：桌面在「聊天」与购物车之间；移动端为顶栏第二行 */
+/* 产品页顶栏搜索：桌面在「聊天」与工具区之间；移动端为顶栏第二行 */
 .nav-products-search-desktop {
   list-style: none;
   display: flex;

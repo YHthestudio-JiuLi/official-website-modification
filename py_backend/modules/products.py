@@ -40,6 +40,13 @@ class ProductManager:
         self._ensure_usage_notice_json_column()
         self._ensure_category_id_column()
         self._ensure_sub_category_id_column()
+        self._ensure_created_by_user_id_column()
+
+    def _ensure_created_by_user_id_column(self) -> None:
+        """已有库升级：商品创建者（代理归属）"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "products", "createdByUserId", "INT")
 
     def _ensure_category_id_column(self) -> None:
         """已有库升级：商品一级分类 categoryId"""

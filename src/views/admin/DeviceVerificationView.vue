@@ -3,97 +3,6 @@
     <template #header-title>{{ $t('admin.deviceVerification.title') }}</template>
 
     <div class="device-page">
-      <div class="top-panels">
-        <!-- 防重复消耗：同一设备在设定秒数内重复 /api/device/verify 不增加验证次数 -->
-        <div class="settings-card">
-          <div class="settings-header">
-            <h3>
-              <i class="fas fa-clock"></i>
-              {{ $t('admin.deviceVerification.cooldownTitle') }}
-            </h3>
-            <p class="settings-desc">{{ $t('admin.deviceVerification.cooldownHint') }}</p>
-          </div>
-          <div class="settings-row">
-            <label class="settings-label">{{ $t('admin.deviceVerification.cooldownHours') }}</label>
-            <input
-              v-model.number="cooldownHours"
-              type="number"
-              min="0"
-              max="8760"
-              step="0.1"
-              class="form-input cooldown-input"
-            />
-            <button type="button" class="btn btn-primary" :disabled="settingsSaving" @click="saveCooldownSettings">
-              <i class="fas fa-save"></i>
-              {{ settingsSaving ? $t('common.loading') : $t('common.save') }}
-            </button>
-          </div>
-        </div>
-
-        <div class="settings-card firmware-card">
-          <div class="settings-header">
-            <h3>
-              <i class="fas fa-microchip"></i>
-              {{ $t('admin.deviceVerification.firmwareTitle') }}
-            </h3>
-            <p class="settings-desc">{{ $t('admin.deviceVerification.firmwareDesc') }}</p>
-          </div>
-          <div class="firmware-toolbar">
-            <input ref="firmwareInputRef" type="file" class="firmware-file-input" @change="onFirmwareFileChange" />
-            <button type="button" class="btn btn-primary" :disabled="firmwareUploading" @click="triggerFirmwareSelect">
-              <i class="fas fa-upload"></i>
-              {{ firmwareUploading ? $t('admin.deviceVerification.firmwareUploading', { progress: firmwareUploadProgress }) : $t('admin.deviceVerification.firmwareUpload') }}
-            </button>
-            <button type="button" class="btn btn-secondary" :disabled="firmwareUploading" @click="registerFirmwareFromServer">
-              <i class="fas fa-server"></i>
-              {{ $t('admin.deviceVerification.firmwareRegisterFromServer') }}
-            </button>
-          </div>
-          <div v-if="firmwareLoading" class="firmware-empty">{{ $t('admin.deviceVerification.firmwareListLoading') }}</div>
-          <div v-else-if="firmwareItems.length === 0" class="firmware-empty">{{ $t('admin.deviceVerification.firmwareEmpty') }}</div>
-          <div v-else class="firmware-select-panel">
-            <select v-model="selectedFirmwareId" class="form-input">
-              <option disabled value="">{{ $t('admin.deviceVerification.firmwareSelectPlaceholder') }}</option>
-              <option v-for="item in firmwareItems" :key="item.id" :value="String(item.id)">
-                {{ item.file_name }}{{ item.is_default ? $t('admin.deviceVerification.firmwareDefaultOptionSuffix') : '' }}
-              </option>
-            </select>
-            <div v-if="selectedFirmwareItem" class="firmware-sub">
-              <span>{{ formatFirmwareSize(selectedFirmwareItem.file_size) }}</span>
-              <span>·</span>
-              <span>{{ formatDateTime(selectedFirmwareItem.created_at) }}</span>
-              <template v-if="selectedFirmwareItem.checksum_sha256">
-                <span>·</span>
-                <span :title="selectedFirmwareItem.checksum_sha256">
-                  {{ $t('admin.deviceVerification.firmwareChecksumLabel') }} {{ selectedFirmwareItem.checksum_sha256.slice(0, 12) }}...
-                </span>
-              </template>
-              <span v-if="selectedFirmwareItem.is_default" class="firmware-default-badge">{{ $t('admin.deviceVerification.firmwareDefaultBadge') }}</span>
-            </div>
-            <div class="firmware-actions">
-              <button
-                type="button"
-                class="action-btn btn-reset"
-                :disabled="!selectedFirmwareItem || selectedFirmwareItem.is_default"
-                @click="setDefaultFirmware"
-              >
-                <i class="fas fa-thumbtack"></i>
-                <span class="action-text">{{ $t('admin.deviceVerification.firmwareSetDefault') }}</span>
-              </button>
-              <button
-                type="button"
-                class="action-btn btn-delete"
-                :disabled="!selectedFirmwareItem"
-                @click="deleteFirmware"
-              >
-                <i class="fas fa-trash"></i>
-                <span class="action-text">{{ $t('common.delete') }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -115,6 +24,34 @@
             <i class="fas fa-trash"></i>
             <span>{{ $t('admin.deviceVerification.deleteSelected') }} ({{ selectedDevices.length }})</span>
             <!-- <span class="count-badge-btn"></span> -->
+          </button>
+        </div>
+      </div>
+
+      <div class="cooldown-settings-bar">
+        <div class="cooldown-settings-main">
+          <div class="cooldown-settings-icon" aria-hidden="true">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="cooldown-settings-text">
+            <h3>{{ $t('admin.deviceVerification.cooldownTitle') }}</h3>
+            <p>{{ $t('admin.deviceVerification.cooldownHint') }}</p>
+          </div>
+        </div>
+        <div class="cooldown-settings-controls">
+          <label class="settings-label" for="cooldownHoursInput">{{ $t('admin.deviceVerification.cooldownHours') }}</label>
+          <input
+            id="cooldownHoursInput"
+            v-model.number="cooldownHours"
+            type="number"
+            min="0"
+            max="8760"
+            step="0.1"
+            class="form-input cooldown-input"
+          />
+          <button type="button" class="btn btn-primary" :disabled="settingsSaving" @click="saveCooldownSettings">
+            <i class="fas fa-save"></i>
+            {{ settingsSaving ? $t('common.loading') : $t('common.save') }}
           </button>
         </div>
       </div>
@@ -211,54 +148,22 @@
                   <span class="date-cell" :title="formatFullDate(device.created_at)">{{ formatDate(device.created_at) }}</span>
                 </td>
                 <td class="actions-cell">
-                  <div class="action-group" role="group">
+                  <div
+                    class="action-menu"
+                    :class="{ open: openActionMenuDevice?.id === device.id }"
+                    @click.stop
+                  >
                     <button
-                      @click="showKeysModal(device)"
-                      class="action-btn btn-keys"
-                      :title="$t('admin.deviceVerification.viewKeys')"
+                      type="button"
+                      class="action-menu-trigger"
+                      :data-action-menu-trigger="device.id"
+                      :aria-expanded="openActionMenuDevice?.id === device.id"
+                      :title="$t('admin.deviceVerification.moreActions')"
+                      @click="toggleActionMenu(device, $event)"
                     >
-                      <i class="fas fa-key"></i>
-                      <span class="action-text">{{ $t('admin.deviceVerification.keys') }}</span>
-                    </button>
-                    <button
-                      @click="showLogsModal(device)"
-                      class="action-btn btn-logs"
-                      :title="$t('admin.deviceVerification.viewLogs')"
-                    >
-                      <i class="fas fa-history"></i>
-                      <span class="action-text">{{ $t('admin.deviceVerification.logs') }}</span>
-                    </button>
-                    <button
-                      @click="showEditModal(device)"
-                      class="action-btn btn-edit"
-                      :title="$t('admin.deviceVerification.editQuota')"
-                    >
-                      <i class="fas fa-edit"></i>
-                      <span class="action-text">{{ $t('admin.deviceVerification.edit') }}</span>
-                    </button>
-                    <button
-                      @click="resetCount(device)"
-                      class="action-btn btn-reset"
-                      :title="$t('admin.deviceVerification.resetCount')"
-                    >
-                      <i class="fas fa-redo"></i>
-                      <span class="action-text">{{ $t('admin.deviceVerification.reset') }}</span>
-                    </button>
-                    <button
-                      @click="toggleWhitelist(device)"
-                      :class="['action-btn', Number(device.is_whitelisted) === 1 ? 'btn-delete' : 'btn-edit']"
-                      :title="Number(device.is_whitelisted) === 1 ? '取消白名单授权' : '加入白名单授权'"
-                    >
-                      <i :class="Number(device.is_whitelisted) === 1 ? 'fas fa-user-slash' : 'fas fa-user-check'"></i>
-                      <span class="action-text">{{ Number(device.is_whitelisted) === 1 ? '取消授权' : '授权' }}</span>
-                    </button>
-                    <button
-                      @click="confirmDelete(device)"
-                      class="action-btn btn-delete"
-                      :title="$t('admin.deviceVerification.delete')"
-                    >
-                      <i class="fas fa-trash"></i>
-                      <span class="action-text">{{ $t('admin.deviceVerification.delete') }}</span>
+                      <i class="fas fa-ellipsis-h"></i>
+                      <span>{{ $t('admin.deviceVerification.moreActions') }}</span>
+                      <i class="fas fa-chevron-down action-menu-caret"></i>
                     </button>
                   </div>
                 </td>
@@ -613,17 +518,68 @@
         <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
         <span>{{ toast.message }}</span>
       </div>
+
+      <!-- 操作菜单挂到 body，避免被表格 overflow 裁切 -->
+      <Teleport to="body">
+        <div
+          v-if="openActionMenuDevice"
+          ref="actionMenuPanelRef"
+          class="action-menu-panel action-menu-panel--fixed"
+          :style="actionMenuPanelStyle"
+          @click.stop
+        >
+          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showKeysModal(openActionMenuDevice))">
+            <i class="fas fa-key"></i>
+            <span>{{ $t('admin.deviceVerification.keys') }}</span>
+          </button>
+          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showLogsModal(openActionMenuDevice))">
+            <i class="fas fa-history"></i>
+            <span>{{ $t('admin.deviceVerification.logs') }}</span>
+          </button>
+          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showEditModal(openActionMenuDevice))">
+            <i class="fas fa-edit"></i>
+            <span>{{ $t('admin.deviceVerification.edit') }}</span>
+          </button>
+          <button type="button" class="action-menu-item" @click="runDeviceAction(() => resetCount(openActionMenuDevice))">
+            <i class="fas fa-redo"></i>
+            <span>{{ $t('admin.deviceVerification.reset') }}</span>
+          </button>
+          <button
+            type="button"
+            class="action-menu-item"
+            @click="runDeviceAction(() => toggleWhitelist(openActionMenuDevice))"
+          >
+            <i :class="Number(openActionMenuDevice.is_whitelisted) === 1 ? 'fas fa-user-slash' : 'fas fa-user-check'"></i>
+            <span>{{ Number(openActionMenuDevice.is_whitelisted) === 1 ? $t('admin.deviceVerification.revokeAuth') : $t('admin.deviceVerification.grantAuth') }}</span>
+          </button>
+          <button type="button" class="action-menu-item danger" @click="runDeviceAction(() => confirmDelete(openActionMenuDevice))">
+            <i class="fas fa-trash"></i>
+            <span>{{ $t('admin.deviceVerification.delete') }}</span>
+          </button>
+        </div>
+      </Teleport>
     </div>
   </AdminLayout>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
 
-const { t } = useI18n()
+const router = useRouter()
+const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
+const { t, locale } = useI18n()
+
+function getFmtLocale() {
+  return locale.value === 'zh' ? 'zh-CN' : 'en-US'
+}
 
 const devices = ref([])
 const loading = ref(true)
@@ -675,21 +631,107 @@ const cooldownHours = ref(0)
 const settingsSaving = ref(false)
 const firmwareItems = ref([])
 const firmwareLoading = ref(false)
-const firmwareUploading = ref(false)
-const firmwareUploadProgress = ref(0)
-const firmwareInputRef = ref(null)
-const selectedFirmwareId = ref('')
-const selectedFirmwareItem = computed(() => firmwareItems.value.find(item => String(item.id) === selectedFirmwareId.value) || null)
+const openActionMenuDevice = ref(null)
+const actionMenuPanelRef = ref(null)
+const actionMenuPanelStyle = ref({})
+let actionMenuTriggerEl = null
 
-onMounted(async () => {
-  await Promise.all([fetchCooldownSettings(), fetchDevices(), fetchQuestions(), fetchFirmwareItems()])
+async function toggleActionMenu(device, event) {
+  if (openActionMenuDevice.value?.id === device.id) {
+    closeActionMenu()
+    return
+  }
+  openActionMenuDevice.value = device
+  actionMenuTriggerEl = event.currentTarget
+  await nextTick()
+  positionActionMenu()
+  await nextTick()
+  positionActionMenu()
+}
+
+function positionActionMenu() {
+  if (!actionMenuTriggerEl) return
+
+  const rect = actionMenuTriggerEl.getBoundingClientRect()
+  const panel = actionMenuPanelRef.value
+  const panelHeight = panel?.offsetHeight || 240
+  const panelWidth = Math.max(panel?.offsetWidth || 160, rect.width)
+  const gap = 6
+  const margin = 8
+
+  let top = rect.bottom + gap
+  if (top + panelHeight > window.innerHeight - margin) {
+    top = Math.max(margin, rect.top - gap - panelHeight)
+  }
+
+  let left = rect.right - panelWidth
+  left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin))
+
+  actionMenuPanelStyle.value = {
+    top: `${top}px`,
+    left: `${left}px`,
+    minWidth: `${panelWidth}px`,
+  }
+}
+
+function closeActionMenu() {
+  openActionMenuDevice.value = null
+  actionMenuTriggerEl = null
+  actionMenuPanelStyle.value = {}
+}
+
+function runDeviceAction(action) {
+  closeActionMenu()
+  action()
+}
+
+function onActionMenuViewportChange() {
+  if (!openActionMenuDevice.value) return
+  if (!actionMenuTriggerEl || !document.body.contains(actionMenuTriggerEl)) {
+    closeActionMenu()
+    return
+  }
+  positionActionMenu()
+}
+
+onMounted(() => {
+  initPage()
+  document.addEventListener('click', closeActionMenu)
+  window.addEventListener('resize', onActionMenuViewportChange)
+  window.addEventListener('scroll', onActionMenuViewportChange, true)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeActionMenu)
+  window.removeEventListener('resize', onActionMenuViewportChange)
+  window.removeEventListener('scroll', onActionMenuViewportChange, true)
+})
+
+async function initPage() {
+  const hasNodeSession = await hasLegacyNodeAdminSession()
+  if (!hasNodeSession) {
+    showToast(t('admin.deviceVerification.requireReauth'), 'error')
+    await forceAdminReauth(router, adminStore, adminV2Store)
+    return
+  }
+  await Promise.all([fetchCooldownSettings(), fetchDevices(), fetchQuestions(), fetchFirmwareItems()])
+}
+
+async function handleUnauthorized(error) {
+  if (error.response?.status === 401) {
+    showToast(t('admin.deviceVerification.sessionExpired'), 'error')
+    await forceAdminReauth(router, adminStore, adminV2Store)
+    return true
+  }
+  return false
+}
 
 async function fetchQuestions() {
   try {
     const response = await api.get('/api/admin/questions')
     questions.value = response.data || []
   } catch (error) {
+    if (await handleUnauthorized(error)) return
     console.error('Failed to fetch questions:', error)
   }
 }
@@ -701,6 +743,7 @@ async function fetchCooldownSettings() {
     const secNum = typeof sec === 'number' ? sec : parseInt(sec, 10) || 0
     cooldownHours.value = Number((secNum / 3600).toFixed(2))
   } catch (error) {
+    if (await handleUnauthorized(error)) return
     showToast(t('admin.deviceVerification.loadSettingsError'), 'error')
   }
 }
@@ -731,155 +774,11 @@ async function fetchFirmwareItems() {
   try {
     const response = await api.get('/api/admin/device-firmwares')
     firmwareItems.value = response.data.items || []
-    if (firmwareItems.value.length === 0) {
-      selectedFirmwareId.value = ''
-    } else if (!firmwareItems.value.some(item => String(item.id) === selectedFirmwareId.value)) {
-      const defaultItem = firmwareItems.value.find(item => item.is_default)
-      selectedFirmwareId.value = defaultItem ? String(defaultItem.id) : String(firmwareItems.value[0].id)
-    }
   } catch (error) {
+    if (await handleUnauthorized(error)) return
     showToast(error.response?.data?.error || t('admin.deviceVerification.firmwareLoadListError'), 'error')
   } finally {
     firmwareLoading.value = false
-  }
-}
-
-function triggerFirmwareSelect() {
-  firmwareInputRef.value?.click()
-}
-
-async function registerFirmwareFromServer() {
-  const fileName = window.prompt(t('admin.deviceVerification.firmwareRegisterFromServerPrompt'))
-  if (fileName == null) return
-  const normalizedName = String(fileName).trim()
-  if (!normalizedName) {
-    showToast(t('admin.deviceVerification.firmwareRegisterFromServerNameRequired'), 'error')
-    return
-  }
-  try {
-    const response = await api.post('/api/admin/device-firmwares/register-local', {
-      file_name: normalizedName
-    })
-    const createdId = response.data?.firmware?.id
-    await fetchFirmwareItems()
-    if (createdId) {
-      selectedFirmwareId.value = String(createdId)
-    }
-    showToast(t('admin.deviceVerification.firmwareRegisterFromServerSuccess'), 'success')
-  } catch (error) {
-    showToast(
-      error.response?.data?.error || t('admin.deviceVerification.firmwareRegisterFromServerError'),
-      'error'
-    )
-  }
-}
-
-async function onFirmwareFileChange(event) {
-  const file = event.target?.files?.[0]
-  if (!file) return
-  firmwareUploading.value = true
-  firmwareUploadProgress.value = 0
-  try {
-    const chunkSize = 5 * 1024 * 1024
-    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
-    const initResp = await api.post('/api/admin/device-firmwares/upload/init', {
-      fileName: file.name,
-      fileSize: file.size,
-      totalChunks
-    })
-    const uploadId = initResp.data?.uploadId
-    if (!uploadId) {
-      throw new Error('Missing uploadId')
-    }
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
-      const start = chunkIndex * chunkSize
-      const end = Math.min(file.size, start + chunkSize)
-      const chunk = file.slice(start, end)
-      const chunkFormData = new FormData()
-      chunkFormData.append('uploadId', uploadId)
-      chunkFormData.append('chunkIndex', String(chunkIndex))
-      chunkFormData.append('totalChunks', String(totalChunks))
-      chunkFormData.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
-      await api.post('/api/admin/device-firmwares/upload/chunk', chunkFormData)
-      firmwareUploadProgress.value = Math.round(((chunkIndex + 1) / totalChunks) * 100)
-    }
-    const response = await api.post('/api/admin/device-firmwares/upload/complete', {
-      uploadId,
-      fileName: file.name,
-      fileSize: file.size,
-      totalChunks
-    })
-    const createdId = response.data?.firmware?.id
-    await fetchFirmwareItems()
-    if (createdId) {
-      selectedFirmwareId.value = String(createdId)
-    }
-    showToast(t('admin.deviceVerification.firmwareUploadSuccess'), 'success')
-  } catch (error) {
-    const code = error?.code
-    const status = error?.response?.status
-    const data = error.response?.data
-    let msg =
-      (data && typeof data === 'object' && (data.error || data.message)) ||
-      (typeof data === 'string' && data.length < 240 ? data.trim().slice(0, 200) : '')
-    if (status === 401 && (!msg || msg === 'Unauthorized')) {
-      msg = t('admin.deviceVerification.firmwareUpload401')
-    } else if (
-      status === 503 &&
-      (!msg || String(msg).toLowerCase().includes('database service unavailable'))
-    ) {
-      msg = t('admin.deviceVerification.firmwareUpload503')
-    }
-    if (!msg && (code === 'ECONNABORTED' || error?.message?.includes('timeout'))) {
-      msg = t('admin.deviceVerification.firmwareUploadTimeout')
-    } else if (!msg && status === 408) {
-      msg = t('admin.deviceVerification.firmwareUploadTimeout')
-    } else if (!msg && status === 413) {
-      msg = t('admin.deviceVerification.firmwareUpload413')
-    } else if (!msg && status === 401) {
-      msg = t('admin.deviceVerification.firmwareUpload401')
-    } else if (!msg && status === 403) {
-      msg = t('admin.deviceVerification.firmwareUpload403')
-    } else if (!msg && status === 503) {
-      msg = t('admin.deviceVerification.firmwareUpload503')
-    } else if (!msg && (status === 502 || status === 504)) {
-      msg = t('admin.deviceVerification.firmwareUploadGateway')
-    } else if (!msg && !error.response) {
-      msg = t('admin.deviceVerification.firmwareUploadNetwork')
-    }
-    showToast(msg || t('admin.deviceVerification.firmwareUploadError'), 'error')
-  } finally {
-    firmwareUploading.value = false
-    firmwareUploadProgress.value = 0
-    if (firmwareInputRef.value) {
-      firmwareInputRef.value.value = ''
-    }
-  }
-}
-
-async function setDefaultFirmware() {
-  if (!selectedFirmwareItem.value || selectedFirmwareItem.value.is_default) return
-  try {
-    await api.put(`/api/admin/device-firmwares/${selectedFirmwareItem.value.id}/default`)
-    await Promise.all([fetchFirmwareItems(), fetchDevices()])
-    showToast(t('admin.deviceVerification.firmwareDefaultUpdated'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.firmwareSetDefaultError'), 'error')
-  }
-}
-
-async function deleteFirmware() {
-  if (!selectedFirmwareItem.value) return
-  const ok = window.confirm(
-    t('admin.deviceVerification.firmwareDeleteConfirm', { name: selectedFirmwareItem.value.file_name })
-  )
-  if (!ok) return
-  try {
-    await api.delete(`/api/admin/device-firmwares/${selectedFirmwareItem.value.id}`)
-    await Promise.all([fetchFirmwareItems(), fetchDevices()])
-    showToast(t('admin.deviceVerification.firmwareDeleteSuccess'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.firmwareDeleteError'), 'error')
   }
 }
 
@@ -889,6 +788,7 @@ async function fetchDevices() {
     const response = await api.get('/api/admin/devices')
     devices.value = response.data.devices || []
   } catch (error) {
+    if (await handleUnauthorized(error)) return
     showToast(t('admin.deviceVerification.loadError'), 'error')
   } finally {
     loading.value = false
@@ -1067,13 +967,14 @@ function formatDateTime(dateStr) {
   if (!dateStr) return '-'
   const parsed = parseServerDate(dateStr)
   if (!parsed) return dateStr
-  return parsed.toLocaleString('en-US', {
+  return parsed.toLocaleString(getFmtLocale(), {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
+    hour12: false
   })
 }
 
@@ -1158,10 +1059,10 @@ function formatDate(dateStr) {
   if (!dateStr) return '-'
   const parsed = parseServerDate(dateStr)
   if (!parsed) return dateStr
-  return parsed.toLocaleDateString('en-US', {
+  return parsed.toLocaleDateString(getFmtLocale(), {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+    month: '2-digit',
+    day: '2-digit'
   })
 }
 
@@ -1169,7 +1070,15 @@ function formatFullDate(dateStr) {
   if (!dateStr) return '-'
   const parsed = parseServerDate(dateStr)
   if (!parsed) return dateStr
-  return parsed.toLocaleString('en-US')
+  return parsed.toLocaleString(getFmtLocale(), {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }
 
 function parseServerDate(dateStr) {
@@ -1183,14 +1092,6 @@ function parseServerDate(dateStr) {
   const normalized = hasTimezone ? isoLike : `${isoLike}Z`
   const d = new Date(normalized)
   return Number.isNaN(d.getTime()) ? null : d
-}
-
-function formatFirmwareSize(size) {
-  const n = Number(size || 0)
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
 function showToast(message, type = 'success') {
@@ -1207,11 +1108,70 @@ function showToast(message, type = 'success') {
   position: relative;
 }
 
+.cooldown-settings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1.1rem 1.5rem;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-image: linear-gradient(90deg, rgba(0, 212, 255, 0.06) 0%, transparent 55%);
+}
+
+.cooldown-settings-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.cooldown-settings-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 212, 255, 0.12);
+  color: var(--primary-color);
+  font-size: 1.15rem;
+}
+
+.cooldown-settings-text h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.cooldown-settings-text p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.cooldown-settings-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .top-panels {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-bottom: 1.5rem;
+}
+
+.top-panels-single {
+  grid-template-columns: 1fr;
+  max-width: 640px;
 }
 
 .settings-card {
@@ -1300,7 +1260,7 @@ function showToast(message, type = 'success') {
 }
 
 .cooldown-input {
-  max-width: 160px;
+  width: 120px;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -1312,7 +1272,7 @@ function showToast(message, type = 'success') {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -1693,6 +1653,99 @@ function showToast(message, type = 'success') {
 
 .actions-cell {
   text-align: center;
+  width: 120px;
+  position: relative;
+}
+
+.action-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.action-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 96px;
+  height: 34px;
+  padding: 0 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(154, 157, 180, 0.1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.action-menu-trigger:hover,
+.action-menu.open .action-menu-trigger {
+  border-color: rgba(0, 212, 255, 0.45);
+  color: var(--primary-color);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.action-menu-caret {
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+}
+
+.action-menu.open .action-menu-caret {
+  transform: rotate(180deg);
+}
+
+.action-menu-panel {
+  min-width: 148px;
+  padding: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.action-menu-panel--fixed {
+  position: fixed;
+  z-index: 5000;
+}
+
+.action-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.action-menu-item i {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.action-menu-item:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.action-menu-item.danger {
+  color: #f5576c;
+}
+
+.action-menu-item.danger i {
+  color: #f5576c;
+}
+
+.action-menu-item.danger:hover {
+  background: rgba(245, 87, 108, 0.12);
 }
 
 .action-group {
@@ -2231,6 +2284,20 @@ select.form-input option:checked {
 }
 
 @media (max-width: 768px) {
+  .cooldown-settings-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cooldown-settings-controls {
+    flex-wrap: wrap;
+  }
+
+  .cooldown-input {
+    flex: 1;
+    min-width: 0;
+  }
+
   .top-panels {
     grid-template-columns: 1fr;
   }

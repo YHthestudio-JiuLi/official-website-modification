@@ -1,12 +1,12 @@
 <template>
   <AdminLayout>
-    <template #header-title>Order Management</template>
+    <template #header-title>{{ $t('admin.orders.title') }}</template>
 
     <div class="orders-page">
       <div class="page-header">
         <div class="header-content">
-          <h2><i class="fas fa-shopping-cart"></i> Order Management</h2>
-          <p>Process and track customer orders</p>
+          <h2><i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}</h2>
+          <p>{{ $t('admin.orders.subtitle') }}</p>
         </div>
       </div>
 
@@ -15,7 +15,7 @@
         <div class="filter-form">
           <div class="filter-group">
             <label for="status-filter">
-              <i class="fas fa-filter"></i> Filter by Status:
+              <i class="fas fa-filter"></i> {{ $t('admin.orders.filterByStatus') }}
             </label>
             <select
               id="status-filter"
@@ -23,16 +23,16 @@
               @change="fetchOrders"
               class="filter-select"
             >
-              <option value="">All Orders</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">{{ $t('admin.orders.allOrders') }}</option>
+              <option value="pending">{{ $t('admin.orders.filter.pending') }}</option>
+              <option value="paid">{{ $t('admin.orders.filter.paid') }}</option>
+              <option value="completed">{{ $t('admin.orders.filter.completed') }}</option>
+              <option value="cancelled">{{ $t('admin.orders.filter.cancelled') }}</option>
             </select>
           </div>
           <div class="filter-summary">
             <span class="filter-count">
-              <i class="fas fa-list"></i> Total <strong>{{ orders.length }}</strong> orders
+              <i class="fas fa-list"></i> {{ $t('admin.orders.totalCount', { count: orders.length }) }}
             </span>
           </div>
         </div>
@@ -41,7 +41,7 @@
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading orders...</span>
+          <span>{{ $t('admin.orders.loading') }}</span>
         </div>
       </div>
 
@@ -50,22 +50,22 @@
           <table class="orders-table">
             <thead>
               <tr>
-                <th class="col-id">Order #</th>
-                <th class="col-customer">Customer</th>
-                <th class="col-product">Product</th>
-                <th class="col-qty">Qty</th>
-                <th class="col-amount">Amount</th>
-                <th class="col-status">Status</th>
-                <th class="col-date">Date</th>
-                <th class="col-tx">TX Hash</th>
-                <th class="col-address">Address</th>
-                <th class="col-actions">Actions</th>
+                <th class="col-id">{{ $t('admin.orders.orderNumber') }}</th>
+                <th class="col-customer">{{ $t('admin.orders.customer') }}</th>
+                <th class="col-product">{{ $t('admin.orders.product') }}</th>
+                <th class="col-qty">{{ $t('admin.orders.qty') }}</th>
+                <th class="col-amount">{{ $t('admin.orders.amount') }}</th>
+                <th class="col-status">{{ $t('admin.orders.status') }}</th>
+                <th class="col-date">{{ $t('admin.orders.date') }}</th>
+                <th class="col-tx">{{ $t('admin.orders.txHash') }}</th>
+                <th class="col-address">{{ $t('admin.orders.address') }}</th>
+                <th class="col-actions">{{ $t('admin.orders.actions') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="order in orders" :key="order.id">
                 <td class="col-id">
-                  <span class="order-id">#{{ order.id }}</span>
+                  <span class="order-id">{{ displayOrderNo(order) }}</span>
                 </td>
                 <td class="col-customer">
                   <div class="customer-cell">
@@ -100,28 +100,28 @@
                 </td>
                 <td class="col-actions">
                   <div class="action-group">
-                    <button @click="openOrderDetail(order)" class="btn-view" title="View Details">
+                    <button @click="openOrderDetail(order)" class="btn-view" :title="$t('admin.orders.viewDetails')">
                       <i class="fas fa-eye"></i>
-                      <span class="btn-text">View</span>
+                      <span class="btn-text">{{ $t('admin.orders.view') }}</span>
                     </button>
                     <select
                       :value="order.status"
                       @change="handleStatusUpdate(order.id, $event.target.value)"
                       class="status-select"
-                      :title="`Update status - Current: ${getStatusText(order.status)}`"
+                      :title="$t('admin.orders.updateStatusTitle', { status: getStatusText(order.status) })"
                     >
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
+                      <option value="pending">{{ $t('admin.orders.filter.pending') }}</option>
+                      <option value="paid">{{ $t('admin.orders.filter.paid') }}</option>
+                      <option value="completed">{{ $t('admin.orders.filter.completed') }}</option>
+                      <option value="cancelled">{{ $t('admin.orders.filter.cancelled') }}</option>
                     </select>
                     <button 
-                      @click="confirmDelete(order.id, '#'+order.id)" 
+                      @click="confirmDelete(order.id, displayOrderNo(order))" 
                       class="btn-delete"
-                      :title="`Delete order ${order.id}`"
+                      :title="$t('admin.orders.deleteOrderTitle', { id: displayOrderNo(order) })"
                     >
                       <i class="fas fa-trash"></i>
-                      <span class="btn-text">Delete</span>
+                      <span class="btn-text">{{ $t('admin.orders.delete') }}</span>
                     </button>
                   </div>
                 </td>
@@ -129,7 +129,7 @@
               <tr v-if="orders.length === 0">
                 <td colspan="10" class="empty-state">
                   <i class="fas fa-inbox"></i>
-                  <p>No orders found</p>
+                  <p>{{ $t('admin.orders.empty') }}</p>
                 </td>
               </tr>
             </tbody>
@@ -138,7 +138,7 @@
         <!-- 滚动提示 -->
         <div class="scroll-hint">
           <i class="fas fa-arrows-alt-h"></i>
-          <span>Scroll horizontally to see all columns</span>
+          <span>{{ $t('admin.orders.scrollHint') }}</span>
         </div>
       </div>
 
@@ -147,13 +147,13 @@
         <div class="modal-container" @click.stop>
           <div class="modal-header danger">
             <i class="fas fa-exclamation-triangle"></i>
-            <h3>Confirm Order Deletion</h3>
+            <h3>{{ $t('admin.orders.deleteModal.title') }}</h3>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete this order:</p>
+            <p>{{ $t('admin.orders.deleteModal.confirmText') }}</p>
             <div class="order-info-box">
               <div class="order-details">
-                <p class="order-id-text"><strong>Order #{{ orderToDelete?.id }}</strong></p>
+                <p class="order-id-text"><strong>{{ $t('admin.orders.deleteModal.orderLabel', { id: orderToDelete?.id }) }}</strong></p>
                 <p class="order-customer-text">
                   <i class="fas fa-user"></i> {{ orderToDelete?.username }}
                 </p>
@@ -165,17 +165,17 @@
             <div class="warning-box">
               <i class="fas fa-exclamation-circle"></i>
               <div class="warning-content">
-                <p><strong>This action cannot be undone!</strong></p>
-                <p>This order will be permanently deleted from the system.</p>
+                <p><strong>{{ $t('admin.orders.deleteModal.cannotUndo') }}</strong></p>
+                <p>{{ $t('admin.orders.deleteModal.permanentDelete') }}</p>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button @click="closeDeleteModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel
+              <i class="fas fa-times"></i> {{ $t('common.cancel') }}
             </button>
             <button @click="executeDelete" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Delete Order
+              <i class="fas fa-trash"></i> {{ $t('admin.orders.deleteModal.deleteOrder') }}
             </button>
           </div>
         </div>
@@ -186,7 +186,7 @@
         <div class="modal-container modal-large" @click.stop>
           <div class="modal-header">
             <i class="fas fa-shopping-cart"></i>
-            <h3>Order Details #{{ selectedOrder?.id }}</h3>
+            <h3>{{ $t('admin.orders.detail.title', { id: displayOrderNo(selectedOrder) }) }}</h3>
             <button @click="closeOrderDetailModal" class="modal-close">
               <i class="fas fa-times"></i>
             </button>
@@ -194,52 +194,52 @@
           <div class="modal-body">
             <div class="order-detail-grid">
               <div class="detail-section">
-                <h4><i class="fas fa-user"></i> Customer Information</h4>
+                <h4><i class="fas fa-user"></i> {{ $t('admin.orders.detail.customerInfo') }}</h4>
                 <div class="detail-item">
-                  <span class="detail-label">Username:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.username') }}</span>
                   <span class="detail-value">{{ selectedOrder?.username }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="detail-label">User ID:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.userId') }}</span>
                   <span class="detail-value">#{{ selectedOrder?.userId }}</span>
                 </div>
               </div>
 
               <div class="detail-section">
-                <h4><i class="fas fa-box"></i> Product Information</h4>
+                <h4><i class="fas fa-box"></i> {{ $t('admin.orders.detail.productInfo') }}</h4>
                 <div class="detail-item">
-                  <span class="detail-label">Product Name:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.productName') }}</span>
                   <span class="detail-value">{{ selectedOrder?.productName }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="detail-label">Quantity:</span>
+                  <span class="detail-label">{{ $t('admin.orders.quantity') }}</span>
                   <span class="detail-value">{{ selectedOrder?.quantity }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="detail-label">Unit Price:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.unitPrice') }}</span>
                   <span class="detail-value">{{ selectedOrder?.price }} USDT</span>
                 </div>
                 <div class="detail-item">
-                  <span class="detail-label">Total Amount:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.totalAmount') }}</span>
                   <span class="detail-value highlight">{{ selectedOrder?.totalAmount }} USDT</span>
                 </div>
               </div>
 
               <div class="detail-section">
-                <h4><i class="fas fa-map-marker-alt"></i> Shipping Address</h4>
+                <h4><i class="fas fa-map-marker-alt"></i> {{ $t('admin.orders.detail.shippingAddress') }}</h4>
                 <div class="detail-item full-width">
-                  <span class="detail-value">{{ selectedOrder?.shippingAddress || 'No shipping address provided' }}</span>
+                  <span class="detail-value">{{ selectedOrder?.shippingAddress || $t('admin.orders.detail.noShippingAddress') }}</span>
                 </div>
               </div>
 
               <div class="detail-section">
-                <h4><i class="fas fa-link"></i> Transaction Information</h4>
+                <h4><i class="fas fa-link"></i> {{ $t('admin.orders.detail.transactionInfo') }}</h4>
                 <div class="detail-item">
-                  <span class="detail-label">TX Hash:</span>
-                  <span class="detail-value tx-hash-value">{{ selectedOrder?.txHash || 'N/A' }}</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.txHash') }}</span>
+                  <span class="detail-value tx-hash-value">{{ selectedOrder?.txHash || $t('admin.orders.na') }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="detail-label">Status:</span>
+                  <span class="detail-label">{{ $t('admin.orders.status') }}</span>
                   <span :class="['status-badge', 'status-' + selectedOrder?.status]">
                     {{ getStatusText(selectedOrder?.status) }}
                   </span>
@@ -247,25 +247,59 @@
               </div>
 
               <div class="detail-section">
-                <h4><i class="fas fa-calendar"></i> Timestamps</h4>
+                <h4><i class="fas fa-calendar"></i> {{ $t('admin.orders.detail.timestamps') }}</h4>
                 <div class="detail-item">
-                  <span class="detail-label">Created At:</span>
+                  <span class="detail-label">{{ $t('admin.orders.createdAt') }}</span>
                   <span class="detail-value">{{ formatDate(selectedOrder?.createdAt) }}</span>
                 </div>
                 <div v-if="selectedOrder?.paidAt" class="detail-item">
-                  <span class="detail-label">Paid At:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.paidAt') }}</span>
                   <span class="detail-value">{{ formatDate(selectedOrder?.paidAt) }}</span>
                 </div>
                 <div v-if="selectedOrder?.completedAt" class="detail-item">
-                  <span class="detail-label">Completed At:</span>
+                  <span class="detail-label">{{ $t('admin.orders.detail.completedAt') }}</span>
                   <span class="detail-value">{{ formatDate(selectedOrder?.completedAt) }}</span>
+                </div>
+              </div>
+
+              <div class="detail-section detail-section--logistics">
+                <h4><i class="fas fa-truck"></i> {{ $t('admin.orders.detail.logistics') }}</h4>
+                <div class="tracking-form">
+                  <label class="detail-label" for="tracking-number-input">
+                    {{ $t('admin.orders.detail.trackingNumber') }}
+                  </label>
+                  <input
+                    id="tracking-number-input"
+                    v-model="trackingInput"
+                    type="text"
+                    class="tracking-input"
+                    :placeholder="$t('admin.orders.detail.trackingPlaceholder')"
+                    maxlength="64"
+                    :disabled="savingTracking"
+                    @input="scheduleTrackingSave"
+                    @blur="flushTrackingSave"
+                    @keyup.enter="flushTrackingSave"
+                  />
+                  <p v-if="savingTracking" class="tracking-save-status">
+                    <i class="fas fa-spinner fa-spin"></i> {{ $t('admin.orders.detail.trackingSaving') }}
+                  </p>
+                  <div v-if="trackingInput" class="tracking-footer">
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm btn-clear-tracking"
+                      :disabled="savingTracking"
+                      @click="clearTracking"
+                    >
+                      <i class="fas fa-eraser"></i> {{ $t('admin.orders.detail.clearTracking') }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button @click="closeOrderDetailModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Close
+              <i class="fas fa-times"></i> {{ $t('common.close') }}
             </button>
           </div>
         </div>
@@ -284,9 +318,10 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { displayOrderNo } from '@/utils/orderNo'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const orders = ref([])
 const loading = ref(true)
 const statusFilter = ref('')
@@ -296,6 +331,10 @@ const orderToDelete = ref(null)
 
 const showOrderDetailModal = ref(false)
 const selectedOrder = ref(null)
+const trackingInput = ref('')
+const lastSavedTracking = ref('')
+const savingTracking = ref(false)
+let trackingSaveTimer = null
 
 const toast = ref({
   visible: false,
@@ -305,12 +344,7 @@ const toast = ref({
 
 const copiedContent = ref(null)
 
-const statusTextMap = {
-  'pending': 'Pending',
-  'paid': 'Paid',
-  'completed': 'Completed',
-  'cancelled': 'Cancelled'
-}
+const ORDER_STATUS_KEYS = ['pending', 'paid', 'completed', 'cancelled']
 
 onMounted(fetchOrders)
 
@@ -321,22 +355,26 @@ async function fetchOrders() {
     const response = await api.get('/api/admin/orders', { params })
     orders.value = response.data
   } catch (error) {
-    showToast('Failed to load orders', 'error')
+    showToast(t('admin.orders.toast.loadFailed'), 'error')
   } finally {
     loading.value = false
   }
 }
 
 function getStatusText(status) {
-  return statusTextMap[status] || status
+  if (!status) return ''
+  if (ORDER_STATUS_KEYS.includes(status)) {
+    return t(`admin.orders.filter.${status}`)
+  }
+  return status
 }
 
 async function handleStatusUpdate(id, status) {
   try {
     await api.put(`/api/admin/orders/${id}/status`, { status })
-    showToast(`Order #${id} updated to ${getStatusText(status)}`, 'success')
+    showToast(t('admin.orders.toast.updateSuccess', { id, status: getStatusText(status) }), 'success')
   } catch (error) {
-    showToast('Failed to update status', 'error')
+    showToast(t('admin.orders.toast.updateFailed'), 'error')
     fetchOrders()
   }
 }
@@ -358,9 +396,9 @@ async function executeDelete() {
     await api.delete(`/api/admin/orders/${orderToDelete.value.id}`)
     closeDeleteModal()
     await fetchOrders()
-    showToast('Order deleted successfully', 'success')
+    showToast(t('admin.orders.toast.deleteSuccess'), 'success')
   } catch (error) {
-    showToast('Failed to delete order', 'error')
+    showToast(t('admin.orders.toast.deleteFailed'), 'error')
   }
 }
 
@@ -373,7 +411,8 @@ function showToast(message, type = 'success') {
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('en-US')
+  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
+  return new Date(dateStr).toLocaleString(fmtLocale)
 }
 
 function truncateHash(hash) {
@@ -391,7 +430,7 @@ async function copyAddress(address) {
   try {
     await navigator.clipboard.writeText(address)
     copiedContent.value = address
-    showToast('Address copied', 'success')
+    showToast(t('admin.orders.toast.addressCopied'), 'success')
     setTimeout(() => { copiedContent.value = null }, 2000)
   } catch (err) {
     console.error('Failed to copy:', err)
@@ -403,7 +442,7 @@ async function copyTxHash(hash) {
   try {
     await navigator.clipboard.writeText(hash)
     copiedContent.value = hash
-    showToast('TX Hash copied', 'success')
+    showToast(t('admin.orders.toast.txHashCopied'), 'success')
     setTimeout(() => { copiedContent.value = null }, 2000)
   } catch (err) {
     console.error('Failed to copy:', err)
@@ -412,12 +451,74 @@ async function copyTxHash(hash) {
 
 function openOrderDetail(order) {
   selectedOrder.value = order
+  const saved = order.trackingNumber || ''
+  trackingInput.value = saved
+  lastSavedTracking.value = saved
   showOrderDetailModal.value = true
 }
 
-function closeOrderDetailModal() {
+function clearTrackingSaveTimer() {
+  if (trackingSaveTimer) {
+    clearTimeout(trackingSaveTimer)
+    trackingSaveTimer = null
+  }
+}
+
+function scheduleTrackingSave() {
+  clearTrackingSaveTimer()
+  trackingSaveTimer = setTimeout(() => {
+    trackingSaveTimer = null
+    saveTracking()
+  }, 700)
+}
+
+async function flushTrackingSave() {
+  clearTrackingSaveTimer()
+  await saveTracking()
+}
+
+async function closeOrderDetailModal() {
+  await flushTrackingSave()
   showOrderDetailModal.value = false
   selectedOrder.value = null
+  trackingInput.value = ''
+  lastSavedTracking.value = ''
+  savingTracking.value = false
+}
+
+async function saveTracking() {
+  if (!selectedOrder.value || savingTracking.value) return
+
+  const trimmed = trackingInput.value.trim()
+  if (trimmed === lastSavedTracking.value) return
+
+  savingTracking.value = true
+  try {
+    const response = await api.put(`/api/admin/orders/${selectedOrder.value.id}/tracking`, {
+      trackingNumber: trimmed,
+    })
+    const updated = response.data?.order
+    if (updated) {
+      selectedOrder.value = { ...selectedOrder.value, ...updated }
+      const idx = orders.value.findIndex((o) => o.id === updated.id)
+      if (idx >= 0) {
+        orders.value[idx] = { ...orders.value[idx], ...updated }
+      }
+      const saved = updated.trackingNumber || ''
+      trackingInput.value = saved
+      lastSavedTracking.value = saved
+    }
+    showToast(t('admin.orders.toast.trackingSaved'), 'success')
+  } catch (error) {
+    showToast(t('admin.orders.toast.trackingSaveFailed'), 'error')
+  } finally {
+    savingTracking.value = false
+  }
+}
+
+async function clearTracking() {
+  trackingInput.value = ''
+  await saveTracking()
 }
 </script>
 
@@ -945,6 +1046,72 @@ function closeOrderDetailModal() {
 }
 
 .detail-section h4 i {
+  color: var(--primary-color);
+}
+
+.detail-section--logistics {
+  padding: 1rem 1.15rem;
+}
+
+.detail-section--logistics h4 {
+  margin-bottom: 0.65rem;
+  font-size: 0.9rem;
+}
+
+.detail-section--logistics .tracking-form {
+  gap: 0.45rem;
+}
+
+.detail-section--logistics .tracking-input {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.detail-section--logistics .tracking-save-status {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.tracking-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.15rem;
+}
+
+.btn-clear-tracking {
+  flex-shrink: 0;
+}
+
+.tracking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tracking-input {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-darker, rgba(0, 0, 0, 0.2));
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.tracking-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
+}
+
+.tracking-save-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.tracking-save-status i {
+  margin-right: 0.35rem;
   color: var(--primary-color);
 }
 

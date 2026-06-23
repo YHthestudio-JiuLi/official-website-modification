@@ -3,6 +3,7 @@ import { setDocumentTitle } from '@/utils/documentTitle'
 import { isSafeInternalRedirect } from '@/utils/authRedirect'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
 import i18n from '@/i18n'
 
 const routes = [
@@ -36,12 +37,6 @@ const routes = [
     name: 'product-detail',
     component: () => import('@/views/user/ProductDetailView.vue'),
     meta: { titleKey: 'titles.productDetail' }
-  },
-  {
-    path: '/cart',
-    name: 'cart',
-    component: () => import('@/views/user/CartView.vue'),
-    meta: { titleKey: 'titles.cart' }
   },
   {
     path: '/orders',
@@ -110,6 +105,18 @@ const routes = [
     name: 'admin-users',
     component: () => import('@/views/admin/UsersView.vue'),
     meta: { titleKey: 'titles.adminUsers', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/roles',
+    name: 'admin-roles',
+    component: () => import('@/views/admin/RolesView.vue'),
+    meta: { titleKey: 'titles.adminRoles', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/agents',
+    name: 'admin-agents',
+    component: () => import('@/views/admin/AgentsView.vue'),
+    meta: { titleKey: 'titles.adminAgents', requiresAdmin: true, layout: 'admin' }
   },
   {
     path: '/admin/users/edit/:id?',
@@ -206,6 +213,12 @@ const routes = [
     name: 'admin-question-edit',
     component: () => import('@/views/admin/QuestionFormView.vue'),
     meta: { titleKey: 'titles.adminQuestionEdit', requiresAdmin: true, layout: 'admin' }
+  },
+  {
+    path: '/admin/firmwares',
+    name: 'admin-firmwares',
+    component: () => import('@/views/admin/FirmwareView.vue'),
+    meta: { titleKey: 'titles.adminFirmwares', requiresAdmin: true, layout: 'admin' }
   }
 ]
 
@@ -220,6 +233,7 @@ router.beforeEach(async (to, from, next) => {
 
   const authStore = useAuthStore()
   const adminStore = useAdminStore()
+  const adminV2Store = useAdminV2Store()
 
   // Check auth status on first navigation
   if (!authStore.checked) {
@@ -227,6 +241,10 @@ router.beforeEach(async (to, from, next) => {
   }
   if (!adminStore.checked) {
     await adminStore.checkAuth()
+  }
+  // V2 权限须在页面渲染前就绪（v-permission / 角色模块 API）
+  if (to.meta.requiresAdmin && !adminV2Store.checked) {
+    await adminV2Store.checkAuth()
   }
 
   // Routes requiring user authentication
@@ -255,8 +273,18 @@ router.beforeEach(async (to, from, next) => {
       }
       return next({ name: 'home' })
     }
-    if (adminStore.isLoggedIn && to.name === 'admin-login') {
+    if (adminStore.isLoggedIn && to.name === 'admin-login' && to.query.reauth !== '1') {
       return next({ name: 'admin-dashboard' })
+    }
+  }
+
+  // 代理不可进入产品分类管理
+  if (to.name === 'admin-product-categories') {
+    const user = adminV2Store.user
+    const roles = user?.roles || []
+    const isAgentOnly = roles.includes('agent') && !roles.includes('super_admin') && !user?.isAdmin
+    if (isAgentOnly) {
+      return next({ name: 'admin-products' })
     }
   }
 

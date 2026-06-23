@@ -11,13 +11,18 @@
           </h2>
           <p>{{ $t('admin.questions.description') }}</p>
         </div>
-        <router-link to="/admin/questions/add" class="btn btn-primary">
+        <router-link v-if="canEdit" to="/admin/questions/add" class="btn btn-primary">
           <i class="fas fa-plus"></i>
           <span>{{ $t('admin.questions.add') }}</span>
         </router-link>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <div v-if="!canAccessPage" class="no-permission-card">
+        <i class="fas fa-lock"></i>
+        <p>{{ $t('admin.questions.noPermission') }}</p>
+      </div>
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.questions.loading') }}</span>
@@ -90,8 +95,9 @@
                   <span class="date-cell">{{ formatDate(question.created_at) }}</span>
                 </td>
                 <td class="actions-cell">
-                  <div class="action-group">
+                  <div v-if="canEdit || canDelete" class="action-group">
                     <router-link
+                      v-if="canEdit"
                       :to="`/admin/questions/edit/${question.id}`"
                       class="action-btn btn-edit"
                       :title="$t('admin.questions.editTitle')"
@@ -100,6 +106,7 @@
                       <span class="action-text">{{ $t('common.edit') }}</span>
                     </router-link>
                     <button
+                      v-if="canDelete"
                       @click="confirmDelete(question)"
                       class="action-btn btn-delete"
                       :title="$t('admin.questions.deleteTitle')"
@@ -108,6 +115,7 @@
                       <span class="action-text">{{ $t('common.delete') }}</span>
                     </button>
                   </div>
+                  <span v-else class="empty-cell">-</span>
                 </td>
               </tr>
               <tr v-if="filteredQuestions.length === 0">
@@ -115,7 +123,7 @@
                   <i class="fas fa-database"></i>
                   <h3>{{ questions.length === 0 ? $t('admin.questions.emptyAllTitle') : $t('admin.questions.emptyFilterTitle') }}</h3>
                   <p>{{ questions.length === 0 ? $t('admin.questions.emptyAllDesc') : $t('admin.questions.emptyFilterDesc') }}</p>
-                  <router-link to="/admin/questions/add" class="btn btn-primary">
+                  <router-link v-if="canEdit" to="/admin/questions/add" class="btn btn-primary">
                     <i class="fas fa-plus"></i> {{ $t('admin.questions.add') }}
                   </router-link>
                 </td>
@@ -168,11 +176,26 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+
+const router = useRouter()
+const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
+const { has } = useAdminPermissions()
 
 const { t, locale } = useI18n()
+
+const canView = computed(() => has('question.view'))
+const canEdit = computed(() => has('question.edit'))
+const canDelete = computed(() => has('question.delete'))
+const canAccessPage = computed(() => canView.value || canEdit.value || canDelete.value)
 
 const questions = ref([])
 const loading = ref(true)
@@ -186,7 +209,18 @@ const toast = ref({
   message: ''
 })
 
-onMounted(fetchQuestions)
+onMounted(initPage)
+
+async function initPage() {
+  if (!canAccessPage.value) return
+  const hasNodeSession = await hasLegacyNodeAdminSession()
+  if (!hasNodeSession) {
+    showToast('题库功能需要重新登录，请使用管理员账号登录一次', 'error')
+    await forceAdminReauth(router, adminStore, adminV2Store)
+    return
+  }
+  await fetchQuestions()
+}
 
 const categoryOptions = computed(() => {
   const values = [...new Set(questions.value.map(item => String(item.category_name || '').trim()).filter(Boolean))]
@@ -208,6 +242,11 @@ async function fetchQuestions() {
     const response = await api.get('/api/admin/questions')
     questions.value = response.data
   } catch (error) {
+    if (error.response?.status === 401) {
+      showToast('题库会话已过期，请重新登录', 'error')
+      await forceAdminReauth(router, adminStore, adminV2Store)
+      return
+    }
     showToast(t('admin.questions.loadError'), 'error')
   } finally {
     loading.value = false
@@ -271,6 +310,21 @@ function formatDate(dateStr) {
 <style scoped>
 .questions-page {
   animation: fadeIn 0.5s ease;
+}
+
+.no-permission-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-permission-card i {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.6;
 }
 
 .page-header {

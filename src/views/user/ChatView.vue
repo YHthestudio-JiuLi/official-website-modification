@@ -124,7 +124,7 @@
         <button
           type="button"
           class="btn btn-send"
-          :disabled="!inputMessage.trim() || !wsConnected"
+          :disabled="!inputMessage.trim() || !sessionId"
           @click="sendMessage"
         >
           <i class="fas fa-paper-plane"></i>
@@ -255,7 +255,7 @@ function connectWs() {
       wsConnected.value = false
     }
     if (data.type === 'message' && data.message && data.message.session_id === sessionId.value) {
-      appendMessage(data.message, false)
+      appendMessage(data.message, true)
     }
   })
   ws.addEventListener('close', () => {
@@ -267,6 +267,16 @@ function connectWs() {
   })
 }
 
+function scrollMessagesToBottom() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const el = messagesContainer.value
+      if (!el) return
+      el.scrollTop = el.scrollHeight
+    })
+  })
+}
+
 function appendMessage(row, scrollBottom = true) {
   if (row.id != null) {
     if (seenMessageIds.has(row.id)) return
@@ -274,20 +284,23 @@ function appendMessage(row, scrollBottom = true) {
   }
   messages.value.push(row)
   if (scrollBottom) {
-    nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    })
+    scrollMessagesToBottom()
   }
 }
 
 function autoResize() {
   const el = inputEl.value
   if (!el) return
+  const maxHeight = 120
   el.style.height = 'auto'
-  const newHeight = Math.min(el.scrollHeight, 120)
-  el.style.height = newHeight + 'px'
+  const contentHeight = el.scrollHeight
+  if (contentHeight > maxHeight) {
+    el.style.height = `${maxHeight}px`
+    el.style.overflowY = 'auto'
+  } else {
+    el.style.height = `${contentHeight}px`
+    el.style.overflowY = 'hidden'
+  }
 }
 
 async function loadAdmins() {
@@ -346,11 +359,12 @@ async function loadHistory() {
     const data = await res.json()
     messages.value = data.messages || []
     seenMessageIds.clear()
+    for (const row of messages.value) {
+      if (row.id != null) seenMessageIds.add(row.id)
+    }
     connectWs()
+    scrollMessagesToBottom()
     nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
       if (inputEl.value) {
         inputEl.value.focus()
       }
@@ -499,6 +513,7 @@ onMounted(async () => {
     sessionStorage.removeItem(CHAT_AUTO_START_KEY)
     await enterOnlineChat()
   }
+
 })
 
 onUnmounted(() => {
@@ -1101,11 +1116,27 @@ onUnmounted(() => {
   border-radius: 20px;
   resize: none;
   max-height: 120px;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
   font-family: inherit;
   font-size: 0.95rem;
   color: var(--text-primary);
   line-height: 1.4;
   transition: border-color 0.2s;
+}
+
+.chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .chat-input:focus {

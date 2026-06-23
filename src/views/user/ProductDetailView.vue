@@ -247,6 +247,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import * as catalogApi from '@/services/catalog'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
@@ -416,7 +417,7 @@ async function loadProduct() {
   loading.value = true
   product.value = null
   try {
-    const response = await api.get(`/api/products/${route.params.id}`)
+    const response = await catalogApi.getProduct(route.params.id)
     product.value = response.data
   } catch (error) {
     console.error('Failed to fetch product:', error)

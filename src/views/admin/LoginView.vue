@@ -54,11 +54,18 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { useV2Api } from '@/utils/apiPath'
+import { syncLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
 
 const router = useRouter()
 const { t } = useI18n()
 const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
+const authStore = useAuthStore()
+const useV2 = useV2Api()
 
 const form = ref({
   username: '',
@@ -72,7 +79,17 @@ async function handleLogin() {
   error.value = ''
 
   try {
-    await adminStore.login(form.value)
+    if (useV2) {
+      await adminV2Store.login(form.value)
+      await adminStore.checkAuth()
+      await syncLegacyNodeAdminSession(form.value)
+      // 同步前台登录态（不踢线，仅刷新 Pinia）
+      await authStore.checkAuth()
+    } else {
+      await adminStore.login(form.value)
+      await syncLegacyNodeAdminSession(form.value)
+      await adminV2Store.syncLogin(form.value)
+    }
     router.push('/admin')
   } catch (err) {
     const status = err.response?.status

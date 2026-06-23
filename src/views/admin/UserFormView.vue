@@ -1,25 +1,25 @@
 <template>
   <AdminLayout>
-    <template #header-title>{{ isEdit ? 'Edit User' : 'Add User' }}</template>
+    <template #header-title>{{ isEdit ? $t('admin.users.editUser') : $t('admin.users.addUser') }}</template>
 
     <div class="user-form-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
             <i class="fas fa-user"></i>
-            {{ isEdit ? 'Edit User' : 'Add User' }}
+            {{ isEdit ? $t('admin.users.editUser') : $t('admin.users.addUser') }}
           </h2>
-          <p>{{ isEdit ? 'Update user information and permissions' : 'Create a new user account' }}</p>
+          <p>{{ isEdit ? $t('admin.users.formEditDesc') : $t('admin.users.formAddDesc') }}</p>
         </div>
         <router-link to="/admin/users" class="btn btn-secondary">
-          <i class="fas fa-arrow-left"></i> Back to List
+          <i class="fas fa-arrow-left"></i> {{ $t('admin.users.backToList') }}
         </router-link>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading user data...</span>
+          <span>{{ $t('admin.users.loadingUser') }}</span>
         </div>
       </div>
 
@@ -29,15 +29,14 @@
             <i class="fas fa-exclamation-circle"></i> {{ error }}
           </div>
 
-          <!-- Basic Information Section -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-user-circle"></i> Basic Information
+              <i class="fas fa-user-circle"></i> {{ $t('admin.users.basicInfo') }}
             </h3>
 
             <div class="form-group">
               <label for="username">
-                <i class="fas fa-user"></i> Username
+                <i class="fas fa-user"></i> {{ $t('admin.users.username') }}
                 <span class="required">*</span>
               </label>
               <input
@@ -47,16 +46,16 @@
                 :required="!isEdit"
                 :disabled="isEdit"
                 :class="['form-input', { disabled: isEdit }]"
-                placeholder="Enter username"
+                :placeholder="$t('admin.users.usernamePlaceholder')"
               />
               <p v-if="isEdit" class="form-hint">
-                <i class="fas fa-info-circle"></i> Username cannot be changed after creation
+                <i class="fas fa-info-circle"></i> {{ $t('admin.users.usernameLocked') }}
               </p>
             </div>
 
             <div class="form-group">
               <label for="email">
-                <i class="fas fa-envelope"></i> Email Address
+                <i class="fas fa-envelope"></i> {{ $t('admin.users.email') }}
                 <span class="required">*</span>
               </label>
               <input
@@ -70,15 +69,15 @@
             </div>
           </div>
 
-          <!-- Password Section -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-lock"></i> Password {{ isEdit ? '(Optional)' : '*' }}
+              <i class="fas fa-lock"></i>
+              {{ isEdit ? $t('admin.users.passwordOptional') : $t('admin.users.password') }}
             </h3>
 
             <div class="form-group">
               <label for="password">
-                <i class="fas fa-key"></i> Password
+                <i class="fas fa-key"></i> {{ $t('admin.users.password') }}
               </label>
               <div class="password-input-wrapper">
                 <input
@@ -87,71 +86,76 @@
                   v-model="form.password"
                   :required="!isEdit"
                   class="form-input"
-                  :placeholder="isEdit ? 'Leave empty to keep current password' : 'Enter password (min 6 characters)'"
-                  minlength="6"
+                  :placeholder="isEdit ? $t('admin.users.passwordKeepHint') : $t('admin.users.passwordPlaceholder')"
+                  minlength="8"
                 />
                 <button
                   type="button"
                   @click="showPassword = !showPassword"
                   class="password-toggle"
-                  :title="showPassword ? 'Hide password' : 'Show password'"
                 >
                   <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
                 </button>
               </div>
-              <p v-if="!isEdit" class="form-hint">
-                <i class="fas fa-shield-alt"></i> Password must be at least 6 characters long
-              </p>
-              <p v-else class="form-hint">
-                <i class="fas fa-info-circle"></i> Leave empty to keep the current password
+              <p class="form-hint">
+                <i class="fas fa-shield-alt"></i> {{ $t('admin.users.passwordMinHint') }}
               </p>
             </div>
           </div>
 
-          <!-- Permissions Section -->
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-shield-alt"></i> User Permissions
+              <i class="fas fa-shield-alt"></i> {{ $t('admin.users.permissionsSection') }}
             </h3>
 
             <div class="form-group">
-              <label class="checkbox-label" :class="{ 'checked': form.isAdmin }">
-                <input
-                  type="checkbox"
-                  v-model="form.isAdmin"
-                  class="checkbox-input"
-                />
-                <span class="checkbox-custom"></span>
-                <span class="checkbox-content">
-                  <span class="checkbox-title">Administrator Role</span>
-                  <span class="checkbox-description">Grant full access to admin panel and all management features</span>
-                </span>
-                <span class="checkbox-icon">
-                  <i class="fas fa-user-shield"></i>
-                </span>
+              <label for="roles">
+                <i class="fas fa-user-tag"></i> {{ $t('admin.users.assignRoles') }}
               </label>
-              <p class="form-hint warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                Administrators have full control over users, products, orders, and forum content
+              <select
+                id="roles"
+                v-model="form.roles"
+                class="form-input roles-select"
+                multiple
+                size="5"
+              >
+                <option
+                  v-for="role in availableRoles"
+                  :key="role.name"
+                  :value="role.name"
+                >
+                  {{ roleLabel(role.name) }}
+                </option>
+              </select>
+              <p class="form-hint">
+                <i class="fas fa-info-circle"></i> {{ $t('admin.users.rolesHint') }}
               </p>
+            </div>
+
+            <div class="selected-roles" v-if="form.roles.length">
+              <span
+                v-for="name in form.roles"
+                :key="name"
+                :class="['role-chip', name === 'super_admin' ? 'role-chip-admin' : '']"
+              >
+                {{ roleLabel(name) }}
+              </span>
             </div>
           </div>
 
-          <!-- Form Actions -->
           <div class="form-actions">
             <router-link to="/admin/users" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel
+              <i class="fas fa-times"></i> {{ $t('admin.users.cancel') }}
             </router-link>
             <button type="submit" class="btn btn-primary" :disabled="submitting || !isValid">
               <i :class="submitting ? 'fas fa-spinner fa-spin' : 'fas fa-save'"></i>
-              {{ submitting ? 'Saving...' : isEdit ? 'Update User' : 'Create User' }}
+              {{ submitting ? $t('admin.users.saving') : (isEdit ? $t('admin.users.updateUser') : $t('admin.users.createUser')) }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Toast Notification -->
     <div v-if="toast.visible" :class="['toast', toast.type]">
       <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
       <span>{{ toast.message }}</span>
@@ -162,11 +166,14 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { fetchRoles } from '@/services/v2/admin/roles'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { t, te } = useI18n()
 
 const isEdit = computed(() => !!route.params.id)
 
@@ -174,9 +181,10 @@ const form = ref({
   username: '',
   email: '',
   password: '',
-  isAdmin: false
+  roles: ['customer'],
 })
 
+const availableRoles = ref([])
 const showPassword = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
@@ -185,50 +193,71 @@ const error = ref('')
 const toast = ref({
   visible: false,
   type: 'success',
-  message: ''
+  message: '',
 })
 
-// Form validation
+function roleLabel(name) {
+  const key = `admin.rbac.roleNames.${name}`
+  return te(key) ? t(key) : name
+}
+
+function normalizeRoles(rawRoles, isAdmin) {
+  if (Array.isArray(rawRoles) && rawRoles.length > 0) {
+    return [...new Set(rawRoles)]
+  }
+  return isAdmin ? ['super_admin'] : ['customer']
+}
+
 const isValid = computed(() => {
   if (!form.value.username || !form.value.email) return false
   if (!isEdit.value && !form.value.password) return false
-  if (form.value.password && form.value.password.length < 6) return false
-  // Email validation
+  if (form.value.password && form.value.password.length < 8) return false
+  if (!form.value.roles.length) return false
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(form.value.email)) return false
-  return true
+  return emailRegex.test(form.value.email)
 })
 
-// Clear error message when form changes
 watch(form, () => {
   error.value = ''
 }, { deep: true })
 
 onMounted(async () => {
-  if (isEdit.value) {
-    loading.value = true
-    try {
-      const response = await api.get(`/api/admin/users/${route.params.id}`)
-      form.value = {
-        username: response.data.username || '',
-        email: response.data.email || '',
-        password: '',
-        isAdmin: !!response.data.isAdmin
-      }
-    } catch (err) {
-      error.value = 'Failed to load user data: ' + (err.response?.data?.message || err.message)
-      setTimeout(() => {
-        router.push('/admin/users')
-      }, 2000)
-    } finally {
-      loading.value = false
+  loading.value = true
+  try {
+    const rolesRes = await fetchRoles()
+    availableRoles.value = Array.isArray(rolesRes.data) ? rolesRes.data : []
+    if (!availableRoles.value.length) {
+      availableRoles.value = [
+        { name: 'super_admin' },
+        { name: 'staff' },
+        { name: 'agent' },
+        { name: 'customer' },
+      ]
     }
+
+    if (isEdit.value) {
+      const response = await api.get(`/api/admin/users/${route.params.id}`)
+      const data = response.data || {}
+      form.value = {
+        username: data.username || '',
+        email: data.email || '',
+        password: '',
+        roles: normalizeRoles(data.roles, !!data.isAdmin),
+      }
+    }
+  } catch (err) {
+    error.value = t('admin.users.loadFailed', {
+      message: err.response?.data?.message || err.message,
+    })
+    setTimeout(() => router.push('/admin/users'), 2000)
+  } finally {
+    loading.value = false
   }
 })
 
 async function handleSubmit() {
   if (!isValid.value) {
-    error.value = 'Please fill in all required fields correctly'
+    error.value = t('admin.users.formInvalid')
     return
   }
 
@@ -236,23 +265,30 @@ async function handleSubmit() {
   error.value = ''
 
   try {
-    const submitData = { ...form.value }
-    if (isEdit.value && !submitData.password) {
-      delete submitData.password
+    const payload = {
+      email: form.value.email.trim(),
+      roles: [...form.value.roles],
+      isAdmin: form.value.roles.includes('super_admin'),
+    }
+    if (!isEdit.value) {
+      payload.username = form.value.username.trim()
+    }
+    if (form.value.password?.trim()) {
+      payload.password = form.value.password
     }
 
     if (isEdit.value) {
-      await api.put(`/api/admin/users/${route.params.id}`, submitData)
+      await api.put(`/api/admin/users/${route.params.id}`, payload)
     } else {
-      await api.post('/api/admin/users', submitData)
+      await api.post('/api/admin/users', payload)
     }
 
-    showToast('User saved successfully', 'success')
-    setTimeout(() => {
-      router.back()
-    }, 1500)
+    showToast(t('admin.users.saveSuccess'), 'success')
+    setTimeout(() => router.push('/admin/users'), 1200)
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to save user. Please try again.'
+    error.value = err.response?.data?.message
+      || err.response?.data?.error
+      || t('admin.users.saveFailed')
   } finally {
     submitting.value = false
   }
@@ -364,12 +400,6 @@ function showToast(message, type = 'success') {
   color: #f5576c;
 }
 
-.alert-success {
-  background: rgba(67, 233, 123, 0.15);
-  border: 1px solid #43e97b;
-  color: #43e97b;
-}
-
 .form-section {
   margin-bottom: 2rem;
   padding-bottom: 2rem;
@@ -431,6 +461,10 @@ function showToast(message, type = 'success') {
   transition: all 0.3s ease;
 }
 
+.roles-select option {
+  padding: 0.5rem;
+}
+
 .form-input:focus {
   outline: none;
   border-color: var(--primary-color);
@@ -462,11 +496,6 @@ function showToast(message, type = 'success') {
   color: var(--text-secondary);
   cursor: pointer;
   padding: 0.5rem;
-  transition: color 0.3s ease;
-}
-
-.password-toggle:hover {
-  color: var(--primary-color);
 }
 
 .form-hint {
@@ -479,111 +508,25 @@ function showToast(message, type = 'success') {
   line-height: 1.4;
 }
 
-.form-hint i {
-  font-size: 0.85rem;
-  margin-top: 0.1rem;
-  flex-shrink: 0;
-}
-
-.form-hint.warning {
-  color: #ffc107;
-}
-
-.form-hint.warning i {
-  color: #ffc107;
-}
-
-/* Custom Checkbox Styling */
-.checkbox-label {
+.selected-roles {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.role-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  background: rgba(0, 212, 255, 0.05);
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.checkbox-label:hover {
-  background: rgba(0, 212, 255, 0.08);
-  border-color: var(--primary-color);
-}
-
-.checkbox-label.checked {
-  background: rgba(0, 212, 255, 0.1);
-  border-color: var(--primary-color);
-}
-
-.checkbox-input {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.checkbox-custom {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  border: 2px solid var(--border-color);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  background: var(--bg-dark);
-}
-
-.checkbox-label.checked .checkbox-custom {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-}
-
-.checkbox-custom::after {
-  content: '\f00c';
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  color: white;
-  font-size: 0.75rem;
-  opacity: 0;
-  transform: scale(0);
-  transition: all 0.2s ease;
-}
-
-.checkbox-label.checked .checkbox-custom::after {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.checkbox-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.checkbox-title {
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.checkbox-description {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
   font-size: 0.85rem;
+  background: rgba(154, 157, 180, 0.15);
   color: var(--text-secondary);
 }
 
-.checkbox-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: rgba(0, 212, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.role-chip-admin {
+  background: rgba(0, 212, 255, 0.15);
   color: var(--primary-color);
-  font-size: 1.1rem;
 }
 
 .form-actions {
@@ -607,10 +550,8 @@ function showToast(message, type = 'success') {
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
 }
 
-/* Toast Notification */
 .toast {
   position: fixed;
   bottom: 2rem;
@@ -620,7 +561,6 @@ function showToast(message, type = 'success') {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  animation: slideInRight 0.3s ease;
   z-index: 2000;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
 }
@@ -629,42 +569,6 @@ function showToast(message, type = 'success') {
   background: rgba(67, 233, 123, 0.15);
   border: 1px solid #43e97b;
   color: #43e97b;
-}
-
-.toast.error {
-  background: rgba(245, 87, 108, 0.15);
-  border: 1px solid #f5576c;
-  color: #f5576c;
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .toast {
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 768px) {
@@ -679,11 +583,6 @@ function showToast(message, type = 'success') {
   .btn {
     width: 100%;
     justify-content: center;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 </style>

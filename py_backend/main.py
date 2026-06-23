@@ -274,6 +274,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return db_manager.orders.update_tx_hash(args["id"], args["txHash"])
     if op == "orders.updateShippingAddress":
         return db_manager.orders.update_shipping_address(args["id"], args["shippingAddress"])
+    if op == "orders.updateTrackingNumber":
+        return db_manager.orders.update_tracking_number(args["id"], args.get("trackingNumber"))
     if op == "orders.getStats":
         return db_manager.orders.get_stats()
     if op == "orders.delete":
@@ -330,6 +332,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args["walletAddress"],
             args.get("network", "TRC20"),
             int(args.get("autoDeleteMinutes", 30)),
+            float(args.get("txVerifyMaxUnderpayUsdt", 5)),
+            int(args.get("txVerifyMaxAgeHours", 2)),
         )
 
     if op == "chatCommunitySettings.get":
@@ -529,12 +533,15 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args["file_name"],
             args["file_url"],
             int(args.get("file_size", 0)),
-            args.get("checksum_sha256")
+            args.get("checksum_sha256"),
+            args.get("remark"),
         )
     if op == "deviceVerification.deleteFirmwareFile":
         return db_manager.device_verification.delete_firmware_file(int(args["id"]))
     if op == "deviceVerification.setDefaultFirmware":
         return db_manager.device_verification.set_default_firmware(int(args["id"]))
+    if op == "deviceVerification.updateFirmwareRemark":
+        return db_manager.device_verification.update_firmware_remark(int(args["id"]), args.get("remark"))
 
     if op == "questions.findAll":
         return db_manager.questions.find_all()

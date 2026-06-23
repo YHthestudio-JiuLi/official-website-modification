@@ -111,7 +111,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import * as catalogApi from '@/services/catalog'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
@@ -143,7 +143,7 @@ onMounted(fetchCategories)
 async function fetchCategories() {
   loading.value = true
   try {
-    const res = await api.get('/api/admin/product-categories')
+    const res = await catalogApi.getAdminCategories()
     categories.value = res.data || []
   } catch (_e) {
     categories.value = []
@@ -185,9 +185,9 @@ async function handleSave() {
       parentId: form.value.parentId || null
     }
     if (editingId.value) {
-      await api.put(`/api/admin/product-categories/${editingId.value}`, payload)
+      await catalogApi.saveCategory(editingId.value, payload)
     } else {
-      await api.post('/api/admin/product-categories', payload)
+      await catalogApi.saveCategory(null, payload)
     }
     resetForm()
     await fetchCategories()
@@ -201,7 +201,7 @@ async function handleSave() {
 async function handleDelete(cat) {
   if (!confirm(t('admin.productCategories.deleteConfirm', { name: cat.name }))) return
   try {
-    await api.delete(`/api/admin/product-categories/${cat.id}`)
+    await catalogApi.removeCategory(cat.id)
     if (editingId.value === cat.id) resetForm()
     await fetchCategories()
   } catch (err) {

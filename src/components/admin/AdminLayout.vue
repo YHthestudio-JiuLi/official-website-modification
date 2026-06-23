@@ -9,7 +9,7 @@
         </router-link>
       </div>
 
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" ref="sidebarNavRef" @scroll="saveSidebarScroll">
         <div class="nav-section" v-show="!collapsed">
           <div class="nav-section-title">
             <i class="fas fa-chart-line"></i> {{ $t('admin.dashboard.overview') }}
@@ -23,7 +23,7 @@
           <i class="fas fa-tachometer-alt"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showUsersNav">
           <div class="nav-section-title">
             <i class="fas fa-users"></i> {{ $t('admin.users.title') }}
           </div>
@@ -32,11 +32,37 @@
             <span>{{ $t('admin.users.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }" v-show="collapsed" :title="$t('admin.users.title')">
+        <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }" v-show="collapsed && showUsersNav" :title="$t('admin.users.title')">
           <i class="fas fa-user-friends"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showRbacSection">
+          <div class="nav-section-title">
+            <i class="fas fa-shield-halved"></i> {{ $t('admin.rbac.title') }}
+          </div>
+          <router-link
+            v-if="showRolesNav"
+            to="/admin/roles"
+            class="nav-link"
+            :class="{ active: isActive('/admin/roles') }"
+            @click="closeMobileMenu"
+          >
+            <i class="fas fa-key"></i>
+            <span>{{ $t('titles.adminRoles') }}</span>
+          </router-link>
+          <router-link
+            v-if="showAgentsNav"
+            to="/admin/agents"
+            class="nav-link"
+            :class="{ active: isActive('/admin/agents') }"
+            @click="closeMobileMenu"
+          >
+            <i class="fas fa-user-tie"></i>
+            <span>{{ $t('titles.adminAgents') }}</span>
+          </router-link>
+        </div>
+
+        <div class="nav-section" v-show="!collapsed && showProductsNav">
           <div class="nav-section-title">
             <i class="fas fa-box"></i> {{ $t('admin.products.title') }}
           </div>
@@ -44,68 +70,83 @@
             <i class="fas fa-box-open"></i>
             <span>{{ $t('admin.products.title') }}</span>
           </router-link>
-          <router-link to="/admin/product-categories" class="nav-link" :class="{ active: isActive('/admin/product-categories') }" @click="closeMobileMenu">
+          <router-link v-if="showProductCategoriesNav" to="/admin/product-categories" class="nav-link" :class="{ active: isActive('/admin/product-categories') }" @click="closeMobileMenu">
             <i class="fas fa-tags"></i>
             <span>{{ $t('admin.productCategories.menu') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" v-show="collapsed" :title="$t('admin.products.title')">
+        <router-link to="/admin/products" class="nav-link" :class="{ active: isActive('/admin/products') }" v-show="collapsed && showProductsNav" :title="$t('admin.products.title')">
           <i class="fas fa-box-open"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showQaFirmwareNav">
           <div class="nav-section-title">
-            <i class="fas fa-database"></i> {{ $t('admin.questions.pageTitle') }}
+            <i class="fas fa-database"></i> {{ $t('admin.qaFirmware.sectionTitle') }}
           </div>
-          <router-link to="/admin/questions" class="nav-link" :class="{ active: isActive('/admin/questions') }" @click="closeMobileMenu">
+          <router-link v-if="showQuestionsNav" to="/admin/questions" class="nav-link" :class="{ active: isActive('/admin/questions') }" @click="closeMobileMenu">
             <i class="fas fa-database"></i>
             <span>{{ $t('admin.questions.listTitle') }}</span>
           </router-link>
+          <router-link v-if="showFirmwareNav" to="/admin/firmwares" class="nav-link" :class="{ active: isActive('/admin/firmwares') }" @click="closeMobileMenu">
+            <i class="fas fa-microchip"></i>
+            <span>{{ $t('admin.firmware.listTitle') }}</span>
+          </router-link>
         </div>
         <router-link
+          v-if="showQuestionsNav"
           to="/admin/questions"
           class="nav-link"
           :class="{ active: isActive('/admin/questions') }"
-          v-show="collapsed"
-          :title="$t('admin.questions.pageTitle')"
+          v-show="collapsed && showQaFirmwareNav"
+          :title="$t('admin.questions.listTitle')"
         >
           <i class="fas fa-database"></i>
         </router-link>
+        <router-link
+          v-if="showFirmwareNav"
+          to="/admin/firmwares"
+          class="nav-link"
+          :class="{ active: isActive('/admin/firmwares') }"
+          v-show="collapsed && showQaFirmwareNav"
+          :title="$t('admin.firmware.listTitle')"
+        >
+          <i class="fas fa-microchip"></i>
+        </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showForumNav">
           <div class="nav-section-title">
-            <i class="fas fa-comments"></i> {{ $t('admin.posts.title') }}
+            <i class="fas fa-comments"></i> {{ $t('admin.posts.menu') }}
           </div>
           <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" @click="closeMobileMenu">
             <i class="fas fa-newspaper"></i>
-            <span>{{ $t('admin.posts.title') }}</span>
+            <span>{{ $t('admin.posts.menu') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" v-show="collapsed" :title="$t('admin.posts.title')">
+        <router-link to="/admin/posts" class="nav-link" :class="{ active: isActive('/admin/posts') }" v-show="collapsed && showForumNav" :title="$t('admin.posts.menu')">
           <i class="fas fa-newspaper"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showChatSection">
           <div class="nav-section-title">
             <i class="fas fa-headset"></i> {{ $t('admin.chatService') }}
           </div>
-          <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" @click="closeMobileMenu">
+          <router-link v-if="showChatWorkspaceNav" to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" @click="closeMobileMenu">
             <i class="fas fa-comments"></i>
             <span>{{ $t('admin.chatWorkspace') }}</span>
           </router-link>
-          <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" @click="closeMobileMenu">
+          <router-link v-if="showChatSettingsNav" to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" @click="closeMobileMenu">
             <i class="fas fa-robot"></i>
             <span>{{ $t('admin.chatSettings.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" v-show="collapsed" :title="$t('admin.chatWorkspace')">
+        <router-link v-if="showChatWorkspaceNav" to="/admin/chat" class="nav-link" :class="{ active: isActive('/admin/chat') }" v-show="collapsed && showChatSection" :title="$t('admin.chatWorkspace')">
           <i class="fas fa-comments"></i>
         </router-link>
-        <router-link to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" v-show="collapsed" :title="$t('admin.chatSettings.title')">
+        <router-link v-if="showChatSettingsNav" to="/admin/chat-settings" class="nav-link" :class="{ active: isActive('/admin/chat-settings') }" v-show="collapsed && showChatSection" :title="$t('admin.chatSettings.title')">
           <i class="fas fa-robot"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && showOrdersNav">
           <div class="nav-section-title">
             <i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}
           </div>
@@ -114,34 +155,34 @@
             <span>{{ $t('admin.orders.title') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" v-show="collapsed" :title="$t('admin.orders.title')">
+        <router-link to="/admin/orders" class="nav-link" :class="{ active: isActive('/admin/orders') }" v-show="collapsed && showOrdersNav" :title="$t('admin.orders.title')">
           <i class="fas fa-receipt"></i>
         </router-link>
 
-        <div class="nav-section" v-show="!collapsed">
+        <div class="nav-section" v-show="!collapsed && (showPaymentNav || showPopupNav || showDeviceNav)">
           <div class="nav-section-title">
             <i class="fas fa-cog"></i> {{ $t('admin.settings') }}
           </div>
-          <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" @click="closeMobileMenu">
+          <router-link v-if="showPaymentNav" to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" @click="closeMobileMenu">
             <i class="fas fa-wallet"></i>
             <span>{{ $t('admin.paymentSettings.title') }}</span>
           </router-link>
-          <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" @click="closeMobileMenu">
+          <router-link v-if="showPopupNav" to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" @click="closeMobileMenu">
             <i class="fas fa-bullhorn"></i>
             <span>{{ $t('admin.popupNotices.menu') }}</span>
           </router-link>
-          <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" @click="closeMobileMenu">
+          <router-link v-if="showDeviceNav" to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" @click="closeMobileMenu">
             <i class="fas fa-shield-alt"></i>
             <span>{{ $t('admin.deviceVerification.menu') }}</span>
           </router-link>
         </div>
-        <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed" :title="$t('admin.paymentSettings')">
+        <router-link to="/admin/payment-settings" class="nav-link" :class="{ active: isActive('/admin/payment-settings') }" v-show="collapsed && showPaymentNav" :title="$t('admin.paymentSettings.title')">
           <i class="fas fa-wallet"></i>
         </router-link>
-        <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed" :title="$t('admin.popupNotices.menu')">
+        <router-link to="/admin/popup-notices" class="nav-link" :class="{ active: isActive('/admin/popup-notices') }" v-show="collapsed && showPopupNav" :title="$t('admin.popupNotices.menu')">
           <i class="fas fa-bullhorn"></i>
         </router-link>
-        <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" v-show="collapsed" :title="$t('admin.deviceVerification.menu')">
+        <router-link to="/admin/device-verification" class="nav-link" :class="{ active: isActive('/admin/device-verification') }" v-show="collapsed && showDeviceNav" :title="$t('admin.deviceVerification.menu')">
           <i class="fas fa-shield-alt"></i>
         </router-link>
       </nav>
@@ -203,24 +244,76 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import { logoutNodeAdmin } from '@/services/legacyNodeAuth'
 import { setLanguage } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
 const adminStore = useAdminStore()
+const adminV2Store = useAdminV2Store()
+const { authReady, canAny, has, isScopedAgent } = useAdminPermissions()
 const { locale } = useI18n()
+
+const showRolesNav = canAny(['role.view', 'role.manage'])
+const showAgentsNav = canAny(['agent.view', 'agent.create', 'agent.manage'])
+const showUsersNav = canAny(['user.view', 'user.create', 'user.update', 'user.delete'])
+const showProductsNav = canAny(['product.view', 'product.manage'])
+const showProductCategoriesNav = computed(() => showProductsNav.value && has('product.manage') && !isScopedAgent.value)
+const showOrdersNav = canAny(['order.view', 'order.view_own_tree'])
+const showForumNav = canAny(['forum.view', 'forum.manage'])
+const showPaymentNav = canAny(['payment.view', 'payment.manage'])
+const showPopupNav = canAny(['content.view', 'content.manage'])
+const showDeviceNav = canAny(['device.view', 'device.keys.view'])
+const showChatWorkspaceNav = computed(() => has('chat.manage'))
+const showChatSettingsNav = computed(() => has('chat.settings'))
+const showChatSection = computed(() => showChatWorkspaceNav.value || showChatSettingsNav.value)
+const showQuestionsNav = computed(
+  () => has('question.view') || has('question.edit') || has('question.delete')
+)
+const showFirmwareNav = computed(
+  () => has('firmware.view') || has('firmware.edit') || has('firmware.delete')
+)
+const showQaFirmwareNav = computed(() => showQuestionsNav.value || showFirmwareNav.value)
+const showRbacSection = computed(() => {
+  if (!authReady.value) return true
+  return showRolesNav.value || showAgentsNav.value
+})
 
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
-  // 确保初始语言与 localStorage 一致
   const savedLang = localStorage.getItem('lang') || 'en'
   locale.value = savedLang
+
+  const savedState = localStorage.getItem('sidebar-collapsed')
+  if (savedState === '1') {
+    collapsed.value = true
+  }
+
+  window.addEventListener('resize', handleResize)
+  window.addEventListener('keydown', handleKeyDown)
+  handleResize()
+  scheduleSidebarScrollSync()
 })
+
+watch(() => route.path, scheduleSidebarScrollSync)
+
+watch(authReady, (ready) => {
+  if (ready) scheduleSidebarScrollSync()
+})
+
+function toggleMobileMenu() {
+  mobileOpen.value = !mobileOpen.value
+  if (mobileOpen.value) {
+    scheduleSidebarScrollSync()
+  }
+}
 
 function toggleLanguage() {
   const newLang = currentLang.value === 'en' ? 'zh' : 'en'
@@ -229,6 +322,39 @@ function toggleLanguage() {
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
+const sidebarNavRef = ref(null)
+const SIDEBAR_SCROLL_KEY = 'admin-sidebar-scroll-top'
+
+function saveSidebarScroll() {
+  const nav = sidebarNavRef.value
+  if (nav) {
+    sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollTop))
+  }
+}
+
+/** 将当前激活菜单项滚入可见区域（路由切换后侧栏会重挂载，需重新定位） */
+function scrollActiveNavIntoView() {
+  const nav = sidebarNavRef.value
+  if (!nav || collapsed.value) return
+
+  const active = nav.querySelector('.nav-link.active')
+  if (active) {
+    active.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    saveSidebarScroll()
+    return
+  }
+
+  const saved = Number(sessionStorage.getItem(SIDEBAR_SCROLL_KEY))
+  if (Number.isFinite(saved) && saved > 0) {
+    nav.scrollTop = saved
+  }
+}
+
+function scheduleSidebarScrollSync() {
+  nextTick(() => {
+    requestAnimationFrame(scrollActiveNavIntoView)
+  })
+}
 
 function isActive(path) {
   if (path === '/admin') {
@@ -240,10 +366,13 @@ function isActive(path) {
 function toggleCollapse() {
   collapsed.value = !collapsed.value
   localStorage.setItem('sidebar-collapsed', collapsed.value ? '1' : '0')
+  if (!collapsed.value) {
+    scheduleSidebarScrollSync()
+  }
 }
 
 async function handleLogout() {
-  await adminStore.logout()
+  await Promise.allSettled([adminStore.logout(), adminV2Store.logout(), logoutNodeAdmin()])
   router.push('/admin/login')
 }
 
@@ -266,38 +395,16 @@ function handleResize() {
   }
 }
 
-onMounted(() => {
-  // Restore sidebar state from localStorage
-  const savedState = localStorage.getItem('sidebar-collapsed')
-  if (savedState === '1') {
-    collapsed.value = true
-  }
-  
-  window.addEventListener('resize', handleResize)
-  window.addEventListener('keydown', handleKeyDown)
-  handleResize()
-})
-
-const sidebarRef = ref(null)
-
-function toggleMobileMenu() {
-  mobileOpen.value = !mobileOpen.value
-  // 当侧边栏打开时，滚动到顶部
-  if (mobileOpen.value) {
-    setTimeout(() => {
-      const sidebar = document.querySelector('.admin-sidebar')
-      if (sidebar) {
-        sidebar.scrollTop = 0
-      }
-    }, 100)
-  }
-}
-
 function closeMobileMenu() {
   if (isMobile.value) {
     mobileOpen.value = false
   }
+  scheduleSidebarScrollSync()
 }
+
+onBeforeUnmount(() => {
+  saveSidebarScroll()
+})
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
@@ -350,6 +457,7 @@ onUnmounted(() => {
   padding: 0.75rem 0;
   border-top: 1px solid var(--border-color);
   background: var(--bg-card);
+  flex-shrink: 0;
 }
 
 /* 移动端侧边栏优化 */

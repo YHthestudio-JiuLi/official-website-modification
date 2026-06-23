@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import sqlite3
 import time
 import threading
@@ -98,7 +99,7 @@ class ChatMessageManager:
             logging.getLogger("py_backend").warning(f"[ChatMessages] Session not found: {session_id}")
             return None
             
-        msg_id = int(time.time() * 1000)
+        msg_id = self._generate_message_id()
         created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         
         new_msg = {
@@ -121,6 +122,7 @@ class ChatMessageManager:
             self.conn.commit()
         except Exception as e:
             logging.getLogger("py_backend").error(f"[ChatMessages] SQLite 写入失败: {e}")
+            return None
 
         with _cache_lock:
             if session_id not in _message_cache:
@@ -129,6 +131,19 @@ class ChatMessageManager:
             logging.getLogger("py_backend").info(f"[ChatMessages] Created message for session {session_id}, total messages: {len(_message_cache[session_id])}")
 
         return new_msg
+
+    def _generate_message_id(self) -> int:
+        """生成唯一消息 ID，避免同一毫秒内多条 TG 回复冲突导致写入失败"""
+        for _ in range(12):
+            candidate = int(time.time() * 1000) * 1000 + random.randint(0, 999)
+            exists = self.cur.execute(
+                "SELECT 1 FROM chat_messages WHERE id = ?",
+                (candidate,),
+            ).fetchone()
+            if not exists:
+                return candidate
+            time.sleep(0.001)
+        return int(time.time() * 1000000)
 
     def delete(self, message_id: int) -> None:
         with _cache_lock:

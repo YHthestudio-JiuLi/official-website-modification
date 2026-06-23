@@ -113,6 +113,18 @@ function cleanTelegramChatId(raw) {
 }
 
 /**
+ * 是否允许本进程执行 getUpdates 长轮询。
+ * 同一 Bot Token 全局只能有一个消费者，否则会 409 并随机漏消息。
+ */
+function telegramPollingAllowed() {
+  if (process.env.TELEGRAM_USE_POLLING !== 'true') return false;
+  const primary = String(process.env.TELEGRAM_POLLING_PRIMARY || '').trim().toLowerCase();
+  if (primary === 'false' || primary === '0' || primary === 'no') return false;
+  if (primary === 'true' || primary === '1' || primary === 'yes') return true;
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
  * 解析客服账号的 Telegram 凭据：数据库优先，未配置时回退到全局环境变量
  * 仅有在线客服，不再区分售前/官方
  */
@@ -234,7 +246,7 @@ async function notifyUserMessage(session, messageRow, admin) {
   console.log('[Telegram] notifyUserMessage called');
   console.log('[Telegram] messageRow:', messageRow ? { id: messageRow.id, body: messageRow.body ? messageRow.body.substring(0, 50) + '...' : 'EMPTY' } : 'NULL');
   console.log('[Telegram] session:', session ? { id: session.id, nickname: session.nickname } : 'NULL');
-  
+
   const resolved = resolveTelegramForAdmin(admin);
   const chatId = resolved.chatId;
   const token = resolved.token;
@@ -242,29 +254,28 @@ async function notifyUserMessage(session, messageRow, admin) {
   if (!token) { logOnce('no-token', 'TELEGRAM_BOT_TOKEN is empty'); return; }
 
   console.log('[Telegram] Sending user message to chatId:', chatId);
-  
+
   if (!messageRow || !messageRow.body || String(messageRow.body).trim() === '') {
     console.error('[Telegram] EMPTY BODY - not sending');
     return;
   }
 
-  const agent = getAgent();
+  const agent = getAgentForToken(token);
   const url = new URL(`${botApiBase(token)}/sendMessage`);
-  
+
   const payload = {
     chat_id: String(chatId),
     text: formatMsg(session, messageRow),
     parse_mode: 'HTML',
-    // 引导客服使用「回复」而非直接发群消息，便于隐私模式下 Bot 收到更新
     reply_markup: {
       force_reply: true,
       input_field_placeholder: '请回复此会话…',
     },
   };
-  
+
   const payloadStr = JSON.stringify(payload);
   console.log('[Telegram] Payload text length:', payload.text.length);
-  
+
   const req = https.request({
     hostname: url.hostname,
     port: 443,
@@ -312,18 +323,18 @@ async function notifyAdminReply(session, messageRow, admin) {
   }
 
   const text = `💬 客服回复\n👤 ${session.nickname}\n🆔 ${session.id}\n\n${truncate(messageRow.body, 3500)}`;
-  
+
   const agent = getAgentForToken(token);
   const url = new URL(`${botApiBase(token)}/sendMessage`);
-  
+
   const payload = {
     chat_id: String(chatId),
     text,
     reply_to_message_id: replyToMessageId || undefined,
   };
-  
+
   console.log('[Telegram] Admin reply payload:', { chat_id: chatId, text: text.substring(0, 50) + '...', reply_to_message_id: replyToMessageId });
-  
+
   const req = https.request({
     hostname: url.hostname,
     port: 443,
@@ -376,7 +387,6 @@ function createTelegramIntegration({ broadcastToChat }) {
         console.log('[Telegram] Found session:', link.session_id);
         const body = text.trim();
         if (!body) return;
-        // 创建管理员回复消息
         const row = {
           id: Date.now(),
           session_id: link.session_id,
@@ -420,7 +430,29 @@ function createTelegramIntegration({ broadcastToChat }) {
     })();
   }
 
-  return { notifyUserMessage, notifyAdminReply, handleUpdate, startPollingIfEnabled, setupMultiBotPolling };
+  return { notifyUserMessage, notifyAdminReply, handleUpdate, startPollingIfEnabled, setupMultiBotPolling, restartMultiBotPolling: () => restartMultiBotPolling({ broadcastToChat }) };
+}
+
+/** 后台更新 Telegram 配置后重启多 Bot 长轮询 */
+async function restartMultiBotPolling({ broadcastToChat }) {
+  setupMultiBotPolling._started = false;
+  if (setupMultiBotPollingRetryTimer) {
+    clearTimeout(setupMultiBotPollingRetryTimer);
+    setupMultiBotPollingRetryTimer = null;
+  }
+  if (startPollingForTokenGroup.stopFunctions) {
+    for (const [token, stopFn] of Object.entries(startPollingForTokenGroup.stopFunctions)) {
+      try {
+        stopFn();
+      } catch {
+        // 忽略停止轮询时的异常
+      }
+      activePollingBots.delete(token);
+    }
+    startPollingForTokenGroup.stopFunctions = {};
+  }
+  activePollingBots.clear();
+  await setupMultiBotPolling({ broadcastToChat });
 }
 
 // 为多个客服 Bot 启动长轮询（从数据库读取配置）
@@ -431,8 +463,14 @@ let setupMultiBotPollingRetryTimer = null;
 let setupMultiBotPollingInProgress = false;
 
 async function setupMultiBotPolling({ broadcastToChat }) {
-  if (process.env.TELEGRAM_USE_POLLING !== 'true') return;
-  
+  if (!telegramPollingAllowed()) {
+    console.log(
+      '[Telegram Multi-Bot] 本实例未启用长轮询（避免多环境 409 抢 Bot）。'
+      + ' 仅在一处设 TELEGRAM_POLLING_PRIMARY=true（生产或本地二选一）。'
+    );
+    return;
+  }
+
   if (setupMultiBotPolling._started) {
     console.log('[Telegram Multi-Bot] Already started, skipping');
     return;
@@ -461,7 +499,17 @@ async function setupMultiBotPolling({ broadcastToChat }) {
         continue;
       }
       if (!byToken.has(token)) byToken.set(token, []);
-      byToken.get(token).push({ admin, chatId: String(chatId) });
+      const chatIdStr = String(chatId);
+      const list = byToken.get(token);
+      // 同一 token + chatId 只保留一个监听项（优先 support，避免 sales 覆盖导致日志混乱）
+      const dupIdx = list.findIndex((e) => String(e.chatId) === chatIdStr);
+      if (dupIdx >= 0) {
+        if (admin.username === 'support') {
+          list[dupIdx] = { admin, chatId: chatIdStr };
+        }
+        continue;
+      }
+      list.push({ admin, chatId: chatIdStr });
     }
     
     const forumToken = getForumBotToken();
@@ -491,10 +539,19 @@ async function setupMultiBotPolling({ broadcastToChat }) {
     }
 
     for (const [token, entries] of byToken) {
+      // 换 Bot 后停止已不再使用的 token 轮询
+      for (const runningToken of [...activePollingBots]) {
+        if (!byToken.has(runningToken)) {
+          stopBotPolling(runningToken);
+          activePollingBots.delete(runningToken);
+          console.log('[Telegram Multi-Bot] 已停止旧 Bot 轮询:', runningToken.substring(0, 12) + '...');
+        }
+      }
       if (activePollingBots.has(token)) continue;
       activePollingBots.add(token);
       const labels = entries.map((e) => e.admin.username).join(', ');
-      console.log('[Telegram Multi-Bot] Starting polling for token (listeners:', labels, ')');
+      const chatIds = [...new Set(entries.map((e) => e.chatId))].join(', ');
+      console.log('[Telegram Multi-Bot] Starting polling for token (listeners:', labels, ', chatIds:', chatIds, ')');
       startPollingForTokenGroup(token, entries, broadcastToChat);
     }
     setupMultiBotPolling._started = true;
@@ -566,8 +623,15 @@ function startPollingForTokenGroup(token, entries, broadcastToChat) {
       });
       
       if (!data.ok) {
-        ms = 8000;
-        console.error('[Telegram Multi-Bot]', labelAdmin.username, 'getUpdates failed:', JSON.stringify(data));
+        if (data.error_code === 409) {
+          ms = 30000;
+          console.error(
+            '[Telegram Multi-Bot] getUpdates 409：另有实例在轮询同一 Bot Token，本条及后续 TG 回复可能丢失。'
+          );
+        } else {
+          ms = 8000;
+          console.error('[Telegram Multi-Bot]', labelAdmin.username, 'getUpdates failed:', JSON.stringify(data));
+        }
       } else {
         for (const u of (data.result || [])) {
           offset = u.update_id + 1;
@@ -583,7 +647,16 @@ function startPollingForTokenGroup(token, entries, broadcastToChat) {
           if (!msg || !msg.chat) continue;
           const cid = String(msg.chat.id);
           const admin = chatIdToAdmin.get(cid);
-          if (!admin) continue;
+          if (!admin) {
+            console.warn(
+              '[Telegram Multi-Bot] 收到 chatId',
+              cid,
+              '的消息，但未在监听列表',
+              [...chatIdToAdmin.keys()].join(', '),
+              '—— 请更新后台 Chat ID',
+            );
+            continue;
+          }
           await handleUpdateForBot(u, cid, admin, broadcastToChat, token);
         }
       }
@@ -636,7 +709,7 @@ function startPollingForTokenGroup(token, entries, broadcastToChat) {
     }
     
     console.log('[Telegram Multi-Bot] Bot:', getMe.result.username, 'chats:', [...chatIdToAdmin.keys()].join(', '));
-    
+
     await new Promise((resolve) => {
       const url = new URL(`${baseUrl}/deleteWebhook`);
       const req = https.request({
@@ -932,7 +1005,7 @@ async function handleTelegramCallbackQuery(query, expectedChatId, token) {
     await dbOperations.orders.delete(orderId);
     await telegramRequestWithToken(token, 'answerCallbackQuery', {
       callback_query_id: callbackId,
-      text: `已删除订单 #${orderId}`,
+      text: `已删除订单 ${formatOrderNo(order)}`,
       show_alert: false,
     });
     await telegramRequestWithToken(token, 'deleteMessage', {
@@ -1397,7 +1470,10 @@ async function queryTxStatusFromOklinkPage(network, txHash) {
     return { status: 'UNKNOWN', fromAddress: 'N/A', toAddress: 'N/A', paidAmount: 'N/A', missingApiKey: true };
   }
   try {
-    const r = await fetch(link, { method: 'GET' });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(link, { method: 'GET', signal: controller.signal });
+    clearTimeout(timer);
     const html = await r.text();
     const text = String(html || '')
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -1455,14 +1531,30 @@ function formatPaidAmountAsUsdt(rawAmount) {
   return `${raw} USDT`;
 }
 
+/** 展示用订单号 */
+function formatOrderNo(order) {
+  const no = order?.orderNo ?? order?.order_no;
+  if (no) return String(no);
+  return order?.id != null ? String(order.id) : 'N/A';
+}
+
 async function notifyOrderPaid(order) {
   const chatId = getOrderChatId();
   const token = getOrderBotToken();
   if (!chatId || !token) return;
   const recipient = parseRecipientInfo(order?.shippingAddress);
-  const tx = await queryTxStatus(order?.network, order?.txHash);
-  const explorer = getExplorerLink(order?.network, order?.txHash);
   const fallbackToAddress = String(order?.usdtWallet || '').trim() || 'N/A';
+  const skipChainLookup = !!order?.txVerifyDisabled;
+  const tx = skipChainLookup
+    ? {
+        status: '未启用链上验单',
+        fromAddress: 'N/A',
+        toAddress: fallbackToAddress,
+        paidAmount: order?.totalAmount != null ? `${order.totalAmount} USDT` : 'N/A',
+        missingApiKey: true,
+      }
+    : await queryTxStatus(order?.network, order?.txHash);
+  const explorer = getExplorerLink(order?.network, order?.txHash);
   const toAddress = tx.toAddress && tx.toAddress !== 'N/A' ? tx.toAddress : fallbackToAddress;
   const paidAmountRaw = tx.paidAmount && tx.paidAmount !== 'N/A' ? tx.paidAmount : 'N/A';
   const paidAmount = formatPaidAmountAsUsdt(paidAmountRaw);
@@ -1471,7 +1563,7 @@ async function notifyOrderPaid(order) {
     : String(tx.status || 'UNKNOWN');
   const text = `🧾 <b>新订单支付通知</b>
 
-🆔 <b>订单号:</b> <code>${esc(order?.id)}</code>
+🆔 <b>订单号:</b> <code>${esc(formatOrderNo(order))}</code>
 👤 <b>用户:</b> ${esc(order?.username || '')}
 📦 <b>商品:</b> ${esc(order?.productName || '')}
 🏷 <b>类型:</b> ${esc(formatProductCategory(order))}

@@ -38,6 +38,8 @@
     "adminLogin": "Admin Login",
     "adminDashboard": "Dashboard",
     "adminUsers": "User Management",
+    "adminRoles": "Roles & Permissions",
+    "adminAgents": "Agent Accounts",
     "adminUserForm": "User Form",
     "adminProducts": "Product Management",
     "adminProductAdd": "Add Product",
@@ -53,7 +55,8 @@
     "adminDeviceVerification": "Device Verification",
     "adminQuestions": "Question Banks",
     "adminQuestionAdd": "Add Question Bank",
-    "adminQuestionEdit": "Edit Question Bank"
+    "adminQuestionEdit": "Edit Question Bank",
+    "adminFirmwares": "Firmware Management"
   },
   "nav": {
     "home": "Home",
@@ -67,31 +70,70 @@
   },
   "home": {
     "hero": {
-      "title": "YHthestudio",
-      "subtitle": "Professional Digital Solutions",
-      "description": "We provide high-quality digital products and services to help your business grow",
-      "cta": "Explore Products"
+      "badge": "Innovative Technology, Leading the Future",
+      "title": "Smart Hardware & Digital Solutions",
+      "subtitle": "YHthestudio",
+      "description": "We develop high-quality hardware and software services, offering end-to-end support from design and production to after-sales for developers and enterprises.",
+      "ctaShop": "Visit Store",
+      "ctaChat": "Contact Us",
+      "visual": {
+        "hardware": "Smart Hardware",
+        "software": "Software",
+        "secure": "Secure",
+        "global": "Global"
+      }
+    },
+    "about": {
+      "label": "About Us",
+      "title": "Driven by Technology, Proven by Products",
+      "description": "YHthestudio is a technology brand combining R&D, e-commerce, and technical support. We balance engineering excellence with user experience, delivering innovative hardware and software for developers.",
+      "point1": "In-house R&D and strict quality control",
+      "point2": "Worldwide shipping with comprehensive docs",
+      "point3": "Community forum and professional support"
     },
     "features": {
       "title": "Why Choose Us",
+      "subtitle": "Full-chain assurance from purchase to daily use",
       "quality": {
         "title": "Premium Quality",
-        "description": "All products undergo strict quality control"
+        "description": "Every product is rigorously tested to ensure stability and reliability"
       },
       "support": {
-        "title": "24/7 Support",
-        "description": "Professional technical team at your service"
+        "title": "Expert Support",
+        "description": "Our team provides pre-sales consulting and after-sales assistance"
       },
       "secure": {
-        "title": "Secure Payment",
-        "description": "Multiple payment methods, safe and reliable"
+        "title": "Secure Checkout",
+        "description": "Multiple payment options with transparent and safe order processing"
+      },
+      "community": {
+        "title": "Active Community",
+        "description": "Official forum where developers and users share knowledge and updates"
       }
+    },
+    "stats": {
+      "products": "Products",
+      "support": "Tech Support",
+      "secure": "Secure Pay"
+    },
+    "products": {
+      "label": "Products",
+      "title": "Featured Products",
+      "subtitle": "Discover our latest hardware and digital offerings",
+      "viewAll": "View All Products"
+    },
+    "cta": {
+      "title": "Ready to Get Started?",
+      "description": "Browse our online store or join the community forum and chat with our team.",
+      "shop": "Go to Store",
+      "forum": "Visit Forum"
     },
     "latestProducts": "Latest Products"
   },
   "auth": {
     "login": {
       "title": "Login",
+      "subtitle": "Welcome back to YHthestudio",
       "username": "Username",
       "password": "Password",
       "submit": "Login",
@@ -174,31 +216,120 @@
   },
   "orders": {
     "title": "My Orders",
-    "empty": "No orders yet",
+    "empty": "No Orders",
+    "emptyHint": "You don't have any orders yet",
+    "goShopping": "Go Shopping",
+    "totalCount": "Total {count} orders",
+    "orderNumber": "Order #",
+    "quantity": "Quantity",
+    "unitPrice": "Unit Price",
+    "address": "Address",
+    "recipientName": "Recipient",
+    "recipientPhone": "Phone",
+    "addressDetail": "Address",
+    "transactionHash": "Transaction Hash",
+    "total": "Total",
+    "createdAt": "Created At",
+    "paidAt": "Paid At",
+    "completedAt": "Completed At",
+    "details": "Details",
+    "payNow": "Pay Now",
+    "processing": "Processing...",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "copyHint": "Double click to copy",
+    "notFound": "Order not found",
+    "detailTitle": "Order Details #{id}",
+    "orderInfo": "Order Information",
+    "orderDate": "Order Date",
+    "product": "Product",
+    "totalAmount": "Total Amount",
+    "orderStatus": "Order Status",
+    "paymentMethod": "Payment Method",
+    "paymentNetwork": "Network",
+    "progress": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "completed": "Completed"
+    },
+    "shippingAddress": "Shipping Address",
+    "paymentTime": "Payment Time",
+    "completionTime": "Completion Time",
+    "backToOrders": "Back to Orders",
+    "goToPayment": "Go to Payment",
+    "tracking": {
+      "title": "Shipping & Tracking",
+      "number": "Tracking Number",
+      "carrier": "Carrier",
+      "carrierSf": "SF Express",
+      "noTracking": "Tracking number has not been added yet",
+      "loading": "Loading tracking info…",
+      "refresh": "Refresh",
+      "viewOnSf": "Track on SF Express",
+      "liveHint": "Live tracking updates",
+      "externalHint": "SF website requires manual entry. The button copies your tracking number and opens the tracking page.",
+    "externalCopied": "Tracking number copied. Paste it on the SF website to search.",
+    "apiNotConfigured": "SF API is not configured. You can check manually on the official website.",
+    "apiErrorA1004": "Route query API is not live yet. Enable EXP_RECE_SEARCH_ROUTES in the SF console.",
+    "apiErrorA1006": "SF API signature failed. Check partner ID and production check word in laravel-api/.env.",
+    "apiErrorGeneric": "Tracking query failed: {message}",
+      "noRoutes": "No tracking events yet. Try again later or check on SF Express website.",
+      "routeTime": "Time",
+      "routeLocation": "Location",
+      "routeRemark": "Details"
+    },
     "status": {
       "pending": "Pending",
       "paid": "Paid",
       "completed": "Completed",
       "cancelled": "Cancelled"
-    },
-    "payNow": "Pay Now",
-    "quantity": "Quantity",
-    "total": "Total",
-    "createdAt": "Created At"
+    }
   },
   "payment": {
     "title": "Payment",
+    "notFound": "Order not found",
     "orderInfo": "Order Information",
+    "orderNumber": "Order Number",
     "productName": "Product",
     "quantity": "Quantity",
     "amount": "Amount",
+    "paymentAmount": "Payment Amount",
+    "orderStatus": "Order Status",
+    "recipientInfo": "Recipient Info",
+    "instructionsTitle": "USDT Payment Instructions",
     "walletAddress": "Wallet Address",
+    "walletAddressLabel": "Wallet Address ({network})",
     "network": "Network",
-    "txHash": "Transaction Hash",
-    "txHashPlaceholder": "Please enter the transaction hash after payment",
+    "stepsTitle": "Payment Steps",
+    "step1": "Open your USDT wallet (supporting {network} network)",
+    "step2": "Transfer {amount} USDT to the address above",
+    "step3": "Wait for blockchain confirmation (usually takes a few minutes)",
+    "step4": "Copy the transaction hash (TX Hash) and submit below",
+    "confirmTitle": "Confirm Payment",
+    "recipientName": "Recipient Name",
+    "recipientNamePlaceholder": "Please enter recipient name",
+    "recipientPhone": "Recipient Phone",
+    "recipientPhonePlaceholder": "Please enter recipient phone number",
+    "recipientAddress": "Recipient Address",
+    "recipientAddressPlaceholder": "Please enter full recipient address",
+    "recipientHint": "Please ensure recipient info is correct, otherwise the order cannot be confirmed",
+    "txHash": "Transaction Hash (TX Hash)",
+    "txHashPlaceholder": "Please enter your USDT transaction hash",
+    "txHashHint": "Please ensure the transaction hash is correct, otherwise the order cannot be confirmed",
     "submit": "Confirm Payment",
-    "copyAddress": "Copy Address",
-    "copied": "Copied!"
+    "copyAddress": "Copy",
+    "copied": "Copied!",
+    "successTitle": "Payment Successful!",
+    "successDesc": "Your order payment has been confirmed, we are processing it.",
+    "txHashDisplay": "Transaction Hash",
+    "viewOrders": "View My Orders",
+    "shippingAddressValue": "Name: {name} | Phone: {phone} | Address: {address}",
+    "recipientNameRequired": "Please enter recipient name",
+    "recipientPhoneRequired": "Please enter recipient phone",
+    "addressRequired": "Please enter shipping address",
+    "txHashRequired": "Please enter transaction hash",
+    "submitFailed": "Submission failed, please try again",
+    "orderDeleted": "Payment verification failed. Order cannot be created."
   },
   "buy": {
     "title": "Buy Product",
@@ -250,6 +381,11 @@
       "pending": "Pending",
       "needsAction": "Needs Action",
       "growing": "Growing",
+      "agentDownlineUsers": "Downline users",
+      "myProducts": "My products",
+      "myCatalog": "My listed items",
+      "myOrders": "My orders",
+      "myRevenue": "My sales (USDT)",
       "quickActions": "Quick Actions",
       "systemStatus": "System Status",
       "online": "Online",
@@ -281,6 +417,7 @@
       "id": "ID",
       "username": "Username",
       "email": "Email",
+      "password": "Password",
       "registerTime": "Register Time",
       "isAdmin": "Admin",
       "actions": "Actions",
@@ -315,19 +452,253 @@
       "failedToDelete": "Failed to delete users",
       "loadingUsers": "Loading users...",
       "admin": "Admin",
-      "userRole": "User"
+      "userRole": "User",
+      "formEditDesc": "Update user details and role assignments",
+      "formAddDesc": "Create a new user account",
+      "backToList": "Back to List",
+      "loadingUser": "Loading user data...",
+      "basicInfo": "Basic Information",
+      "usernamePlaceholder": "Enter username",
+      "usernameLocked": "Username cannot be changed after creation",
+      "passwordOptional": "Password (Optional)",
+      "passwordPlaceholder": "Enter password (min 8 characters)",
+      "passwordKeepHint": "Leave empty to keep current password",
+      "passwordMinHint": "Minimum 8 characters; leave empty when editing to keep the current password",
+      "permissionsSection": "Roles & Permissions",
+      "assignRoles": "Assign Roles",
+      "rolesHint": "Hold Ctrl (Command on Mac) to select multiple roles",
+      "saving": "Saving...",
+      "updateUser": "Update User",
+      "createUser": "Create User",
+      "saveSuccess": "User saved successfully",
+      "saveFailed": "Failed to save user. Please try again.",
+      "loadFailed": "Failed to load user: {message}",
+      "formInvalid": "Please fill in all required fields correctly"
+    },
+    "rbac": {
+      "title": "Roles & Permissions",
+      "desc": "Each permission maps to an admin sidebar module. Gray text shows the exact menu path.",
+      "roles": "Roles",
+      "permissions": "Permissions",
+      "permissionsFor": "Permissions: {name}",
+      "roleName": "Role name",
+      "addRole": "Add role",
+      "editRole": "Edit role",
+      "selectRoleHint": "Select a role on the left to edit permissions",
+      "needV2Login": "Sign in with admin account to enable V2 secure API (synced on admin login)",
+      "loadFailed": "Failed to load",
+      "saveSuccess": "Saved successfully",
+      "saveFailed": "Failed to save",
+      "autoSaving": "Saving…",
+      "autoSaved": "Auto-saved",
+      "permCount": "Perms",
+      "noRoles": "No roles yet",
+      "roleNameRequired": "Role name is required",
+      "superAdminLocked": "Super admin has all permissions and cannot be modified",
+      "permModules": {
+        "admin": "Dashboard",
+        "user": "User Management",
+        "role": "Roles & Permissions",
+        "agent": "Agent Accounts",
+        "product": "Product Management",
+        "order": "Order Management",
+        "forum": "Forum Management",
+        "question": "Question Banks",
+        "firmware": "Firmware",
+        "device": "Device Verification",
+        "payment": "Payment Settings",
+        "content": "Popup Notices",
+        "chat": "Customer Service"
+      },
+      "roleNames": {
+        "super_admin": "Super Admin",
+        "staff": "Staff",
+        "agent": "Agent",
+        "customer": "Customer"
+      },
+      "perm": {
+        "admin": {
+          "access": "Sign in to admin panel"
+        },
+        "user": {
+          "view": "View user list",
+          "create": "Add users",
+          "update": "Edit users",
+          "delete": "Delete users"
+        },
+        "role": {
+          "view": "View roles",
+          "manage": "Configure roles & permissions"
+        },
+        "agent": {
+          "view": "View agent list",
+          "create": "Promote user to agent",
+          "manage": "Edit agent profile"
+        },
+        "product": {
+          "view": "View products & categories",
+          "manage": "Manage products & categories"
+        },
+        "order": {
+          "view": "View all orders",
+          "view_own_tree": "View my sales orders",
+          "manage": "Process / delete orders"
+        },
+        "forum": {
+          "view": "View posts & replies",
+          "manage": "Manage posts & replies"
+        },
+        "question": {
+          "view": "View question banks",
+          "edit": "Add / edit question banks",
+          "delete": "Delete question banks"
+        },
+        "firmware": {
+          "view": "View firmware",
+          "edit": "Upload / edit firmware",
+          "delete": "Delete firmware"
+        },
+        "device": {
+          "view": "View verification settings",
+          "keys": {
+            "view": "View device keys"
+          }
+        },
+        "payment": {
+          "view": "View payment settings",
+          "manage": "Edit payment settings"
+        },
+        "content": {
+          "view": "View popup notices",
+          "manage": "Publish / edit popup notices"
+        },
+        "chat": {
+          "manage": "Manage chat workspace",
+          "settings": "Manage chat settings"
+        }
+      },
+      "permDesc": {
+        "admin": {
+          "access": "Sidebar: Dashboard + admin entry"
+        },
+        "user": {
+          "view": "Menu: User Management → user list",
+          "create": "Menu: User Management → add user",
+          "update": "Menu: User Management → edit user",
+          "delete": "Menu: User Management → delete user"
+        },
+        "role": {
+          "view": "Menu: Roles & Permissions → roles (read-only)",
+          "manage": "Menu: Roles & Permissions → roles (editable)"
+        },
+        "agent": {
+          "view": "Menu: Roles & Permissions → agents (read-only)",
+          "create": "Menu: Roles & Permissions → agents → create agent",
+          "manage": "Menu: Roles & Permissions → agents (edit commission/region)"
+        },
+        "product": {
+          "view": "Menu: Product Management → list (agents: own products only)",
+          "manage": "Menu: Product Management → add/edit/delete (agents: own products only)"
+        },
+        "order": {
+          "view": "Menu: Order Management → all orders",
+          "view_own_tree": "Menu: Order Management → sales on own products + downline orders",
+          "manage": "Menu: Order Management → change status, delete"
+        },
+        "forum": {
+          "view": "Menu: Forum Management → view posts & replies",
+          "manage": "Menu: Forum Management → post/pin/delete"
+        },
+        "question": {
+          "view": "Menu: Q&A & Firmware → question banks (read-only)",
+          "edit": "Menu: Q&A & Firmware → add/edit question banks & upload files",
+          "delete": "Menu: Q&A & Firmware → delete question banks"
+        },
+        "firmware": {
+          "view": "Menu: Q&A & Firmware → firmware list (read-only)",
+          "edit": "Menu: Q&A & Firmware → upload firmware, set default",
+          "delete": "Menu: Q&A & Firmware → delete firmware"
+        },
+        "device": {
+          "view": "Menu: Settings → Device Verification (view)",
+          "keys": {
+            "view": "Menu: Settings → Device Verification → keys"
+          }
+        },
+        "payment": {
+          "view": "Menu: Settings → Payment Settings (read-only)",
+          "manage": "Menu: Settings → Payment Settings (edit wallet etc.)"
+        },
+        "content": {
+          "view": "Menu: Settings → Popup Notices (read-only)",
+          "manage": "Menu: Settings → Popup Notices (publish/edit/delete)"
+        },
+        "chat": {
+          "manage": "Menu: Customer Service → chat workspace",
+          "settings": "Menu: Customer Service → chat settings (Telegram)"
+        }
+      }
+    },
+    "agents": {
+      "title": "Agent Accounts",
+      "desc": "Multi-level agents with scoped data access",
+      "list": "Agent list",
+      "create": "Create agent",
+      "edit": "Edit agent",
+      "updateSuccess": "Saved successfully",
+      "updateFailed": "Failed to save",
+      "deleteConfirm": "Delete agent \"{name}\"? The user will become a regular customer. This cannot be undone.",
+      "deleteSuccess": "Deleted successfully",
+      "deleteFailed": "Failed to delete",
+      "hasSubordinates": "This agent still has subordinates. Remove or reassign them first.",
+      "createHint": "Select an existing registered user to promote as agent. No new account is created.",
+      "selectUser": "Select user",
+      "selectUserPlaceholder": "Search by username or email",
+      "selectUserHint": "Loads from users table — accounts not yet promoted to agent; fuzzy search by username or email",
+      "noEligibleUsers": "No eligible users found (may already be an agent or super admin)",
+      "searchUsersFailed": "Failed to search users",
+      "userRequired": "Please select a user",
+      "alreadyAgent": "This user is already an agent",
+      "cannotAssignAdmin": "Cannot assign super admin as agent",
+      "parent": "Parent agent",
+      "commission": "Commission (%)",
+      "revenue": "Revenue (USDT)",
+      "revenueTooltip": "Gross {gross}, commission {rate}; amount shown is after deduction",
+      "region": "Region",
+      "loadFailed": "Failed to load",
+      "createSuccess": "Agent created",
+      "createFailed": "Failed to create agent",
+      "empty": "No agent accounts yet",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "usernameRequired": "Username is required",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email address",
+      "passwordRequired": "Password is required",
+      "passwordMin": "Password must be at least 8 characters"
     },
     "products": {
       "title": "Product Management",
+      "subtitle": "Manage your product catalog, pricing, and availability",
+      "catalogTitle": "Product Catalog",
       "listTitle": "Product List",
       "description": "Description",
       "id": "ID",
+      "product": "Product",
       "name": "Name",
-      "price": "Price (USDT)",
+      "price": "Price",
       "date": "Date",
       "actions": "Actions",
       "edit": "Edit",
       "delete": "Delete",
+      "categories": "Categories",
+      "loading": "Loading products...",
+      "totalCount": "{count} products in catalog",
+      "tableHint": "Use the action buttons to edit or remove products from your catalog",
+      "scrollHint": "Scroll horizontally to see all columns",
+      "emptyTitle": "No Products Yet",
+      "emptyDesc": "Your product catalog is empty. Start by adding your first product.",
+      "addFirst": "Add First Product",
       "confirmDelete": "Are you sure you want to delete this product?",
       "empty": "No products found",
       "addProduct": "Add Product",
@@ -335,7 +706,19 @@
       "save": "Save",
       "cancel": "Cancel",
       "imageUrl": "Image URL",
-      "category": "Category"
+      "category": "Category",
+      "deleteModalTitle": "Confirm Product Deletion",
+      "deleteConfirm": "Are you sure you want to delete this product:",
+      "cannotUndo": "This action cannot be undone!",
+      "deleteWarning": "This product will be permanently removed from your catalog and associated orders may be affected.",
+      "cancelKeep": "Cancel, Keep Product",
+      "deleteProduct": "Delete Product",
+      "loadFailed": "Failed to load products",
+      "deleteSuccess": "Product \"{name}\" deleted successfully",
+      "deleteFailed": "Failed to delete product: {error}",
+      "editTitle": "Edit {name}",
+      "deleteTitle": "Delete {name}",
+      "actionsFor": "Actions for {name}"
     },
     "productCategories": {
       "menu": "Categories",
@@ -450,8 +833,10 @@
       }
     },
     "posts": {
-      "title": "Title",
+      "menu": "Forum",
+      "title": "Forum Management",
       "listTitle": "Forum Posts",
+      "postTitle": "Title",
       "description": "Manage all forum posts in the system",
       "id": "ID",
       "author": "Author",
@@ -467,44 +852,138 @@
       "addPost": "Add Post",
       "editPost": "Edit Post",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "subtitle": "Moderate forum posts and discussions",
+      "totalCount": "Total {count} posts",
+      "loading": "Loading posts...",
+      "statusPinned": "Pinned",
+      "statusNormal": "Normal",
+      "pinnedPost": "Pinned post",
+      "manageReplies": "Manage Replies",
+      "loadingReplies": "Loading replies...",
+      "noReplies": "No replies for this post.",
+      "confirmDeleteTitle": "Confirm Delete",
+      "deleteWarning": "This action cannot be undone. All replies will also be deleted.",
+      "deletePost": "Delete Post",
+      "addFirstPost": "Add First Post",
+      "scrollHint": "Scroll horizontally to see all columns"
     },
     "orders": {
       "title": "Order Management",
+      "subtitle": "Process and track customer orders",
       "listTitle": "Order List",
       "description": "Manage all orders in the system",
+      "filterByStatus": "Filter by Status:",
+      "allOrders": "All Orders",
+      "totalCount": "Total {count} orders",
+      "loading": "Loading orders...",
       "id": "ID",
+      "orderNumber": "Order #",
       "user": "User",
+      "customer": "Customer",
       "product": "Product",
       "quantity": "Quantity",
-      "amount": "Amount (USDT)",
+      "qty": "Qty",
+      "amount": "Amount",
       "status": "Status",
       "createdAt": "Created At",
+      "date": "Date",
+      "txHash": "TX Hash",
+      "address": "Address",
       "actions": "Actions",
+      "view": "View",
+      "viewDetails": "View Details",
       "pending": "Pending",
       "paid": "Paid",
       "completed": "Completed",
       "cancelled": "Cancelled",
       "updateStatus": "Update Status",
+      "updateStatusTitle": "Update status - Current: {status}",
       "delete": "Delete",
+      "deleteOrderTitle": "Delete order {id}",
       "confirmDelete": "Are you sure you want to delete this order?",
       "empty": "No orders found",
+      "scrollHint": "Scroll horizontally to see all columns",
+      "na": "N/A",
       "filter": {
         "all": "All",
         "pending": "Pending",
         "paid": "Paid",
         "completed": "Completed",
         "cancelled": "Cancelled"
+      },
+      "deleteModal": {
+        "title": "Confirm Order Deletion",
+        "confirmText": "Are you sure you want to delete this order:",
+        "orderLabel": "Order #{id}",
+        "cannotUndo": "This action cannot be undone!",
+        "permanentDelete": "This order will be permanently deleted from the system.",
+        "deleteOrder": "Delete Order"
+      },
+      "detail": {
+        "title": "Order Details #{id}",
+        "customerInfo": "Customer Information",
+        "username": "Username:",
+        "userId": "User ID:",
+        "productInfo": "Product Information",
+        "productName": "Product Name:",
+        "unitPrice": "Unit Price:",
+        "totalAmount": "Total Amount:",
+        "shippingAddress": "Shipping Address",
+        "noShippingAddress": "No shipping address provided",
+        "transactionInfo": "Transaction Information",
+        "txHash": "TX Hash:",
+        "timestamps": "Timestamps",
+        "paidAt": "Paid At:",
+        "completedAt": "Completed At:",
+        "logistics": "Logistics",
+        "trackingNumber": "Tracking Number",
+        "trackingPlaceholder": "SF Express tracking number (optional)",
+        "trackingHint": "Auto-saves when you type. Customers can view tracking in order details.",
+        "trackingSaving": "Saving…",
+        "saveTracking": "Save Tracking Number",
+        "clearTracking": "Clear"
+      },
+      "toast": {
+        "loadFailed": "Failed to load orders",
+        "updateFailed": "Failed to update status",
+        "updateSuccess": "Order #{id} updated to {status}",
+        "deleteSuccess": "Order deleted successfully",
+        "deleteFailed": "Failed to delete order",
+        "addressCopied": "Address copied",
+        "txHashCopied": "TX Hash copied",
+        "trackingSaved": "Tracking number saved",
+        "trackingSaveFailed": "Failed to save tracking number"
       }
     },
     "paymentSettings": {
       "title": "Payment Settings",
-      "description": "Configure payment receipt settings",
-      "walletAddress": "Wallet Address",
-      "network": "Network",
-      "autoDeleteMinutes": "Auto Delete Minutes",
+      "pageTitle": "Payment Settings",
+      "heading": "Payment Configuration",
+      "subtitle": "Configure USDT wallet, auto-deletion, and on-chain TX verification rules",
+      "loading": "Loading settings…",
+      "cardTitle": "Payment Settings",
+      "walletAddress": "USDT Wallet Address",
+      "walletAddressPlaceholder": "Enter your USDT wallet address (e.g., TRC20 address)",
+      "walletAddressHint": "Customers will send USDT payments to this address",
+      "network": "Network Type",
+      "networkTrc20": "TRC20 (Tron Network) — Recommended",
+      "networkErc20": "ERC20 (Ethereum Network)",
+      "networkBep20": "BEP20 (BSC Network)",
+      "networkHint": "TRC20 is recommended for lower transaction fees",
+      "autoDeleteMinutes": "Auto-Delete Unpaid Orders (minutes)",
+      "autoDeleteMinutesHint": "Unpaid orders are deleted after this time (1–1440 minutes)",
+      "txVerifySection": "On-Chain Verification Rules",
+      "txVerifySectionHint": "When a customer submits a TX hash, the system verifies on-chain using these rules. Failed checks prevent order creation without Telegram notification. Set 0 to disable a rule; both 0 skips on-chain verification entirely. When verification is enabled, the recipient address must match the wallet address configured above",
+      "txVerifyMaxUnderpayUsdt": "Allowed Underpayment Tolerance (USDT)",
+      "txVerifyMaxUnderpayUsdtHint": "Order cannot be created if paid amount is below (order total − tolerance). E.g. tolerance 5 and order 100 → order cannot be created if paid < 95 USDT. Set 0 to disable amount check",
+      "txVerifyMaxAgeHours": "Maximum Transaction Age (hours)",
+      "txVerifyMaxAgeHoursHint": "Order cannot be created if the on-chain transaction is older than this many hours. Set 0 to disable age check",
       "save": "Save Settings",
-      "saved": "Settings saved successfully"
+      "saving": "Saving…",
+      "saved": "Settings saved successfully",
+      "saveFailed": "Failed to save settings",
+      "required": "Required"
     },
     "settings": "Settings",
     "logout": "Logout",
@@ -568,6 +1047,8 @@
       "chatbotDisabled": "Chatbot disabled",
       "settingsSaved": "Settings saved",
       "loadError": "Failed to load admins",
+      "requireReauth": "Chat settings require signing in again with your admin account",
+      "sessionExpired": "Session expired. Please sign in again.",
       "noAdmins": "No service accounts configured",
       "helpTitle": "How to get credentials?",
       "helpTokenTitle": "Bot Token",
@@ -597,6 +1078,9 @@
       "remaining": "Remaining",
       "createdAt": "Created At",
       "actions": "Actions",
+      "moreActions": "Actions",
+      "grantAuth": "Authorize",
+      "revokeAuth": "Revoke",
       "edit": "Edit",
       "delete": "Delete",
       "reset": "Reset",
@@ -613,6 +1097,8 @@
       "cooldownSaveError": "Failed to save cooldown settings",
       "cooldownInvalid": "Enter a number from 0 to 8760 (hours)",
       "loadSettingsError": "Failed to load device verification settings",
+      "requireReauth": "Device verification requires a legacy Node session. Please sign in again.",
+      "sessionExpired": "Session expired. Please sign in again.",
       "infoText": "Manage device verification quotas. Public and private keys are encrypted with device ID.",
       "empty": "No devices registered",
       "emptyHint": "Add a new device to start managing verification quotas",
@@ -706,10 +1192,70 @@
       "firmwareDeleteError": "Failed to delete firmware",
       "scrollHint": "Scroll horizontally to see all columns"
     },
+    "qaFirmware": {
+      "sectionTitle": "Q&A & Firmware"
+    },
+    "firmware": {
+      "pageTitle": "Firmware Management",
+      "listTitle": "Firmware list",
+      "description": "Upload Nano firmware packages and set the default version; bind firmware per device on Device Verification.",
+      "noPermission": "You do not have firmware permissions. Contact an administrator to assign a role.",
+      "sessionRequired": "Firmware requires a fresh admin sign-in. Please sign in again with an admin account.",
+      "sessionExpired": "Firmware session expired. Please sign in again.",
+      "loading": "Loading firmware...",
+      "count": "{total} firmware package(s)",
+      "tableHint": "Use actions to set default or delete firmware; click the pencil to edit remarks inline (blur or Enter to save)",
+      "remarkLabel": "Remark",
+      "remarkPlaceholder": "Optional, e.g. version notes or compatible devices (max 500 chars)",
+      "noRemark": "No remark",
+      "uploadModalTitle": "Upload firmware",
+      "uploadConfirm": "Start upload",
+      "registerModalTitle": "Register firmware from server",
+      "editRemarkTitle": "Edit remark",
+      "editRemarkSuccess": "Remark saved",
+      "editRemarkError": "Failed to save remark",
+      "colFileName": "File name",
+      "colRemark": "Remark",
+      "colFileSize": "Size",
+      "colChecksum": "SHA256",
+      "colDefault": "Default",
+      "colCreatedAt": "Uploaded at",
+      "colActions": "Actions",
+      "deleteTitle": "Delete firmware",
+      "emptyAllTitle": "No firmware yet",
+      "emptyAllDesc": "Upload a firmware package or register an existing file from the server",
+      "deleteModalTitle": "Delete firmware",
+      "deleteModalText": "Are you sure you want to delete this firmware?",
+      "deleteConfirm": "Delete firmware",
+      "upload": "Upload firmware",
+      "uploading": "Uploading... {progress}%",
+      "registerFromServer": "Register from server",
+      "registerFromServerPrompt": "Enter the firmware file name already on server (under uploads/nano-firmwares, e.g. firmware_v1.2.3.zip)",
+      "registerFromServerNameRequired": "Please enter a valid file name",
+      "registerFromServerSuccess": "Server firmware registered successfully",
+      "registerFromServerError": "Failed to register server firmware",
+      "defaultBadge": "Default firmware",
+      "setDefault": "Set default",
+      "setDefaultSuccess": "Default firmware updated and bound to all devices",
+      "setDefaultError": "Failed to set default firmware",
+      "loadError": "Failed to load firmware list",
+      "uploadSuccess": "Firmware uploaded successfully",
+      "uploadError": "Firmware upload failed",
+      "uploadTimeout": "Upload timed out (large files need more time). Retry or check your network.",
+      "upload413": "Request body too large: increase client_max_body_size in Nginx (e.g. 512m) and reload.",
+      "upload401": "Session expired. Sign out of admin and sign in again, then retry the upload.",
+      "upload403": "Request forbidden (403). Check site firewall or WAF rules for large uploads.",
+      "upload503": "Database/Python backend unavailable. Ensure the yh-py process (e.g. pm2) is running.",
+      "uploadGateway": "Gateway error (502/504). Increase Nginx proxy_read_timeout / proxy_send_timeout (e.g. 7200s) and verify the Node process is healthy.",
+      "uploadNetwork": "Network error or session expired. Check connection and sign in again.",
+      "deleteSuccess": "Firmware deleted successfully",
+      "deleteError": "Failed to delete firmware"
+    },
     "questions": {
       "pageTitle": "Question Banks",
       "listTitle": "Question banks",
       "description": "Manage question bank databases and vector index files",
+      "noPermission": "You do not have question bank permissions. Contact an administrator to assign a role.",
       "add": "Add question bank",
       "loading": "Loading question banks...",
       "count": "{filtered} / {total} question banks",

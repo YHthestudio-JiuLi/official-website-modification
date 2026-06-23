@@ -5,7 +5,16 @@
     <div class="dashboard-page">
       <!-- Stats Overview -->
       <div class="dashboard-stats">
-        <div class="stat-card stat-users">
+        <div v-if="isAgentScope" class="stat-card stat-users">
+          <div class="stat-icon">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-content">
+            <h3 class="stat-value">{{ stats.downlineUsers ?? stats.totalUsers }}</h3>
+            <p class="stat-label">{{ $t('admin.dashboard.agentDownlineUsers') }}</p>
+          </div>
+        </div>
+        <div v-else class="stat-card stat-users">
           <div class="stat-icon">
             <i class="fas fa-users"></i>
           </div>
@@ -25,15 +34,15 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalProducts }}</h3>
-            <p class="stat-label">{{ $t('admin.dashboard.totalProducts') }}</p>
+            <p class="stat-label">{{ isAgentScope ? $t('admin.dashboard.myProducts') : $t('admin.dashboard.totalProducts') }}</p>
           </div>
           <div class="stat-trend">
             <i class="fas fa-cube"></i>
-            <span>{{ $t('admin.dashboard.inCatalog') }}</span>
+            <span>{{ isAgentScope ? $t('admin.dashboard.myCatalog') : $t('admin.dashboard.inCatalog') }}</span>
           </div>
         </div>
 
-        <div class="stat-card stat-posts">
+        <div v-if="!isAgentScope" class="stat-card stat-posts">
           <div class="stat-icon">
             <i class="fas fa-comments"></i>
           </div>
@@ -53,7 +62,7 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalOrders }}</h3>
-            <p class="stat-label">{{ $t('admin.dashboard.totalOrders') }}</p>
+            <p class="stat-label">{{ isAgentScope ? $t('admin.dashboard.myOrders') : $t('admin.dashboard.totalOrders') }}</p>
           </div>
           <div v-if="stats.pendingOrders > 0" class="stat-trend warning">
             <i class="fas fa-clock"></i>
@@ -81,7 +90,7 @@
           </div>
           <div class="stat-content">
             <h3 class="stat-value">{{ stats.totalRevenue.toFixed(2) }}</h3>
-            <p class="stat-label">{{ $t('admin.dashboard.totalRevenue') }}</p>
+            <p class="stat-label">{{ isAgentScope ? $t('admin.dashboard.myRevenue') : $t('admin.dashboard.totalRevenue') }}</p>
           </div>
           <div class="stat-trend positive">
             <i class="fas fa-chart-line"></i>
@@ -96,7 +105,7 @@
           <i class="fas fa-bolt"></i> {{ $t('admin.dashboard.quickActions') }}
         </h2>
         <div class="actions-grid">
-          <router-link to="/admin/users" class="action-card">
+          <router-link v-if="!isAgentScope" to="/admin/users" class="action-card">
             <div class="action-icon users">
               <i class="fas fa-user-plus"></i>
             </div>
@@ -118,7 +127,7 @@
             </div>
           </router-link>
 
-          <router-link to="/admin/posts" class="action-card">
+          <router-link v-if="!isAgentScope" to="/admin/posts" class="action-card">
             <div class="action-icon posts">
               <i class="fas fa-edit"></i>
             </div>
@@ -143,7 +152,7 @@
       </div>
 
       <!-- System Status -->
-      <div class="dashboard-status">
+      <div v-if="!isAgentScope" class="dashboard-status">
         <h2 class="section-title">
           <i class="fas fa-heartbeat"></i> {{ $t('admin.dashboard.systemStatus') }}
         </h2>
@@ -175,19 +184,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const stats = ref({
+  scope: 'admin',
   totalUsers: 0,
   totalProducts: 0,
   totalPosts: 0,
   totalOrders: 0,
   pendingOrders: 0,
-  totalRevenue: 0
+  totalRevenue: 0,
+  downlineUsers: 0
 })
 const loading = ref(true)
+const isAgentScope = computed(() => stats.value.scope === 'agent')
 
 onMounted(async () => {
   try {

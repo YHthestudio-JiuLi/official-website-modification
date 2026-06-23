@@ -92,7 +92,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import * as catalogApi from '@/services/catalog'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import ProductCard from '@/components/user/ProductCard.vue'
@@ -184,8 +184,8 @@ onMounted(async () => {
   loadError.value = false
   try {
     const [productsRes, categoriesRes] = await Promise.all([
-      api.get('/api/products'),
-      api.get('/api/product-categories')
+      catalogApi.getProducts(),
+      catalogApi.getProductCategories()
     ])
     products.value = productsRes.data
     categories.value = categoriesRes.data || []

@@ -1,0 +1,224 @@
+<?php
+
+namespace App\Services\Catalog;
+
+use App\Models\Product;
+use App\Models\ProductCategory;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class ProductCatalogService
+{
+    public function __construct(
+        private readonly ProductNormalizer $normalizer,
+        private readonly ProductTranslator $translator,
+    ) {}
+
+    public function listProductsForApi(bool $translateEn = true, ?int $ownerUserId = null): array
+    {
+        $query = $this->productQuery()->orderByDesc('p.date')->orderByDesc('p.id');
+        if ($ownerUserId !== null) {
+            $query->where('p.createdByUserId', $ownerUserId);
+        }
+        $rows = $query->get();
+        $normalized = $this->normalizer->normalizeMany($rows->map(fn ($r) => (array) $r)->all());
+
+        return $this->translator->translateMany($normalized, $translateEn);
+    }
+
+    public function findProductForApi(int $id, bool $translateEn = true): ?array
+    {
+        $row = $this->productQuery()->where('p.id', $id)->first();
+        if (! $row) {
+            return null;
+        }
+        $normalized = $this->normalizer->normalize((array) $row);
+
+        return $this->translator->translateProduct($normalized, $translateEn);
+    }
+
+    public function listCategories(): array
+    {
+        return DB::table('product_categories as c')
+            ->leftJoin('product_categories as p', 'c.parentId', '=', 'p.id')
+            ->select([
+                'c.*',
+                'p.name as parentName',
+                'p.nameEn as parentNameEn',
+            ])
+            ->orderByRaw('CASE WHEN c.parentId IS NULL THEN c.sortOrder ELSE p.sortOrder END ASC')
+            ->orderByRaw('CASE WHEN c.parentId IS NULL THEN c.id ELSE c.parentId END ASC')
+            ->orderByRaw('(c.parentId IS NOT NULL) ASC')
+            ->orderBy('c.sortOrder')
+            ->orderBy('c.id')
+            ->get()
+            ->map(fn ($r) => (array) $r)
+            ->all();
+    }
+
+    public function createProduct(array $data, ?int $createdByUserId = null): Product
+    {
+        $this->validateCategories($data['categoryId'] ?? null, $data['subCategoryId'] ?? null);
+        $detail = $this->normalizer->serializeDetailJson($data);
+
+        return Product::query()->create([
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'image' => $this->normalizer->serializeImageField($data['image'] ?? null),
+            'date' => $data['date'] ?? now()->toDateString(),
+            'price' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'priceUsdt' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'featuresJson' => $detail['featuresJson'],
+            'specsJson' => $detail['specsJson'],
+            'usageNoticeJson' => $detail['usageNoticeJson'],
+            'categoryId' => $data['categoryId'] ?? null,
+            'subCategoryId' => $data['subCategoryId'] ?? null,
+            'createdByUserId' => $createdByUserId,
+        ]);
+    }
+
+    public function updateProduct(Product $product, array $data): Product
+    {
+        $this->validateCategories($data['categoryId'] ?? null, $data['subCategoryId'] ?? null);
+        $detail = $this->normalizer->serializeDetailJson($data);
+
+        $product->fill([
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'image' => $this->normalizer->serializeImageField($data['image'] ?? null),
+            'date' => $data['date'] ?? $product->date,
+            'price' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'priceUsdt' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'featuresJson' => $detail['featuresJson'],
+            'specsJson' => $detail['specsJson'],
+            'usageNoticeJson' => $detail['usageNoticeJson'],
+            'categoryId' => $data['categoryId'] ?? null,
+            'subCategoryId' => $data['subCategoryId'] ?? null,
+        ]);
+        $product->save();
+
+        return $product;
+    }
+
+    public function createCategory(array $data): ProductCategory
+    {
+        $parentId = $data['parentId'] ?? null;
+        $this->validateParent($parentId);
+
+        $slug = $this->uniqueSlug($data['slug'] ?? null, $data['name']);
+
+        return ProductCategory::query()->create([
+            'name' => trim($data['name']),
+            'nameEn' => isset($data['nameEn']) ? trim((string) $data['nameEn']) : null,
+            'slug' => $slug,
+            'sortOrder' => (int) ($data['sortOrder'] ?? 0),
+            'parentId' => $parentId,
+        ]);
+    }
+
+    public function updateCategory(ProductCategory $category, array $data): ProductCategory
+    {
+        $parentId = array_key_exists('parentId', $data) ? $data['parentId'] : $category->parentId;
+        $this->validateParent($parentId, $category->id);
+
+        if (isset($data['name'])) {
+            $category->name = trim($data['name']);
+        }
+        if (array_key_exists('nameEn', $data)) {
+            $category->nameEn = $data['nameEn'] ? trim((string) $data['nameEn']) : null;
+        }
+        if (isset($data['slug']) && trim($data['slug']) !== '') {
+            $category->slug = $this->uniqueSlug($data['slug'], $category->name, $category->id);
+        }
+        if (isset($data['sortOrder'])) {
+            $category->sortOrder = (int) $data['sortOrder'];
+        }
+        $category->parentId = $parentId;
+        $category->save();
+
+        return $category;
+    }
+
+    private function productQuery()
+    {
+        return DB::table('products as p')
+            ->leftJoin('product_categories as c', 'p.categoryId', '=', 'c.id')
+            ->leftJoin('product_categories as sc', 'p.subCategoryId', '=', 'sc.id')
+            ->select([
+                'p.*',
+                'c.name as categoryName',
+                'c.nameEn as categoryNameEn',
+                'c.slug as categorySlug',
+                'sc.name as subCategoryName',
+                'sc.nameEn as subCategoryNameEn',
+                'sc.slug as subCategorySlug',
+            ]);
+    }
+
+    private function validateCategories(?int $categoryId, ?int $subCategoryId): void
+    {
+        if ($subCategoryId !== null && $categoryId === null) {
+            throw ValidationException::withMessages(['subCategoryId' => ['Subcategory requires a parent category']]);
+        }
+        if ($subCategoryId === null) {
+            return;
+        }
+        $sub = ProductCategory::query()->find($subCategoryId);
+        if (! $sub || ! $sub->parentId) {
+            throw ValidationException::withMessages(['subCategoryId' => ['Invalid subcategory']]);
+        }
+        if ((int) $sub->parentId !== (int) $categoryId) {
+            throw ValidationException::withMessages(['subCategoryId' => ['Subcategory does not belong to the selected category']]);
+        }
+    }
+
+    private function validateParent(?int $parentId, ?int $categoryId = null): void
+    {
+        if ($parentId === null) {
+            return;
+        }
+        $parent = ProductCategory::query()->find($parentId);
+        if (! $parent) {
+            throw ValidationException::withMessages(['parentId' => ['Parent category not found']]);
+        }
+        if ($parent->parentId) {
+            throw ValidationException::withMessages(['parentId' => ['Only two-level categories are supported']]);
+        }
+        if ($categoryId !== null && (int) $parentId === (int) $categoryId) {
+            throw ValidationException::withMessages(['parentId' => ['Category cannot be its own parent']]);
+        }
+    }
+
+    private function uniqueSlug(?string $slug, string $name, ?int $ignoreId = null): string
+    {
+        $base = trim($slug ?? '') ?: $this->slugify($name);
+        $final = $base;
+        $n = 1;
+        while ($this->slugExists($final, $ignoreId)) {
+            $final = $base.'-'.$n;
+            $n++;
+        }
+
+        return $final;
+    }
+
+    private function slugExists(string $slug, ?int $ignoreId): bool
+    {
+        $q = ProductCategory::query()->where('slug', $slug);
+        if ($ignoreId) {
+            $q->where('id', '!=', $ignoreId);
+        }
+
+        return $q->exists();
+    }
+
+    private function slugify(string $text): string
+    {
+        $raw = strtolower(trim($text));
+        $raw = preg_replace('/[^\p{L}\p{N}\s-]/u', '', $raw) ?? '';
+        $raw = preg_replace('/[\s_]+/', '-', $raw) ?? '';
+        $raw = trim($raw, '-');
+
+        return $raw !== '' ? $raw : 'category';
+    }
+}

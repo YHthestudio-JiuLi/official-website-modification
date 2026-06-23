@@ -73,9 +73,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="user in users" :key="user.id" :class="{ 'admin-row': user.isAdmin, 'selected-row': selectedUsers.includes(user.id) }">
+              <tr v-for="user in users" :key="user.id" :class="{ 'admin-row': isSuperAdminUser(user), 'selected-row': selectedUsers.includes(user.id) }">
                 <td class="select-column">
-                  <input type="checkbox" v-model="selectedUsers" :value="user.id" :disabled="user.isAdmin" />
+                  <input type="checkbox" v-model="selectedUsers" :value="user.id" :disabled="isSuperAdminUser(user)" />
                 </td>
                 <td>
                   <span class="id-badge">#{{ user.id }}</span>
@@ -92,10 +92,16 @@
                   <span class="email-cell" :title="user.email">{{ user.email }}</span>
                 </td>
                 <td>
-                  <span :class="['role-badge', user.isAdmin ? 'role-admin' : 'role-user']">
-                    <i :class="user.isAdmin ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
-                    {{ user.isAdmin ? $t('admin.users.admin') : $t('admin.users.userRole') }}
-                  </span>
+                  <div class="role-tags">
+                    <span
+                      v-for="name in displayRoles(user)"
+                      :key="`${user.id}-${name}`"
+                      :class="['role-badge', name === 'super_admin' ? 'role-admin' : 'role-user']"
+                    >
+                      <i :class="name === 'super_admin' ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
+                      {{ roleLabel(name) }}
+                    </span>
+                  </div>
                 </td>
                 <td>
                   <span class="date-cell" :title="formatFullDate(user.createdAt)">{{ formatDate(user.createdAt) }}</span>
@@ -111,7 +117,7 @@
                       <span class="action-text">{{ $t('admin.users.edit') }}</span>
                     </router-link>
                     <button
-                      v-if="!user.isAdmin"
+                      v-if="!isSuperAdminUser(user)"
                       @click="confirmDelete(user.id, user.username)"
                       class="action-btn btn-delete"
                       :title="`${$t('admin.users.delete')} ${user.username}`"
@@ -168,9 +174,9 @@
                   <i class="fas fa-envelope"></i> {{ userToDelete?.email }}
                 </p>
                 <p class="user-role-text">
-                  <span :class="['badge', userToDelete?.isAdmin ? 'badge-admin' : 'badge-user']">
-                    <i :class="userToDelete?.isAdmin ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
-                    {{ userToDelete?.isAdmin ? $t('admin.users.admin') : $t('admin.users.userRole') }}
+                  <span :class="['badge', isSuperAdminUser(userToDelete) ? 'badge-admin' : 'badge-user']">
+                    <i :class="isSuperAdminUser(userToDelete) ? 'fas fa-shield-alt' : 'fas fa-user'"></i>
+                    {{ isSuperAdminUser(userToDelete) ? $t('admin.users.admin') : $t('admin.users.userRole') }}
                   </span>
                 </p>
               </div>
@@ -246,8 +252,28 @@ import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
-const { t } = useI18n()
+const { t, locale, te } = useI18n()
 const router = useRouter()
+
+function roleLabel(name) {
+  const key = `admin.rbac.roleNames.${name}`
+  return te(key) ? t(key) : name
+}
+
+/** 以 Spatie 角色为准；无角色数据时回退 legacy isAdmin */
+function isSuperAdminUser(user) {
+  if (Array.isArray(user?.roles)) {
+    return user.roles.includes('super_admin')
+  }
+  return !!user?.isAdmin
+}
+
+function displayRoles(user) {
+  if (Array.isArray(user?.roles) && user.roles.length > 0) {
+    return user.roles
+  }
+  return isSuperAdminUser(user) ? ['super_admin'] : ['customer']
+}
 
 const users = ref([])
 const loading = ref(true)
@@ -274,7 +300,8 @@ async function fetchUsers() {
   loading.value = true
   try {
     const response = await api.get('/api/admin/users')
-    users.value = response.data
+    const payload = response.data
+    users.value = Array.isArray(payload) ? payload : (payload?.data ?? [])
   } catch (error) {
     showToast(t('admin.users.failedToDelete'), 'error')
   } finally {
@@ -317,28 +344,38 @@ function showToast(message, type = 'success') {
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
+  return new Date(dateStr).toLocaleDateString(fmtLocale, {
     year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+    month: '2-digit',
+    day: '2-digit'
   })
 }
 
 function formatFullDate(dateStr) {
   if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('en-US')
+  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
+  return new Date(dateStr).toLocaleString(fmtLocale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }
 
 // Watch for changes in selectedUsers to update selectAll
 watch(selectedUsers, (newVal) => {
-  const nonAdminUsers = users.value.filter(u => !u.isAdmin).map(u => u.id)
+  const nonAdminUsers = users.value.filter(u => !isSuperAdminUser(u)).map(u => u.id)
   selectAll.value = newVal.length > 0 && nonAdminUsers.every(id => newVal.includes(id))
 }, { deep: true })
 
 function toggleSelectAll() {
   if (selectAll.value) {
     // Select all non-admin users
-    selectedUsers.value = users.value.filter(u => !u.isAdmin).map(u => u.id)
+    selectedUsers.value = users.value.filter(u => !isSuperAdminUser(u)).map(u => u.id)
   } else {
     // Deselect all
     selectedUsers.value = []
@@ -702,6 +739,12 @@ async function executeBatchDelete() {
 .role-badge.role-user {
   background: rgba(154, 157, 180, 0.15);
   color: var(--text-secondary);
+}
+
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .date-cell {

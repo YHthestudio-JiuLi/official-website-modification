@@ -1,30 +1,30 @@
 <template>
   <AdminLayout>
-    <template #header-title>Product Management</template>
+    <template #header-title>{{ $t('admin.products.title') }}</template>
 
     <div class="products-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
             <i class="fas fa-box"></i>
-            Product Catalog
+            {{ $t('admin.products.catalogTitle') }}
           </h2>
-          <p>Manage your product catalog, pricing, and availability</p>
+          <p>{{ $t('admin.products.subtitle') }}</p>
         </div>
-        <router-link to="/admin/products/add" class="btn btn-primary" title="Add a new product to your catalog">
+        <router-link to="/admin/products/add" class="btn btn-primary" :title="$t('admin.products.addProduct')">
           <i class="fas fa-plus"></i>
-          <span>Add Product</span>
+          <span>{{ $t('admin.products.addProduct') }}</span>
         </router-link>
-        <router-link to="/admin/product-categories" class="btn btn-secondary" title="Manage product categories">
+        <router-link v-if="!isScopedAgent" to="/admin/product-categories" class="btn btn-secondary" :title="$t('admin.products.categories')">
           <i class="fas fa-tags"></i>
-          <span>Categories</span>
+          <span>{{ $t('admin.products.categories') }}</span>
         </router-link>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading products...</span>
+          <span>{{ $t('admin.products.loading') }}</span>
         </div>
       </div>
 
@@ -32,15 +32,14 @@
         <div class="table-header">
           <div class="table-info">
             <i class="fas fa-box-open"></i>
-            <span>Total <strong>{{ products.length }}</strong> products in catalog</span>
+            <span>{{ $t('admin.products.totalCount', { count: products.length }) }}</span>
           </div>
         </div>
 
-        <!-- Table Info Bar -->
         <div class="table-info-bar">
           <p class="info-text">
             <i class="fas fa-info-circle"></i>
-            Use the action buttons to edit or remove products from your catalog
+            {{ $t('admin.products.tableHint') }}
           </p>
         </div>
 
@@ -48,13 +47,13 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Price</th>
-                <th>Date</th>
-                <th class="text-center">Actions</th>
+                <th>{{ $t('admin.products.id') }}</th>
+                <th>{{ $t('admin.products.product') }}</th>
+                <th v-if="!isScopedAgent">{{ $t('admin.products.category') }}</th>
+                <th>{{ $t('admin.products.description') }}</th>
+                <th>{{ $t('admin.products.price') }}</th>
+                <th>{{ $t('admin.products.date') }}</th>
+                <th class="text-center">{{ $t('admin.products.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -70,7 +69,7 @@
                     <span class="product-name">{{ product.name }}</span>
                   </div>
                 </td>
-                <td>
+                <td v-if="!isScopedAgent">
                   <span class="category-cell">
                     {{ product.categoryName || '—' }}
                     <template v-if="product.subCategoryName">
@@ -92,33 +91,33 @@
                   <span class="date-cell">{{ product.date }}</span>
                 </td>
                 <td class="actions-cell">
-                  <div class="action-group" role="group" :aria-label="`Actions for ${product.name}`">
+                  <div class="action-group" role="group" :aria-label="$t('admin.products.actionsFor', { name: product.name })">
                     <router-link
                       :to="`/admin/products/edit/${product.id}`"
                       class="action-btn btn-edit"
-                      :title="`Edit ${product.name} - Modify product details and pricing`"
+                      :title="$t('admin.products.editTitle', { name: product.name })"
                     >
                       <i class="fas fa-edit"></i>
-                      <span class="action-text">Edit</span>
+                      <span class="action-text">{{ $t('admin.products.edit') }}</span>
                     </router-link>
                     <button
                       @click="confirmDelete(product.id, product.name)"
                       class="action-btn btn-delete"
-                      :title="`Delete ${product.name} - Remove from catalog permanently`"
+                      :title="$t('admin.products.deleteTitle', { name: product.name })"
                     >
                       <i class="fas fa-trash"></i>
-                      <span class="action-text">Delete</span>
+                      <span class="action-text">{{ $t('admin.products.delete') }}</span>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="products.length === 0">
-                <td colspan="7" class="empty-state">
+                <td :colspan="isScopedAgent ? 6 : 7" class="empty-state">
                   <i class="fas fa-box-open"></i>
-                  <h3>No Products Yet</h3>
-                  <p>Your product catalog is empty. Start by adding your first product.</p>
+                  <h3>{{ $t('admin.products.emptyTitle') }}</h3>
+                  <p>{{ $t('admin.products.emptyDesc') }}</p>
                   <router-link to="/admin/products/add" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Add First Product
+                    <i class="fas fa-plus"></i> {{ $t('admin.products.addFirst') }}
                   </router-link>
                 </td>
               </tr>
@@ -127,19 +126,18 @@
         </div>
         <div class="scroll-indicator">
           <i class="fas fa-arrows-alt-h"></i>
-          <span>Scroll horizontally to see all columns</span>
+          <span>{{ $t('admin.products.scrollHint') }}</span>
         </div>
       </div>
 
-      <!-- Delete Confirmation Modal -->
       <div v-if="showDeleteModal" class="modal-overlay" @click="closeDeleteModal">
         <div class="modal-container" @click.stop>
           <div class="modal-header danger">
             <i class="fas fa-exclamation-triangle"></i>
-            <h3>Confirm Product Deletion</h3>
+            <h3>{{ $t('admin.products.deleteModalTitle') }}</h3>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete this product:</p>
+            <p>{{ $t('admin.products.deleteConfirm') }}</p>
             <div class="product-info-box">
               <div class="product-preview">
                 <img v-if="getProductImage(productToDelete)" :src="getProductImage(productToDelete)" alt="Product" @error="handleImageError" />
@@ -158,23 +156,22 @@
             <div class="warning-box">
               <i class="fas fa-exclamation-circle"></i>
               <div class="warning-content">
-                <p><strong>This action cannot be undone!</strong></p>
-                <p>This product will be permanently removed from your catalog and associated orders may be affected.</p>
+                <p><strong>{{ $t('admin.products.cannotUndo') }}</strong></p>
+                <p>{{ $t('admin.products.deleteWarning') }}</p>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button @click="closeDeleteModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel, Keep Product
+              <i class="fas fa-times"></i> {{ $t('admin.products.cancelKeep') }}
             </button>
             <button @click="executeDelete" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Delete Product
+              <i class="fas fa-trash"></i> {{ $t('admin.products.deleteProduct') }}
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Toast Notification -->
       <div v-if="toast.visible" :class="['toast', toast.type]">
         <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
         <span>{{ toast.message }}</span>
@@ -184,19 +181,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import api from '@/services/api'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import * as catalogApi from '@/services/catalog'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { primaryProductImage } from '@/utils/productImages'
+
+const { t } = useI18n()
+const { isScopedAgent } = useAdminPermissions()
 
 const products = ref([])
 const loading = ref(true)
 
-// Delete modal state
 const showDeleteModal = ref(false)
 const productToDelete = ref(null)
 
-// Toast notification state
 const toast = ref({
   visible: false,
   type: 'success',
@@ -208,16 +208,16 @@ onMounted(fetchProducts)
 async function fetchProducts() {
   loading.value = true
   try {
-    const response = await api.get('/api/admin/products')
+    const response = await catalogApi.getAdminProducts()
     products.value = response.data
-  } catch (error) {
-    showToast('Failed to load products', 'error')
+  } catch {
+    showToast(t('admin.products.loadFailed'), 'error')
   } finally {
     loading.value = false
   }
 }
 
-function confirmDelete(id, name) {
+function confirmDelete(id) {
   productToDelete.value = products.value.find(p => p.id === id)
   showDeleteModal.value = true
 }
@@ -234,12 +234,13 @@ async function executeDelete() {
   const productName = productToDelete.value.name
 
   try {
-    await api.delete(`/api/admin/products/${productId}`)
+    await catalogApi.removeProduct(productId)
     closeDeleteModal()
     await fetchProducts()
-    showToast(`Product "${productName}" deleted successfully`, 'success')
+    showToast(t('admin.products.deleteSuccess', { name: productName }), 'success')
   } catch (error) {
-    showToast('Failed to delete product: ' + (error.response?.data?.message || 'Unknown error'), 'error')
+    const errMsg = error.response?.data?.message || t('common.unknownError')
+    showToast(t('admin.products.deleteFailed', { error: errMsg }), 'error')
   }
 }
 
@@ -392,10 +393,6 @@ function getProductImage(product) {
   color: var(--primary-color);
 }
 
-.table-info strong {
-  color: var(--primary-color);
-}
-
 .table-info-bar {
   padding: 0.75rem 1.5rem;
   background: rgba(0, 212, 255, 0.05);
@@ -449,13 +446,6 @@ function getProductImage(product) {
   background: #00b8e6;
 }
 
-.data-table {
-  width: 100%;
-  min-width: 1100px;
-  border-collapse: collapse;
-  display: table;
-}
-
 .scroll-indicator {
   display: none;
   padding: 0.5rem 1rem;
@@ -496,10 +486,6 @@ function getProductImage(product) {
 }
 
 @media (max-width: 576px) {
-  .admin-content {
-    padding: 0.5rem;
-  }
-
   .data-table {
     min-width: 1000px;
   }
@@ -672,7 +658,6 @@ function getProductImage(product) {
   margin: 0 0 1.5rem;
 }
 
-/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -810,7 +795,6 @@ function getProductImage(product) {
   justify-content: flex-end;
 }
 
-/* Toast Notification */
 .toast {
   position: fixed;
   bottom: 2rem;

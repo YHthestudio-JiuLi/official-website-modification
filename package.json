@@ -1,10 +1,13 @@
 {
   "name": "yhthestudio-web",
-  "version": "0.2.0",
+  "version": "2.1.0",
   "description": "YHthestudio - Vue 3 E-commerce & Forum Platform",
   "main": "api-server.js",
   "scripts": {
     "py": ".venv/bin/python -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
+    "laravel": "bash scripts/laravel-serve.sh",
+    "laravel:setup": "bash scripts/laravel-setup.sh",
+    "validate": "bash scripts/validate-migration.sh",
     "dev": "npm run build && npm start",
     "build": "vite build",
     "preview": "vite preview",
@@ -20,6 +23,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
     "body-parser": "^1.20.2",
@@ -27,6 +31,7 @@
     "cors": "^2.8.6",
     "csurf": "^1.11.0",
     "dotenv": "^17.3.1",
+    "element-plus": "^2.14.2",
     "express": "^4.18.2",
     "express-rate-limit": "^8.3.1",
     "express-session": "^1.17.3",

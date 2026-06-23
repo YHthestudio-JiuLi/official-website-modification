@@ -1,26 +1,26 @@
 <template>
   <AdminLayout>
-    <template #header-title>Payment Settings</template>
+    <template #header-title>{{ $t('admin.paymentSettings.pageTitle') }}</template>
 
     <div class="payment-settings-page">
       <div class="page-header">
         <div class="header-content">
-          <h2><i class="fas fa-wallet"></i> Payment Configuration</h2>
-          <p>Configure USDT payment wallet and order auto-deletion settings</p>
+          <h2><i class="fas fa-wallet"></i> {{ $t('admin.paymentSettings.heading') }}</h2>
+          <p>{{ $t('admin.paymentSettings.subtitle') }}</p>
         </div>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading settings...</span>
+          <span>{{ $t('admin.paymentSettings.loading') }}</span>
         </div>
       </div>
 
       <div v-else class="settings-card">
         <div class="settings-header">
           <i class="fas fa-cog"></i>
-          <h3>Payment Settings</h3>
+          <h3>{{ $t('admin.paymentSettings.cardTitle') }}</h3>
         </div>
 
         <form @submit.prevent="handleSubmit" class="settings-form">
@@ -28,12 +28,12 @@
             <i class="fas fa-exclamation-circle"></i> {{ error }}
           </div>
           <div v-if="success" class="alert alert-success">
-            <i class="fas fa-check-circle"></i> Settings saved successfully!
+            <i class="fas fa-check-circle"></i> {{ $t('admin.paymentSettings.saved') }}
           </div>
 
           <div class="form-group">
             <label for="wallet_address">
-              <i class="fas fa-wallet"></i> USDT Wallet Address
+              <i class="fas fa-wallet"></i> {{ $t('admin.paymentSettings.walletAddress') }}
               <span class="required">*</span>
             </label>
             <input
@@ -41,34 +41,34 @@
               id="wallet_address"
               v-model="form.wallet_address"
               required
-              placeholder="Enter your USDT wallet address (e.g., TRC20 address)"
+              :placeholder="$t('admin.paymentSettings.walletAddressPlaceholder')"
               class="form-input"
             />
             <p class="form-hint">
               <i class="fas fa-info-circle"></i>
-              This is the wallet address where customers will send USDT payments
+              {{ $t('admin.paymentSettings.walletAddressHint') }}
             </p>
           </div>
 
           <div class="form-group">
             <label for="network">
-              <i class="fas fa-network-wired"></i> Network Type
+              <i class="fas fa-network-wired"></i> {{ $t('admin.paymentSettings.network') }}
               <span class="required">*</span>
             </label>
             <select id="network" v-model="form.network" class="form-input">
-              <option value="TRC20">TRC20 (Tron Network) - Recommended</option>
-              <option value="ERC20">ERC20 (Ethereum Network)</option>
-              <option value="BEP20">BEP20 (BSC Network)</option>
+              <option value="TRC20">{{ $t('admin.paymentSettings.networkTrc20') }}</option>
+              <option value="ERC20">{{ $t('admin.paymentSettings.networkErc20') }}</option>
+              <option value="BEP20">{{ $t('admin.paymentSettings.networkBep20') }}</option>
             </select>
             <p class="form-hint">
               <i class="fas fa-exclamation-triangle"></i>
-              TRC20 is recommended for lower transaction fees
+              {{ $t('admin.paymentSettings.networkHint') }}
             </p>
           </div>
 
           <div class="form-group">
             <label for="autoDeleteMinutes">
-              <i class="fas fa-clock"></i> Auto-Delete Unpaid Orders (minutes)
+              <i class="fas fa-clock"></i> {{ $t('admin.paymentSettings.autoDeleteMinutes') }}
               <span class="required">*</span>
             </label>
             <input
@@ -83,62 +83,71 @@
             />
             <p class="form-hint">
               <i class="fas fa-info-circle"></i>
-              Unpaid orders will be automatically deleted after this time (1-1440 minutes)
+              {{ $t('admin.paymentSettings.autoDeleteMinutesHint') }}
             </p>
           </div>
 
+          <div class="form-section">
+            <div class="section-heading">
+              <i class="fas fa-link"></i>
+              <div>
+                <h4>{{ $t('admin.paymentSettings.txVerifySection') }}</h4>
+                <p>{{ $t('admin.paymentSettings.txVerifySectionHint') }}</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="txVerifyMaxUnderpayUsdt">
+                <i class="fas fa-coins"></i> {{ $t('admin.paymentSettings.txVerifyMaxUnderpayUsdt') }}
+                <span class="required">*</span>
+              </label>
+              <input
+                type="number"
+                id="txVerifyMaxUnderpayUsdt"
+                v-model.number="form.txVerifyMaxUnderpayUsdt"
+                min="0"
+                step="0.01"
+                required
+                placeholder="5"
+                class="form-input"
+              />
+              <p class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                {{ $t('admin.paymentSettings.txVerifyMaxUnderpayUsdtHint') }}
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label for="txVerifyMaxAgeHours">
+                <i class="fas fa-hourglass-half"></i> {{ $t('admin.paymentSettings.txVerifyMaxAgeHours') }}
+                <span class="required">*</span>
+              </label>
+              <input
+                type="number"
+                id="txVerifyMaxAgeHours"
+                v-model.number="form.txVerifyMaxAgeHours"
+                min="0"
+                max="168"
+                placeholder="2"
+                class="form-input"
+              />
+              <p class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                {{ $t('admin.paymentSettings.txVerifyMaxAgeHoursHint') }}
+              </p>
+            </div>
+          </div>
+
           <div class="form-actions">
+            <div v-if="success" class="save-success-inline">
+              <i class="fas fa-check-circle"></i> {{ $t('admin.paymentSettings.saved') }}
+            </div>
             <button type="submit" class="btn btn-primary" :disabled="submitting">
               <i class="fas fa-save"></i>
-              {{ submitting ? 'Saving...' : 'Save Settings' }}
+              {{ submitting ? $t('admin.paymentSettings.saving') : $t('admin.paymentSettings.save') }}
             </button>
           </div>
         </form>
-      </div>
-
-      <!-- Payment Guide -->
-      <div class="guide-card">
-        <div class="guide-header">
-          <i class="fas fa-book"></i>
-          <h3>Payment Process Guide</h3>
-        </div>
-        <div class="guide-content">
-          <div class="guide-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h4>Customer Places Order</h4>
-              <p>Customer selects products and creates an order in the system</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h4>Payment Page Display</h4>
-              <p>System shows your USDT wallet address and payment amount</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h4>Customer Sends Payment</h4>
-              <p>Customer transfers USDT to the displayed wallet address</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="step-number">4</div>
-            <div class="step-content">
-              <h4>Submit Transaction Hash</h4>
-              <p>Customer submits the TX hash for verification</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="step-number">5</div>
-            <div class="step-content">
-              <h4>Admin Verification</h4>
-              <p>You verify the payment and update order status in admin panel</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </AdminLayout>
@@ -146,29 +155,61 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+
+const { t } = useI18n()
 
 const form = ref({
   wallet_address: '',
   network: 'TRC20',
-  autoDeleteMinutes: 30
+  autoDeleteMinutes: 30,
+  txVerifyMaxUnderpayUsdt: 5,
+  txVerifyMaxAgeHours: 2,
 })
 const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 const success = ref(false)
 
+function applySettings(data) {
+  if (!data) return
+  form.value = {
+    wallet_address: data.wallet_address || '',
+    network: data.network || 'TRC20',
+    autoDeleteMinutes: data.autoDeleteMinutes ?? 30,
+    txVerifyMaxUnderpayUsdt: data.txVerifyMaxUnderpayUsdt != null ? Number(data.txVerifyMaxUnderpayUsdt) : 5,
+    txVerifyMaxAgeHours: data.txVerifyMaxAgeHours != null ? Number(data.txVerifyMaxAgeHours) : 2,
+  }
+}
+
+function buildPayload() {
+  const underpay = Number(form.value.txVerifyMaxUnderpayUsdt)
+  const maxAge = Number(form.value.txVerifyMaxAgeHours)
+  return {
+    ...form.value,
+    txVerifyMaxUnderpayUsdt: Number.isFinite(underpay) ? Math.max(0, underpay) : 0,
+    txVerifyMaxAgeHours: Number.isFinite(maxAge) ? Math.max(0, Math.trunc(maxAge)) : 0,
+  }
+}
+
+function extractSaveError(err) {
+  const data = err.response?.data
+  if (data?.message) return data.message
+  const errors = data?.errors
+  if (errors && typeof errors === 'object') {
+    const first = Object.values(errors).flat()[0]
+    if (first) return first
+  }
+  return t('admin.paymentSettings.saveFailed')
+}
+
 onMounted(async () => {
   try {
     const response = await api.get('/api/admin/payment-settings')
-    if (response.data) {
-      form.value = {
-        wallet_address: response.data.wallet_address || '',
-        network: response.data.network || 'TRC20',
-        autoDeleteMinutes: response.data.autoDeleteMinutes || 30
-      }
-    }
+    applySettings(response.data)
   } catch (err) {
     console.error('Failed to fetch settings:', err)
   } finally {
@@ -182,11 +223,14 @@ async function handleSubmit() {
   success.value = false
 
   try {
-    await api.put('/api/admin/payment-settings', form.value)
+    const response = await api.put('/api/admin/payment-settings', buildPayload())
+    applySettings(response.data)
     success.value = true
+    ElMessage.success(t('admin.paymentSettings.saved'))
     setTimeout(() => { success.value = false }, 3000)
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to save settings'
+    error.value = extractSaveError(err)
+    ElMessage.error(error.value)
   } finally {
     submitting.value = false
   }
@@ -267,6 +311,41 @@ async function handleSubmit() {
 
 .settings-form {
   padding: 1.5rem;
+}
+
+.form-section {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 212, 255, 0.02);
+}
+
+.section-heading {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-heading > i {
+  font-size: 1.25rem;
+  color: var(--primary-color);
+  margin-top: 0.15rem;
+}
+
+.section-heading h4 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.section-heading p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .alert {
@@ -356,6 +435,22 @@ select.form-input {
 .form-actions {
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-actions .btn-primary {
+  margin-left: auto;
+}
+
+.save-success-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #43e97b;
+  font-size: 0.95rem;
 }
 
 .btn {
@@ -387,76 +482,6 @@ select.form-input {
   transform: none;
 }
 
-/* Payment Guide Card */
-.guide-card {
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
-.guide-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(67, 233, 123, 0.03);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.guide-header i {
-  font-size: 1.25rem;
-  color: #43e97b;
-}
-
-.guide-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-}
-
-.guide-content {
-  padding: 1.5rem;
-}
-
-.guide-step {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.guide-step:last-child {
-  border-bottom: none;
-}
-
-.step-number {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--gradient-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.step-content h4 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
-  color: var(--text-primary);
-}
-
-.step-content p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -473,7 +498,7 @@ select.form-input {
     padding: 1rem;
   }
 
-  .guide-content {
+  .form-section {
     padding: 1rem;
   }
 }

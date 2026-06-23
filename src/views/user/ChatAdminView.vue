@@ -181,15 +181,18 @@ import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminStore } from '@/stores/admin'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
 
 const TOKEN_KEY = 'cs_admin_token'
 
 const { t, locale } = useI18n()
 const router = useRouter()
 const adminStore = useAdminStore()
+const { has } = useAdminPermissions()
 
 let ws = null
 let reconnectTimer = null
+let conversationPollTimer = null
 
 const isLoggedIn = ref(false)
 const token = ref('')
@@ -266,6 +269,25 @@ function wsUrl() {
   return `${proto}//${location.host}/ws`
 }
 
+function startConversationPolling() {
+  stopConversationPolling()
+  conversationPollTimer = setInterval(() => {
+    if (isLoggedIn.value) {
+      loadConversations()
+      if (activeSessionId.value) {
+        loadMessages(activeSessionId.value, { silent: true })
+      }
+    }
+  }, 12000)
+}
+
+function stopConversationPolling() {
+  if (conversationPollTimer) {
+    clearInterval(conversationPollTimer)
+    conversationPollTimer = null
+  }
+}
+
 function authHeaders() {
   return { Authorization: `Bearer ${token.value}` }
 }
@@ -280,7 +302,7 @@ function connectWs() {
   wsConnected.value = false
   ws = new WebSocket(wsUrl())
   ws.addEventListener('open', () => {
-    ws.send(JSON.stringify({ type: 'admin_auth', token: token.value }))
+    ws.send(JSON.stringify({ type: 'auth', role: 'admin', token: token.value }))
   })
   ws.addEventListener('message', (ev) => {
     let data
@@ -289,15 +311,15 @@ function connectWs() {
     } catch {
       return
     }
-    if (data.type === 'admin_auth_ok') {
+    if (data.type === 'auth_ok' && data.role === 'admin') {
       wsConnected.value = true
     }
-    if (data.type === 'admin_auth_fail') {
+    if (data.type === 'auth_fail') {
       wsConnected.value = false
     }
     if (data.type === 'message' && data.message) {
       if (data.message.session_id === activeSessionId.value) {
-        appendMessage(data.message, false)
+        appendMessage(data.message, true)
       } else {
         refreshConversations()
       }
@@ -312,18 +334,34 @@ function connectWs() {
   })
 }
 
+function isNearBottom(threshold = 96) {
+  const el = messagesContainer.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+}
+
+function scrollMessagesToBottom() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const el = messagesContainer.value
+      if (!el) return
+      el.scrollTop = el.scrollHeight
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight
+      })
+    })
+  })
+}
+
 function appendMessage(row, scrollBottom = true) {
   if (row.id != null) {
     if (seenMessageIds.has(row.id)) return
     seenMessageIds.add(row.id)
   }
   messages.value.push(row)
-  if (scrollBottom) {
-    nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    })
+  const isIncomingUser = row.sender === 'user'
+  if (scrollBottom && (isNearBottom() || isIncomingUser)) {
+    scrollMessagesToBottom()
   }
 }
 
@@ -345,6 +383,7 @@ async function handleLogin() {
     localStorage.setItem(TOKEN_KEY, token.value)
     isLoggedIn.value = true
     connectWs()
+    startConversationPolling()
     await loadConversations()
     password.value = ''
   } catch (e) {
@@ -387,21 +426,25 @@ async function selectSession(sessionId) {
   await loadMessages(sessionId)
 }
 
-async function loadMessages(sessionId) {
-  loadHistoryLoading.value = true
+async function loadMessages(sessionId, { silent = false } = {}) {
+  if (!silent) loadHistoryLoading.value = true
+  const prevCount = messages.value.length
+  const stickToBottom = silent ? isNearBottom() : true
   try {
     const res = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`)
     const data = await res.json()
     messages.value = data.messages || []
-    nextTick(() => {
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    })
+    seenMessageIds.clear()
+    for (const row of messages.value) {
+      if (row.id != null) seenMessageIds.add(row.id)
+    }
+    if (stickToBottom || messages.value.length > prevCount) {
+      scrollMessagesToBottom()
+    }
   } catch (e) {
     console.error('Failed to load messages:', e)
   } finally {
-    loadHistoryLoading.value = false
+    if (!silent) loadHistoryLoading.value = false
   }
 }
 
@@ -431,9 +474,16 @@ async function sendReply() {
 function syncInputHeight() {
   const el = inputEl.value
   if (!el) return
+  const maxHeight = 200
   el.style.height = 'auto'
-  const newHeight = Math.min(el.scrollHeight, 200)
-  el.style.height = newHeight + 'px'
+  const contentHeight = el.scrollHeight
+  if (contentHeight > maxHeight) {
+    el.style.height = `${maxHeight}px`
+    el.style.overflowY = 'auto'
+  } else {
+    el.style.height = `${contentHeight}px`
+    el.style.overflowY = 'hidden'
+  }
 }
 
 function handleLogout() {
@@ -445,6 +495,7 @@ function handleLogout() {
   conversations.value = []
   messages.value = []
   wsConnected.value = false
+  stopConversationPolling()
   localStorage.removeItem(TOKEN_KEY)
   if (ws) {
     ws.close()
@@ -453,30 +504,35 @@ function handleLogout() {
 }
 
 onMounted(async () => {
+  if (!has('chat.manage')) {
+    router.replace('/admin')
+    return
+  }
   const savedToken = localStorage.getItem(TOKEN_KEY)
-  if (savedToken) {
-    try {
-      const res = await fetch('/api/chat/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: savedToken }),
-      })
-      const data = await res.json()
-      if (res.ok && data.token) {
-        token.value = data.token
-        isLoggedIn.value = true
-        connectWs()
-        await loadConversations()
-      } else {
-        localStorage.removeItem(TOKEN_KEY)
-      }
-    } catch {
+  if (!savedToken) return
+  token.value = savedToken
+  try {
+    const res = await fetch('/api/chat/admin/conversations', {
+      headers: authHeaders(),
+    })
+    if (!res.ok) {
       localStorage.removeItem(TOKEN_KEY)
+      token.value = ''
+      return
     }
+    isLoggedIn.value = true
+    connectWs()
+    startConversationPolling()
+    const data = await res.json()
+    conversations.value = data.conversations || []
+  } catch {
+    localStorage.removeItem(TOKEN_KEY)
+    token.value = ''
   }
 })
 
 onUnmounted(() => {
+  stopConversationPolling()
   if (ws) {
     ws.close()
     ws = null
@@ -1074,8 +1130,24 @@ onUnmounted(() => {
   resize: none;
   max-height: 200px;
   min-height: 48px;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
   line-height: 1.4;
   transition: border-color 0.2s;
+}
+
+.admin-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-textarea::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.admin-textarea::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .admin-textarea:focus {

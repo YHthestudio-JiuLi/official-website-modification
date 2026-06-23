@@ -1,22 +1,22 @@
 <template>
   <AdminLayout>
-    <template #header-title>Forum Management</template>
+    <template #header-title>{{ $t('admin.posts.title') }}</template>
 
     <div class="posts-page">
       <div class="page-header">
         <div class="header-content">
-          <h2><i class="fas fa-comments"></i> Forum Posts</h2>
-          <p>Moderate forum posts and discussions</p>
+          <h2><i class="fas fa-comments"></i> {{ $t('admin.posts.listTitle') }}</h2>
+          <p>{{ $t('admin.posts.subtitle') }}</p>
         </div>
         <router-link to="/admin/posts/add" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Add Post
+          <i class="fas fa-plus"></i> {{ $t('admin.posts.addPost') }}
         </router-link>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
-          <span>Loading posts...</span>
+          <span>{{ $t('admin.posts.loading') }}</span>
         </div>
       </div>
 
@@ -24,20 +24,20 @@
         <div class="table-header">
           <div class="table-info">
             <i class="fas fa-newspaper"></i>
-            <span>Total <strong>{{ posts.length }}</strong> posts</span>
+            <span>{{ $t('admin.posts.totalCount', { count: posts.length }) }}</span>
           </div>
         </div>
         <div class="table-responsive">
           <table class="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Author</th>
-                <th>Date</th>
-                <th>Replies</th>
-                <th>Status</th>
-                <th class="text-center">Actions</th>
+                <th>{{ $t('admin.posts.id') }}</th>
+                <th>{{ $t('admin.posts.postTitle') }}</th>
+                <th>{{ $t('admin.posts.author') }}</th>
+                <th>{{ $t('admin.posts.date') }}</th>
+                <th>{{ $t('admin.posts.replies') }}</th>
+                <th>{{ $t('admin.orders.status') }}</th>
+                <th class="text-center">{{ $t('admin.posts.actions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -47,7 +47,7 @@
                 </td>
                 <td>
                   <div class="title-cell">
-                    <span v-if="post.isPinned" class="pinned-icon" title="Pinned post">
+                    <span v-if="post.isPinned" class="pinned-icon" :title="$t('admin.posts.pinnedPost')">
                       <i class="fas fa-thumbtack"></i>
                     </span>
                     <span class="title-text">{{ truncateTitle(post.title) }}</span>
@@ -71,42 +71,42 @@
                 <td>
                   <span :class="['status-badge', post.isPinned ? 'status-pinned' : 'status-normal']">
                     <i :class="post.isPinned ? 'fas fa-thumbtack' : 'fas fa-check'"></i>
-                    {{ post.isPinned ? 'Pinned' : 'Normal' }}
+                    {{ post.isPinned ? $t('admin.posts.statusPinned') : $t('admin.posts.statusNormal') }}
                   </span>
                 </td>
                 <td class="actions-cell">
-                  <div class="action-buttons" role="group" :aria-label="`Actions for post ${post.title}`">
+                  <div class="action-buttons" role="group" :aria-label="`${$t('admin.posts.actions')}: ${post.title}`">
                     <button
                       @click="handlePin(post.id, post.isPinned)"
                       :class="['btn-icon action-btn', post.isPinned ? 'btn-warning' : 'btn-info']"
-                      :title="post.isPinned ? 'Unpin this post' : 'Pin this post'"
+                      :title="post.isPinned ? $t('admin.posts.unpin') : $t('admin.posts.pin')"
                     >
                       <i class="fas fa-thumbtack"></i>
-                      <span class="action-label">{{ post.isPinned ? 'Unpin' : 'Pin' }}</span>
+                      <span class="action-label">{{ post.isPinned ? $t('admin.posts.unpin') : $t('admin.posts.pin') }}</span>
                     </button>
                     <router-link
                       :to="`/admin/posts/edit/${post.id}`"
                       class="btn-icon action-btn btn-edit"
-                      title="Edit post"
+                      :title="$t('admin.posts.edit')"
                     >
                       <i class="fas fa-edit"></i>
-                      <span class="action-label">Edit</span>
+                      <span class="action-label">{{ $t('admin.posts.edit') }}</span>
                     </router-link>
                     <button
                       @click="confirmDelete(post.id, post.title)"
                       class="btn-icon action-btn btn-delete"
-                      title="Delete post"
+                      :title="$t('admin.posts.delete')"
                     >
                       <i class="fas fa-trash"></i>
-                      <span class="action-label">Delete</span>
+                      <span class="action-label">{{ $t('admin.posts.delete') }}</span>
                     </button>
                     <button
                       @click="openRepliesModal(post)"
                       class="btn-icon action-btn btn-replies"
-                      title="Manage replies"
+                      :title="$t('admin.posts.replies')"
                     >
                       <i class="fas fa-comments"></i>
-                      <span class="action-label">Replies</span>
+                      <span class="action-label">{{ $t('admin.posts.replies') }}</span>
                     </button>
                   </div>
                 </td>
@@ -114,9 +114,9 @@
               <tr v-if="posts.length === 0">
                 <td colspan="7" class="empty-state">
                   <i class="fas fa-inbox"></i>
-                  <p>No posts found</p>
+                  <p>{{ $t('admin.posts.empty') }}</p>
                   <router-link to="/admin/posts/add" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Add First Post
+                    <i class="fas fa-plus"></i> {{ $t('admin.posts.addFirstPost') }}
                   </router-link>
                 </td>
               </tr>
@@ -125,7 +125,7 @@
         </div>
         <div class="scroll-indicator">
           <i class="fas fa-arrows-alt-h"></i>
-          <span>Scroll horizontally to see all columns</span>
+          <span>{{ $t('admin.posts.scrollHint') }}</span>
         </div>
       </div>
 
@@ -134,22 +134,22 @@
         <div class="modal-container" @click.stop>
           <div class="modal-header">
             <i class="fas fa-exclamation-triangle"></i>
-            <h3>Confirm Delete</h3>
+            <h3>{{ $t('admin.posts.confirmDeleteTitle') }}</h3>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete the post:</p>
-            <p class="post-title"><strong>"{{ postToDelete?.title }}"</strong>?</p>
+            <p>{{ $t('admin.posts.confirmDelete') }}</p>
+            <p class="post-title"><strong>"{{ postToDelete?.title }}"</strong></p>
             <p class="warning-text">
               <i class="fas fa-exclamation-circle"></i>
-              This action cannot be undone. All replies will also be deleted.
+              {{ $t('admin.posts.deleteWarning') }}
             </p>
           </div>
           <div class="modal-footer">
             <button @click="closeDeleteModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel
+              <i class="fas fa-times"></i> {{ $t('admin.posts.cancel') }}
             </button>
             <button @click="executeDelete" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Delete Post
+              <i class="fas fa-trash"></i> {{ $t('admin.posts.deletePost') }}
             </button>
           </div>
         </div>
@@ -159,15 +159,15 @@
         <div class="modal-container replies-modal" @click.stop>
           <div class="modal-header">
             <i class="fas fa-comments"></i>
-            <h3>Manage Replies</h3>
+            <h3>{{ $t('admin.posts.manageReplies') }}</h3>
           </div>
           <div class="modal-body">
             <p class="post-title"><strong>{{ repliesPost?.title || '-' }}</strong></p>
             <div v-if="repliesLoading" class="loading-inline">
-              <i class="fas fa-spinner fa-spin"></i> Loading replies...
+              <i class="fas fa-spinner fa-spin"></i> {{ $t('admin.posts.loadingReplies') }}
             </div>
             <div v-else-if="replies.length === 0" class="empty-replies">
-              No replies for this post.
+              {{ $t('admin.posts.noReplies') }}
             </div>
             <div v-else class="replies-list">
               <div v-for="reply in replies" :key="reply.id" class="reply-item">
@@ -178,14 +178,14 @@
                 <div class="reply-content">{{ reply.content }}</div>
                 <button class="btn-icon action-btn btn-delete" @click="deleteReply(reply.id)">
                   <i class="fas fa-trash"></i>
-                  <span class="action-label">Delete</span>
+                  <span class="action-label">{{ $t('admin.posts.delete') }}</span>
                 </button>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button @click="closeRepliesModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Close
+              <i class="fas fa-times"></i> {{ $t('common.close') }}
             </button>
           </div>
         </div>
@@ -265,7 +265,9 @@ async function openRepliesModal(post) {
   replies.value = []
   try {
     const response = await api.get(`/api/admin/posts/${post.id}/replies`)
-    replies.value = response.data?.replies || []
+    const data = response.data
+    // Laravel 可能直接返回数组，Node 返回 { replies: [] }
+    replies.value = Array.isArray(data) ? data : (data?.replies || [])
   } catch (error) {
     console.error('Failed to fetch replies:', error)
   } finally {

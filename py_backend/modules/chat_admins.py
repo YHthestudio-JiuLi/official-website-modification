@@ -26,7 +26,14 @@ class ChatAdminManager:
             """
         )
 
+    def ensure_support_admin(self) -> None:
+        """确保存在 username=support 的客服（后台聊天设置依赖此项）"""
+        self.cur.execute("SELECT id FROM chat_admins WHERE username = ?", ("support",))
+        if not self.cur.fetchone():
+            self.create("support", "官方客服", "网站管理员 · 在线为您解答", "#07c160")
+
     def find_all(self) -> List[Dict[str, Any]]:
+        self.ensure_support_admin()
         self.cur.execute(
             "SELECT id, username, display_name, bio, avatar_color, telegram_chat_id, telegram_token, chatbot_enabled, created_at FROM chat_admins ORDER BY id ASC"
         )
@@ -87,3 +94,5 @@ class ChatAdminManager:
         if count == 0:
             self.create("support", "官方客服", "网站管理员 · 在线为您解答", "#07c160")
             self.create("sales", "售前咨询", "产品与服务咨询", "#10aeff")
+            return
+        self.ensure_support_admin()

@@ -70,6 +70,7 @@ const dbOperations = {
     updateStatus: (id, status) => rpc('orders.updateStatus', { id, status }),
     updateTxHash: (id, txHash) => rpc('orders.updateTxHash', { id, txHash }),
     updateShippingAddress: (id, shippingAddress) => rpc('orders.updateShippingAddress', { id, shippingAddress }),
+    updateTrackingNumber: (id, trackingNumber) => rpc('orders.updateTrackingNumber', { id, trackingNumber }),
     getStats: () => rpc('orders.getStats'),
     delete: (id) => rpc('orders.delete', { id }),
     deleteExpiredPending: (minutes) => rpc('orders.deleteExpiredPending', { minutes })
@@ -94,8 +95,20 @@ const dbOperations = {
   },
   paymentSettings: {
     get: () => rpc('paymentSettings.get'),
-    update: (walletAddress, network = 'TRC20', autoDeleteMinutes = 30) =>
-      rpc('paymentSettings.update', { walletAddress, network, autoDeleteMinutes })
+    update: (
+      walletAddress,
+      network = 'TRC20',
+      autoDeleteMinutes = 30,
+      txVerifyMaxUnderpayUsdt = 5,
+      txVerifyMaxAgeHours = 2
+    ) =>
+      rpc('paymentSettings.update', {
+        walletAddress,
+        network,
+        autoDeleteMinutes,
+        txVerifyMaxUnderpayUsdt,
+        txVerifyMaxAgeHours
+      })
   },
   chatCommunitySettings: {
     get: () => rpc('chatCommunitySettings.get'),
@@ -204,8 +217,16 @@ const dbOperations = {
       rpc('deviceVerification.findAllLogs', { limit, offset }),
     countAllLogs: () => rpc('deviceVerification.countAllLogs'),
     listFirmwareFiles: () => rpc('deviceVerification.listFirmwareFiles'),
-    createFirmwareFile: (fileName, fileUrl, fileSize = 0, checksumSha256 = null) =>
-      rpc('deviceVerification.createFirmwareFile', { file_name: fileName, file_url: fileUrl, file_size: fileSize, checksum_sha256: checksumSha256 }),
+    createFirmwareFile: (fileName, fileUrl, fileSize = 0, checksumSha256 = null, remark = null) =>
+      rpc('deviceVerification.createFirmwareFile', {
+        file_name: fileName,
+        file_url: fileUrl,
+        file_size: fileSize,
+        checksum_sha256: checksumSha256,
+        remark
+      }),
+    updateFirmwareRemark: (id, remark) =>
+      rpc('deviceVerification.updateFirmwareRemark', { id, remark }),
     deleteFirmwareFile: (id) => rpc('deviceVerification.deleteFirmwareFile', { id }),
     setDefaultFirmware: (id) => rpc('deviceVerification.setDefaultFirmware', { id })
   },

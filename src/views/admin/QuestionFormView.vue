@@ -241,9 +241,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
 
 const route = useRoute()
 const router = useRouter()
+const { has } = useAdminPermissions()
 const { t, locale } = useI18n()
 
 const isEdit = computed(() => route.name === 'admin-question-edit')
@@ -288,6 +290,10 @@ watch(form, () => {
 }, { deep: true })
 
 onMounted(async () => {
+  if (!has('question.edit')) {
+    router.replace('/admin/questions')
+    return
+  }
   await fetchExistingCategories()
   if (isEdit.value) {
     loading.value = true

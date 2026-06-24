@@ -228,7 +228,7 @@
           </button>
           <span class="admin-info">
             <i class="fas fa-user-circle"></i>
-            <span class="admin-name">{{ adminStore.username || $t('admin.title') }}</span>
+            <span class="admin-name">{{ displayUsername || $t('admin.title') }}</span>
           </span>
         </div>
       </header>
@@ -250,7 +250,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
-import { logoutNodeAdmin } from '@/services/legacyNodeAuth'
+import { useV2Api } from '@/utils/apiPath'
+import { redirectToAdminLogin } from '@/utils/adminSessionRedirect'
+import { finalizeAdminLogout } from '@/utils/adminLogout'
 import { setLanguage } from '@/i18n'
 
 const route = useRoute()
@@ -285,6 +287,13 @@ const showRbacSection = computed(() => {
   return showRolesNav.value || showAgentsNav.value
 })
 
+const displayUsername = computed(() => {
+  if (useV2Api()) {
+    return adminV2Store.username || adminStore.username || ''
+  }
+  return adminStore.username || ''
+})
+
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
@@ -307,6 +316,17 @@ watch(() => route.path, scheduleSidebarScrollSync)
 watch(authReady, (ready) => {
   if (ready) scheduleSidebarScrollSync()
 })
+
+// 会话失效后若仍停留在后台页，自动跳转登录
+watch(
+  () => [authReady.value, adminV2Store.isLoggedIn, route.name],
+  ([ready, loggedIn, routeName]) => {
+    if (!useV2Api() || !ready || loggedIn || routeName === 'admin-login') return
+    if (route.meta?.requiresAdmin) {
+      redirectToAdminLogin()
+    }
+  }
+)
 
 function toggleMobileMenu() {
   mobileOpen.value = !mobileOpen.value
@@ -372,7 +392,7 @@ function toggleCollapse() {
 }
 
 async function handleLogout() {
-  await Promise.allSettled([adminStore.logout(), adminV2Store.logout(), logoutNodeAdmin()])
+  await finalizeAdminLogout(adminStore, adminV2Store)
   router.push('/admin/login')
 }
 

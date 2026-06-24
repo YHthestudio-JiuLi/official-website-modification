@@ -156,15 +156,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminStore } from '@/stores/admin'
-import api from '@/services/api'
+import {
+  fetchNotices as fetchNoticesApi,
+  createNotice,
+  updateNotice,
+  deleteNotice as deleteNoticeApi
+} from '@/services/v2/admin/popupNotices'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { handleAdminApiFailure } from '@/utils/adminApiError'
 
 const { t } = useI18n()
-const router = useRouter()
-const adminStore = useAdminStore()
 
 const notices = ref([])
 const loading = ref(true)
@@ -188,16 +190,14 @@ async function fetchNotices() {
   loading.value = true
   error.value = ''
   try {
-    const res = await api.get('/api/admin/popup-notices')
+    const res = await fetchNoticesApi()
     notices.value = (res.data.notices || []).map((n) => ({
       ...n,
       enabled: isNoticeEnabled(n.enabled)
     }))
   } catch (err) {
+    if (await handleAdminApiFailure(err)) return
     error.value = err.response?.data?.error || 'Failed to load notices'
-    if (err.response?.status === 401) {
-      router.push('/admin/login')
-    }
   } finally {
     loading.value = false
   }
@@ -231,9 +231,9 @@ async function saveNotice() {
   saving.value = true
   try {
     if (isEditing.value) {
-      await api.put(`/api/admin/popup-notices/${form.value.id}`, form.value)
+      await updateNotice(form.value.id, form.value)
     } else {
-      await api.post('/api/admin/popup-notices', form.value)
+      await createNotice(form.value)
     }
     closeModal()
     await fetchNotices()
@@ -246,7 +246,7 @@ async function saveNotice() {
 
 async function toggleStatus(notice) {
   try {
-    await api.put(`/api/admin/popup-notices/${notice.id}`, {
+    await updateNotice(notice.id, {
       title: notice.title,
       content: notice.content,
       enabled: !isNoticeEnabled(notice.enabled)
@@ -259,7 +259,7 @@ async function toggleStatus(notice) {
 
 async function deleteNotice(notice) {
   try {
-    await api.delete(`/api/admin/popup-notices/${notice.id}`)
+    await deleteNoticeApi(notice.id)
     notices.value = notices.value.filter((n) => n.id !== notice.id)
     await fetchNotices()
   } catch (err) {
@@ -284,11 +284,7 @@ function formatDate(dateStr) {
 }
 
 onMounted(() => {
-  if (!adminStore.isLoggedIn) {
-    router.push('/admin/login')
-  } else {
-    fetchNotices()
-  }
+  fetchNotices()
 })
 </script>
 

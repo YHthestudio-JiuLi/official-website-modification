@@ -3,17 +3,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useAdminStore } from '@/stores/admin'
-
-const authStore = useAuthStore()
-const adminStore = useAdminStore()
-
-onMounted(async () => {
-  await authStore.checkAuth()
-  await adminStore.checkAuth()
-})
+/* 会话检查统一在 router beforeEach，避免与守卫重复请求 */
 </script>
 
 <style>

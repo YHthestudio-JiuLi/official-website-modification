@@ -358,7 +358,14 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import * as catalogApi from '@/services/catalog'
+import {
+  fetchAdminProduct,
+  fetchAdminCategories,
+  uploadProductImage,
+  deleteProductImage,
+  createProduct,
+  updateProduct
+} from '@/services/v2/catalog'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
@@ -571,7 +578,7 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const response = await catalogApi.getAdminProduct(route.params.id)
+      const response = await fetchAdminProduct(route.params.id)
       form.value = {
         name: response.data.name || '',
         description: response.data.description || '',
@@ -600,7 +607,7 @@ onMounted(async () => {
 
 async function loadCategories() {
   try {
-    const res = await catalogApi.getAdminCategories()
+    const res = await fetchAdminCategories()
     categories.value = res.data || []
   } catch (_e) {
     categories.value = []
@@ -625,7 +632,7 @@ async function handleImageSelect(event) {
       }
       const formData = new FormData()
       formData.append('image', file)
-      const response = await catalogApi.uploadProductImage(formData)
+      const response = await uploadProductImage(formData)
       const imageUrl = response.data?.image
       if (!imageUrl) {
         throw new Error(t('admin.productForm.errors.invalidUpload'))
@@ -648,7 +655,7 @@ async function removeImage(index) {
   form.value.image = imageList.value[0] || ''
   if (typeof target === 'string' && (target.startsWith('/uploads/products/') || target.includes('/product-images/'))) {
     try {
-      await catalogApi.deleteProductImage(target)
+      await deleteProductImage(target)
     } catch (_e) {}
   }
 }
@@ -698,9 +705,9 @@ async function handleSubmit() {
     }
 
     if (isEdit.value) {
-      await catalogApi.saveProduct(route.params.id, submitData)
+      await updateProduct(route.params.id, submitData)
     } else {
-      await catalogApi.saveProduct(null, submitData)
+      await createProduct(submitData)
     }
 
     showToast(t('admin.productForm.success.saved'), 'success')

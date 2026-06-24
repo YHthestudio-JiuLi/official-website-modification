@@ -152,15 +152,18 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import {
+  fetchChatAdmins,
+  updateChatAdmin,
+  updateChatbot,
+  fetchCommunityLinks,
+  updateCommunityLinks
+} from '@/services/v2/admin/chatSettings'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
-import { useAdminStore } from '@/stores/admin'
-import { useAdminV2Store } from '@/stores/adminV2'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
-import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+import { forceAdminReauth } from '@/utils/legacyNodeSession'
 
 const router = useRouter()
-const adminStore = useAdminStore()
-const adminV2Store = useAdminV2Store()
 const { has } = useAdminPermissions()
 const { t } = useI18n()
 
@@ -184,14 +187,13 @@ async function loadAdmins() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/admin/chat-admins', { credentials: 'include' })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      if (await handleUnauthorized(res)) return
-      throw new Error(data.error || `HTTP ${res.status}`)
-    }
+    const { data } = await fetchChatAdmins()
     admins.value = data.admins || []
   } catch (e) {
+    if (e.response?.status === 401) {
+      await forceAdminReauth()
+      return
+    }
     error.value = t('admin.chatSettings.loadError')
     admins.value = []
   } finally {
@@ -199,31 +201,17 @@ async function loadAdmins() {
   }
 }
 
-async function handleUnauthorized(res) {
-  if (res?.status === 401) {
-    error.value = t('admin.chatSettings.sessionExpired')
-    await forceAdminReauth(router, adminStore, adminV2Store)
-    return true
-  }
-  return false
-}
-
 async function updateChatbotStatus(adminId, enabled) {
   try {
-    const res = await fetch('/api/admin/chat-admins/' + adminId + '/chatbot', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ enabled }),
-    })
-    if (!res.ok) {
-      if (await handleUnauthorized(res)) return
-      throw new Error('Failed to update')
-    }
+    await updateChatbot(adminId, { enabled })
     success.value = enabled ? t('admin.chatSettings.chatbotEnabled') : t('admin.chatSettings.chatbotDisabled')
     setTimeout(() => { success.value = '' }, 3000)
     await loadAdmins()
   } catch (e) {
+    if (e.response?.status === 401) {
+      await forceAdminReauth()
+      return
+    }
     error.value = e.message
     setTimeout(() => { error.value = '' }, 3000)
     await loadAdmins()
@@ -232,26 +220,21 @@ async function updateChatbotStatus(adminId, enabled) {
 
 async function saveAdminConfig(admin) {
   try {
-    const res = await fetch('/api/admin/chat-admins/' + admin.id, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        display_name: admin.display_name,
-        bio: admin.bio || '',
-        avatar_color: admin.avatar_color || '#07c160',
-        telegram_chat_id: admin.telegram_chat_id || null,
-        telegram_token: admin.telegram_token || null,
-        chatbot_enabled: !!admin.chatbot_enabled,
-      }),
+    await updateChatAdmin(admin.id, {
+      display_name: admin.display_name,
+      bio: admin.bio || '',
+      avatar_color: admin.avatar_color || '#07c160',
+      telegram_chat_id: admin.telegram_chat_id || null,
+      telegram_token: admin.telegram_token || null,
+      chatbot_enabled: !!admin.chatbot_enabled,
     })
-    if (!res.ok) {
-      if (await handleUnauthorized(res)) return
-      throw new Error('Failed to update')
-    }
     success.value = t('admin.chatSettings.settingsSaved')
     setTimeout(() => { success.value = '' }, 3000)
   } catch (e) {
+    if (e.response?.status === 401) {
+      await forceAdminReauth()
+      return
+    }
     error.value = e.message
     setTimeout(() => { error.value = '' }, 3000)
     await loadAdmins()
@@ -260,14 +243,11 @@ async function saveAdminConfig(admin) {
 
 async function loadCommunityLinks() {
   try {
-    const res = await fetch('/api/admin/chat/community-links', { credentials: 'include' })
-    if (res.ok) {
-      const data = await res.json()
-      const tg = data.telegramGroupUrl || ''
-      const qq = data.qqGroupUrl || ''
-      communityForm.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
-      communitySaved.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
-    }
+    const { data } = await fetchCommunityLinks()
+    const tg = data.telegramGroupUrl || ''
+    const qq = data.qqGroupUrl || ''
+    communityForm.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
+    communitySaved.value = { telegramGroupUrl: tg, qqGroupUrl: qq }
   } catch (e) {
     console.error('Failed to load community links:', e)
   }
@@ -289,20 +269,15 @@ async function saveCommunityLinks() {
     return
   }
   try {
-    const res = await fetch('/api/admin/chat/community-links', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      if (await handleUnauthorized(res)) return
-      throw new Error('Failed to save')
-    }
+    await updateCommunityLinks(payload)
     communitySaved.value = { ...payload }
     success.value = t('admin.chatSettings.settingsSaved')
     setTimeout(() => { success.value = '' }, 3000)
   } catch (e) {
+    if (e.response?.status === 401) {
+      await forceAdminReauth()
+      return
+    }
     error.value = e.message || t('admin.chatSettings.communitySaveFailed')
     setTimeout(() => { error.value = '' }, 3000)
   }
@@ -311,12 +286,6 @@ async function saveCommunityLinks() {
 onMounted(async () => {
   if (!has('chat.settings')) {
     router.replace('/admin')
-    return
-  }
-  const hasNodeSession = await hasLegacyNodeAdminSession()
-  if (!hasNodeSession) {
-    error.value = t('admin.chatSettings.requireReauth')
-    await forceAdminReauth(router, adminStore, adminV2Store)
     return
   }
   await Promise.all([loadAdmins(), loadCommunityLinks()])

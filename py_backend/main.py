@@ -177,9 +177,11 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "users.findAll":
         return db_manager.users.find_all()
     if op == "users.findById":
-        return db_manager.users.find_by_id(args["id"])
+        return db_manager.users.find_by_id(int(args["id"]))
     if op == "users.findByUsername":
         return db_manager.users.find_by_username(args["username"])
+    if op == "users.canAccessAdmin":
+        return db_manager.users.can_access_admin(int(args["id"]))
     if op == "users.findByEmail":
         return db_manager.users.find_by_email(args["email"])
     if op == "users.create":
@@ -546,7 +548,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "questions.findAll":
         return db_manager.questions.find_all()
     if op == "questions.findById":
-        return db_manager.questions.find_by_id(args["id"])
+        return db_manager.questions.find_by_id(int(args["id"]))
     if op == "questions.create":
         return db_manager.questions.create(
             args["name"],

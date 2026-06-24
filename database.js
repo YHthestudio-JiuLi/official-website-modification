@@ -37,6 +37,7 @@ const dbOperations = {
     findAll: () => rpc('users.findAll'),
     findById: (id) => rpc('users.findById', { id }),
     findByUsername: (username) => rpc('users.findByUsername', { username }),
+    canAccessAdmin: (id) => rpc('users.canAccessAdmin', { id }),
     findByEmail: (email) => rpc('users.findByEmail', { email }),
     create: (username, email, password, isAdmin = 0) =>
       rpc('users.create', { username, email, password, isAdmin }),

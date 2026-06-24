@@ -197,7 +197,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import {
+  fetchPosts,
+  pinPost,
+  deletePost,
+  fetchReplies,
+  deleteReply as deleteReplyApi
+} from '@/services/v2/admin/forum'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
@@ -211,12 +217,12 @@ const repliesPost = ref(null)
 const replies = ref([])
 const repliesLoading = ref(false)
 
-onMounted(fetchPosts)
+onMounted(loadPosts)
 
-async function fetchPosts() {
+async function loadPosts() {
   loading.value = true
   try {
-    const response = await api.get('/api/admin/posts')
+    const response = await fetchPosts()
     posts.value = response.data
   } catch (error) {
     console.error('Failed to fetch posts:', error)
@@ -228,8 +234,8 @@ async function fetchPosts() {
 async function handlePin(id, isPinned) {
   const action = isPinned ? 'unpin' : 'pin'
   try {
-    await api.post(`/api/admin/posts/${id}/pin`)
-    await fetchPosts()
+    await pinPost(id)
+    await loadPosts()
   } catch (error) {
     console.error('Failed to toggle pin:', error)
   }
@@ -250,8 +256,8 @@ async function executeDelete() {
   if (!postToDelete.value) return
 
   try {
-    await api.delete(`/api/admin/posts/${postToDelete.value.id}`)
-    await fetchPosts()
+    await deletePost(postToDelete.value.id)
+    await loadPosts()
     closeDeleteModal()
   } catch (error) {
     console.error('Failed to delete post:', error)
@@ -264,7 +270,7 @@ async function openRepliesModal(post) {
   repliesLoading.value = true
   replies.value = []
   try {
-    const response = await api.get(`/api/admin/posts/${post.id}/replies`)
+    const response = await fetchReplies(post.id)
     const data = response.data
     // Laravel 可能直接返回数组，Node 返回 { replies: [] }
     replies.value = Array.isArray(data) ? data : (data?.replies || [])
@@ -283,10 +289,10 @@ function closeRepliesModal() {
 
 async function deleteReply(replyId) {
   try {
-    await api.delete(`/api/admin/replies/${replyId}`)
+    await deleteReplyApi(replyId)
     replies.value = replies.value.filter((r) => r.id !== replyId)
     if (repliesPost.value) {
-      await fetchPosts()
+      await loadPosts()
       const latest = posts.value.find((p) => p.id === repliesPost.value.id)
       if (latest) repliesPost.value = latest
     }

@@ -317,7 +317,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import {
+  fetchOrders as fetchOrdersApi,
+  updateOrderStatus,
+  deleteOrder,
+  updateOrderTracking
+} from '@/services/v2/admin/orders'
 import { displayOrderNo } from '@/utils/orderNo'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
@@ -352,7 +357,7 @@ async function fetchOrders() {
   loading.value = true
   try {
     const params = statusFilter.value ? { status: statusFilter.value } : {}
-    const response = await api.get('/api/admin/orders', { params })
+    const response = await fetchOrdersApi({ params })
     orders.value = response.data
   } catch (error) {
     showToast(t('admin.orders.toast.loadFailed'), 'error')
@@ -371,7 +376,7 @@ function getStatusText(status) {
 
 async function handleStatusUpdate(id, status) {
   try {
-    await api.put(`/api/admin/orders/${id}/status`, { status })
+    await updateOrderStatus(id, { status })
     showToast(t('admin.orders.toast.updateSuccess', { id, status: getStatusText(status) }), 'success')
   } catch (error) {
     showToast(t('admin.orders.toast.updateFailed'), 'error')
@@ -393,7 +398,7 @@ async function executeDelete() {
   if (!orderToDelete.value) return
 
   try {
-    await api.delete(`/api/admin/orders/${orderToDelete.value.id}`)
+    await deleteOrder(orderToDelete.value.id)
     closeDeleteModal()
     await fetchOrders()
     showToast(t('admin.orders.toast.deleteSuccess'), 'success')
@@ -494,7 +499,7 @@ async function saveTracking() {
 
   savingTracking.value = true
   try {
-    const response = await api.put(`/api/admin/orders/${selectedOrder.value.id}/tracking`, {
+    const response = await updateOrderTracking(selectedOrder.value.id, {
       trackingNumber: trimmed,
     })
     const updated = response.data?.order

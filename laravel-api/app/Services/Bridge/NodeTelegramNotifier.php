@@ -29,16 +29,22 @@ class NodeTelegramNotifier
         $this->post('/api/internal/telegram/order-paid', $order);
     }
 
+    /** 客服 Bot 配置变更后重启 Node 侧轮询 */
+    public function restartChatBots(): void
+    {
+        $this->post('/api/internal/telegram/restart-bots', []);
+    }
+
     private function post(string $path, array $payload): void
     {
-        $secret = env('NODE_INTERNAL_SECRET');
+        $secret = config('services.legacy_node.internal_secret');
         if (! $secret) {
             Log::warning('[Telegram] NODE_INTERNAL_SECRET not set, skip notify', ['path' => $path]);
 
             return;
         }
 
-        $base = rtrim(env('LEGACY_NODE_URL', 'http://127.0.0.1:3000'), '/');
+        $base = rtrim(config('services.legacy_node.url', 'http://127.0.0.1:3000'), '/');
 
         try {
             Http::timeout(8)

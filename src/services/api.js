@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { resolveApiPath, useV2Api } from '@/utils/apiPath'
+import { readLegacyNodeBridgeToken } from '@/constants/legacyNodeBridge'
+import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
 
 const USE_V2 = useV2Api()
 
@@ -42,7 +44,7 @@ async function ensureSanctumCsrf() {
 
 function isV2Request(url) {
   const resolved = resolveApiPath(url)
-  return USE_V2 && resolved.startsWith('/api/v2/')
+  return resolved.startsWith('/api/v2/')
 }
 
 const processQueue = (error, token = null) => {
@@ -58,7 +60,7 @@ const processQueue = (error, token = null) => {
 
 api.interceptors.request.use(
   async (config) => {
-    if (USE_V2 && config.url) {
+    if (config.url) {
       config.url = resolveApiPath(config.url)
     }
 
@@ -74,6 +76,14 @@ api.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json'
     }
 
+    const reqUrl = String(config.url || '')
+    if (reqUrl.includes('/api/admin') || reqUrl.includes('/api/v2/admin')) {
+      const bridgeToken = readLegacyNodeBridgeToken()
+      if (bridgeToken) {
+        config.headers['X-Legacy-Node-Token'] = bridgeToken
+      }
+    }
+
     const method = (config.method || 'get').toLowerCase()
     if (!['post', 'put', 'delete', 'patch'].includes(method)) {
       return config
@@ -84,7 +94,6 @@ api.interceptors.request.use(
       return config
     }
 
-    const reqUrl = String(config.url || '')
     const isAdminApiWrite =
       ['post', 'put', 'delete', 'patch'].includes(method) && reqUrl.startsWith('/api/admin')
 
@@ -120,10 +129,14 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
-    if (!originalRequest || isV2Request(originalRequest.url)) {
-      if (error.response?.status === 401) {
-        sanctumReady = false
+    if (error.response?.status === 401) {
+      sanctumReady = false
+      if (originalRequest?.url) {
+        handleAdminSessionUnauthorized(originalRequest.url)
       }
+    }
+
+    if (!originalRequest || isV2Request(originalRequest.url)) {
       return Promise.reject(error)
     }
 

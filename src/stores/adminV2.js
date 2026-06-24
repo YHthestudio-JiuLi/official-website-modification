@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '@/services/v2/admin/auth'
 import { resetV2Csrf } from '@/services/v2/http'
+import { useV2Api } from '@/utils/apiPath'
 
 export const useAdminV2Store = defineStore('adminV2', () => {
   const user = ref(null)
@@ -15,24 +16,37 @@ export const useAdminV2Store = defineStore('adminV2', () => {
   function hasPermission(name) {
     if (!name) return true
     if (permissions.value.includes('*')) return true
+    const u = user.value
+    if (u?.isAdmin || (Array.isArray(u?.roles) && u.roles.includes('super_admin'))) {
+      return true
+    }
     return permissions.value.includes(name)
+  }
+
+  /** V2 模式下同步旧 adminStore，供 AdminLayout 等组件读取用户名 */
+  async function syncLegacyAdminMirror() {
+    if (!useV2Api()) return
+    const { useAdminStore } = await import('@/stores/admin')
+    useAdminStore().$patch({ admin: user.value, checked: true })
   }
 
   async function checkAuth() {
     try {
       const { data } = await authApi.fetchMe()
-      user.value = data.user
+      user.value = data.admin || data.user
       permissions.value = data.permissions || []
-      await loadMenus()
+      await syncLegacyAdminMirror()
     } catch {
       user.value = null
       permissions.value = []
       menus.value = []
+      await syncLegacyAdminMirror()
     } finally {
       checked.value = true
     }
   }
 
+  /** 侧栏由 permissions 驱动，/admin/menus 与 adminMe 重复，保留供将来动态菜单 */
   async function loadMenus() {
     try {
       const { data } = await authApi.fetchMenus()
@@ -44,10 +58,10 @@ export const useAdminV2Store = defineStore('adminV2', () => {
 
   async function login(credentials) {
     const { data } = await authApi.adminLogin(credentials)
-    user.value = data.user
+    user.value = data.admin || data.user
     permissions.value = data.permissions || []
     checked.value = true
-    await loadMenus()
+    await syncLegacyAdminMirror()
     return data
   }
 
@@ -59,6 +73,7 @@ export const useAdminV2Store = defineStore('adminV2', () => {
       permissions.value = []
       menus.value = []
       resetV2Csrf()
+      await syncLegacyAdminMirror()
     }
   }
 

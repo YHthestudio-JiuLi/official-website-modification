@@ -5,14 +5,22 @@ namespace App\Http\Controllers\Api\V2;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Services\Auth\AdminBootService;
+use App\Services\Bridge\LegacyNodeBridgeTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\PermissionRegistrar;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly AdminBootService $adminBoot,
+        private readonly LegacyNodeBridgeTokenService $legacyNodeTokens,
+    ) {}
+
     /** 登录后轮换 session：若另一 guard 已登录则仅刷新 CSRF，避免互相踢线 */
     private function finalizeLoginSession(Request $request, string $guardName): void
     {
@@ -62,8 +70,10 @@ class AuthController extends Controller
         }
 
         $this->finalizeLoginSession($request, 'admin');
+        $request->session()->put('admin_boot_id', $this->adminBoot->current());
 
         $user->load(['roles', 'agent']);
+        $this->ensureAdminRoles($user);
 
         return response()->json([
             'user' => new UserResource($user),
@@ -172,6 +182,45 @@ class AuthController extends Controller
         Auth::guard('admin')->logout();
 
         return response()->json(['message' => 'Logged out']);
+    }
+
+    /**
+     * 为已登录的管理员签发短期令牌，供前端在 Node 建立 legacy 会话（题库/固件/设备等）
+     * 避免生产环境 Laravel 与 Node 双栈 Cookie 不同步导致反复登出
+     */
+    public function legacyNodeBridgeToken(Request $request): JsonResponse
+    {
+        $user = Auth::guard('admin')->user();
+        if (! $user || ! $user->canAccessAdmin()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $secret = config('services.legacy_node.internal_secret');
+        if (! $secret) {
+            return response()->json(['error' => 'Bridge not configured'], 503);
+        }
+
+        return response()->json([
+            'token' => $this->legacyNodeTokens->mint($user->id),
+        ]);
+    }
+
+    /** Python 种子仅写 isAdmin=1，补挂 super_admin 以便 Spatie permission 中间件放行 */
+    private function ensureAdminRoles(User $user): void
+    {
+        if (! $user->isAdmin) {
+            return;
+        }
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        if (! $user->hasRole('super_admin')) {
+            $user->assignRole('super_admin');
+        }
+
+        if (empty($user->user_type) || $user->user_type === 'customer') {
+            $user->update(['user_type' => 'super_admin', 'status' => 'active']);
+        }
     }
 
     private function enforceAdminIpWhitelist(Request $request): void

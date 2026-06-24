@@ -1000,6 +1000,7 @@
       "submit": "Login",
       "defaultAccount": "",
       "error": "Username or password incorrect",
+      "sessionExpired": "Your session has expired. Please sign in again.",
       "tooManyRequests": "Too many login attempts, please try again later",
       "serverUnavailable": "Server is temporarily unavailable, please try again later"
     },

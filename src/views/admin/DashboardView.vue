@@ -185,7 +185,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '@/services/api'
+import { fetchStats } from '@/services/v2/admin/dashboard'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const stats = ref({
@@ -203,7 +203,7 @@ const isAgentScope = computed(() => stats.value.scope === 'agent')
 
 onMounted(async () => {
   try {
-    const response = await api.get('/api/admin/stats')
+    const response = await fetchStats()
     stats.value = response.data
   } catch (error) {
     console.error('Failed to fetch stats:', error)

@@ -564,17 +564,23 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import { fetchQuestions as fetchQuestionsApi } from '@/services/v2/admin/questions'
+import { fetchFirmwares as fetchFirmwaresApi } from '@/services/v2/admin/firmware'
+import {
+  fetchVerificationSettings,
+  updateVerificationSettings,
+  fetchDevices as fetchDevicesApi,
+  createDevice as createDeviceApi,
+  updateDevice as updateDeviceApi,
+  deleteDevice as deleteDeviceApi,
+  resetDeviceCount,
+  fetchDeviceKeys,
+  fetchDeviceLogs
+} from '@/services/v2/admin/devices'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
-import { useAdminStore } from '@/stores/admin'
-import { useAdminV2Store } from '@/stores/adminV2'
-import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
-const router = useRouter()
-const adminStore = useAdminStore()
-const adminV2Store = useAdminV2Store()
 const { t, locale } = useI18n()
 
 function getFmtLocale() {
@@ -708,37 +714,29 @@ onUnmounted(() => {
 })
 
 async function initPage() {
-  const hasNodeSession = await hasLegacyNodeAdminSession()
-  if (!hasNodeSession) {
-    showToast(t('admin.deviceVerification.requireReauth'), 'error')
-    await forceAdminReauth(router, adminStore, adminV2Store)
-    return
-  }
   await Promise.all([fetchCooldownSettings(), fetchDevices(), fetchQuestions(), fetchFirmwareItems()])
 }
 
 async function handleUnauthorized(error) {
-  if (error.response?.status === 401) {
-    showToast(t('admin.deviceVerification.sessionExpired'), 'error')
-    await forceAdminReauth(router, adminStore, adminV2Store)
-    return true
-  }
-  return false
+  return handleAdminApiFailure(error, {
+    onForbidden: (msg) => showToast(msg, 'error')
+  })
 }
 
 async function fetchQuestions() {
   try {
-    const response = await api.get('/api/admin/questions')
-    questions.value = response.data || []
+    const response = await fetchQuestionsApi()
+    const data = response.data
+    questions.value = Array.isArray(data) ? data : (data?.items || [])
   } catch (error) {
     if (await handleUnauthorized(error)) return
-    console.error('Failed to fetch questions:', error)
+    showToast(readAdminApiError(error, t('admin.questions.loadError')), 'error')
   }
 }
 
 async function fetchCooldownSettings() {
   try {
-    const response = await api.get('/api/admin/device-verification/settings')
+    const response = await fetchVerificationSettings()
     const sec = response.data?.verify_cooldown_seconds
     const secNum = typeof sec === 'number' ? sec : parseInt(sec, 10) || 0
     cooldownHours.value = Number((secNum / 3600).toFixed(2))
@@ -757,7 +755,7 @@ async function saveCooldownSettings() {
   const sec = Math.round(hours * 3600)
   settingsSaving.value = true
   try {
-    await api.put('/api/admin/device-verification/settings', {
+    await updateVerificationSettings({
       verify_cooldown_seconds: sec
     })
     await fetchCooldownSettings()
@@ -772,11 +770,11 @@ async function saveCooldownSettings() {
 async function fetchFirmwareItems() {
   firmwareLoading.value = true
   try {
-    const response = await api.get('/api/admin/device-firmwares')
+    const response = await fetchFirmwaresApi()
     firmwareItems.value = response.data.items || []
   } catch (error) {
     if (await handleUnauthorized(error)) return
-    showToast(error.response?.data?.error || t('admin.deviceVerification.firmwareLoadListError'), 'error')
+    showToast(readAdminApiError(error, t('admin.deviceVerification.firmwareLoadListError')), 'error')
   } finally {
     firmwareLoading.value = false
   }
@@ -785,7 +783,7 @@ async function fetchFirmwareItems() {
 async function fetchDevices() {
   loading.value = true
   try {
-    const response = await api.get('/api/admin/devices')
+    const response = await fetchDevicesApi()
     devices.value = response.data.devices || []
   } catch (error) {
     if (await handleUnauthorized(error)) return
@@ -806,7 +804,7 @@ async function addDevice() {
   try {
     const questionId = newDevice.value.question_id ? parseInt(newDevice.value.question_id) : null
     const firmwareId = newDevice.value.firmware_id ? parseInt(newDevice.value.firmware_id) : null
-    await api.post('/api/admin/devices', {
+    await createDeviceApi({
       device_id: newDevice.value.device_id.trim(),
       max_verifications: newDevice.value.max_verifications,
       question_id: questionId,
@@ -864,7 +862,7 @@ async function updateDevice() {
       return
     }
     
-    await api.put(`/api/admin/devices/${editingDevice.value.device_id}`, payload)
+    await updateDeviceApi(editingDevice.value.device_id, payload)
     closeEditModal()
     await fetchDevices()
     showToast(t('admin.deviceVerification.updateSuccess'), 'success')
@@ -876,7 +874,7 @@ async function updateDevice() {
 async function toggleWhitelist(device) {
   const current = Number(device.is_whitelisted || 0) === 1
   try {
-    await api.put(`/api/admin/devices/${device.device_id}`, {
+    await updateDeviceApi(device.device_id, {
       is_whitelisted: !current
     })
     await fetchDevices()
@@ -888,7 +886,7 @@ async function toggleWhitelist(device) {
 
 async function resetCount(device) {
   try {
-    await api.post(`/api/admin/devices/${device.device_id}/reset-count`)
+    await resetDeviceCount(device.device_id)
     await fetchDevices()
     showToast(t('admin.deviceVerification.resetSuccess'), 'success')
   } catch (error) {
@@ -928,7 +926,7 @@ async function fetchKeys() {
   if (!keysDevice.value) return
   keysLoading.value = true
   try {
-    const response = await api.get(`/api/admin/devices/${keysDevice.value.device_id}/keys`)
+    const response = await fetchDeviceKeys(keysDevice.value.device_id)
     keys.value = {
       public_key: response.data.public_key || '',
       private_key: response.data.private_key || ''
@@ -953,7 +951,7 @@ async function fetchLogs() {
   if (!logsDevice.value) return
   logsLoading.value = true
   try {
-    const response = await api.get(`/api/admin/devices/${logsDevice.value.device_id}/logs`)
+    const response = await fetchDeviceLogs(logsDevice.value.device_id)
     logs.value = response.data.logs || []
     logsTotal.value = response.data.total || 0
   } catch (error) {
@@ -998,7 +996,7 @@ async function executeDelete() {
   if (!deviceToDelete.value) return
   
   try {
-    await api.delete(`/api/admin/devices/${deviceToDelete.value.device_id}`)
+    await deleteDeviceApi(deviceToDelete.value.device_id)
     closeDeleteModal()
     await fetchDevices()
     showToast(t('admin.deviceVerification.deleteSuccess'), 'success')
@@ -1023,7 +1021,7 @@ async function executeBatchDelete() {
   try {
     const promises = selectedIds.map(id => {
       const device = devices.value.find(d => d.id === id)
-      return api.delete(`/api/admin/devices/${device.device_id}`)
+      return deleteDeviceApi(device.device_id)
     })
     await Promise.all(promises)
     

@@ -183,7 +183,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import * as catalogApi from '@/services/catalog'
+import { fetchAdminProducts, deleteProduct } from '@/services/v2/catalog'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { primaryProductImage } from '@/utils/productImages'
@@ -208,7 +208,7 @@ onMounted(fetchProducts)
 async function fetchProducts() {
   loading.value = true
   try {
-    const response = await catalogApi.getAdminProducts()
+    const response = await fetchAdminProducts()
     products.value = response.data
   } catch {
     showToast(t('admin.products.loadFailed'), 'error')
@@ -234,7 +234,7 @@ async function executeDelete() {
   const productName = productToDelete.value.name
 
   try {
-    await catalogApi.removeProduct(productId)
+    await deleteProduct(productId)
     closeDeleteModal()
     await fetchProducts()
     showToast(t('admin.products.deleteSuccess', { name: productName }), 'success')

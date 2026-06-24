@@ -31,6 +31,8 @@ uploads/
 .env
 .env.local
 .env.*.local
+.laravel-fpm-enabled
+.laravel-fpm-domain
 
 # Editor directories and files
 .vscode/*
@@ -47,3 +49,13 @@ uploads/
 laravel-api/.env
 laravel-api/vendor/
 laravel-api/node_modules/
+laravel-api/storage/framework/admin_boot_id
+laravel-api/storage/logs/
+
+# 数据库备份与杂项（勿提交）
+Dump*.sql
+*.pdf
+GitHub）
+
+# Python 虚拟环境
+.venv/

@@ -10,25 +10,45 @@ use Illuminate\Support\Facades\Http;
  */
 class LegacyNodeBridge
 {
-    public function forward(Request $request, string $path): \Illuminate\Http\Client\Response
+    public function forward(Request $request, string $path, ?string $legacyAdminToken = null): \Illuminate\Http\Client\Response
     {
-        $base = rtrim(env('LEGACY_NODE_URL', 'http://127.0.0.1:3000'), '/');
+        $base = rtrim(config('services.legacy_node.url', 'http://127.0.0.1:3000'), '/');
         $url = $base.$path;
         $method = strtolower($request->method());
 
-        $options = [
-            'headers' => collect($request->headers->all())
-                ->except(['host', 'content-length'])
-                ->map(fn ($v) => $v[0] ?? '')
-                ->all(),
-        ];
+        $headers = collect($request->headers->all())
+            ->except(['host', 'content-length'])
+            ->map(fn ($v) => $v[0] ?? '')
+            ->all();
+
+        if ($legacyAdminToken) {
+            $headers['X-Legacy-Node-Token'] = $legacyAdminToken;
+        }
+
+        // 浏览器 Cookie 不应传给 Node；multipart 时须去掉 Content-Type 让客户端库自动生成 boundary
+        unset($headers['cookie'], $headers['Cookie'], $headers['content-type'], $headers['Content-Type']);
+
+        $http = Http::withOptions(['verify' => false])
+            ->timeout($this->forwardTimeout($request, $path))
+            ->withHeaders($headers);
 
         if ($request->isMethod('GET')) {
-            return Http::withOptions(['verify' => false])->withHeaders($options['headers'])->get($url, $request->query());
+            return $http->get($url, $request->query());
         }
 
         if ($request->allFiles()) {
             $multipart = [];
+            $fileKeys = array_keys($request->allFiles());
+
+            // 文本字段须先于文件：Node multer 在解析 chunk 时依赖 uploadId/chunkIndex 已写入 req.body
+            foreach ($request->except($fileKeys) as $k => $v) {
+                if (is_array($v)) {
+                    $multipart[] = ['name' => $k, 'contents' => json_encode($v)];
+                } elseif ($v !== null) {
+                    $multipart[] = ['name' => $k, 'contents' => (string) $v];
+                }
+            }
+
             foreach ($request->allFiles() as $key => $file) {
                 $files = is_array($file) ? $file : [$file];
                 foreach ($files as $idx => $f) {
@@ -39,16 +59,30 @@ class LegacyNodeBridge
                     ];
                 }
             }
-            foreach ($request->except(array_keys($request->allFiles())) as $k => $v) {
-                $multipart[] = ['name' => $k, 'contents' => is_array($v) ? json_encode($v) : (string) $v];
-            }
 
-            return Http::withOptions(['verify' => false])->withHeaders($options['headers'])->send($method, $url, ['multipart' => $multipart]);
+            return $http->send($method, $url, ['multipart' => $multipart]);
         }
 
-        return Http::withOptions(['verify' => false])
-            ->withHeaders($options['headers'])
-            ->withBody($request->getContent() ?: json_encode($request->all()), $request->header('Content-Type', 'application/json'))
+        $body = $request->getContent();
+        if ($body === '' || $body === false) {
+            $body = json_encode($request->all() ?: new \stdClass);
+        }
+
+        return $http
+            ->withBody($body, $request->header('Content-Type', 'application/json'))
             ->send($method, $url);
+    }
+
+    /** 分片合并可能耗时数分钟，须拉长超时 */
+    private function forwardTimeout(Request $request, string $path): int
+    {
+        if ($request->allFiles()) {
+            return 7200;
+        }
+        if (str_contains($path, '/upload/complete')) {
+            return 3600;
+        }
+
+        return 120;
     }
 }

@@ -1,0 +1,31 @@
+# YHthestudio Laravel V2 API — PHP-FPM（生产推荐，替代 php -S :8000）
+# 由 scripts/setup-laravel-fpm.sh 生成，勿手改占位符行
+#
+# 安装后请从站点主配置中删除（或注释）下列反代块，避免重复：
+#   location /api/v2/ { proxy_pass http://127.0.0.1:8000; ... }
+#   location /sanctum/ { proxy_pass http://127.0.0.1:8000; ... }
+
+location ^~ /api/v2/ {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME __APP_ROOT__/laravel-api/public/index.php;
+    fastcgi_param DOCUMENT_ROOT __APP_ROOT__/laravel-api/public;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_pass unix:__PHP_FPM_SOCK__;
+    fastcgi_read_timeout 600;
+    fastcgi_send_timeout 600;
+    fastcgi_buffers 32 32k;
+    fastcgi_buffer_size 64k;
+}
+
+location ^~ /sanctum/ {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME __APP_ROOT__/laravel-api/public/index.php;
+    fastcgi_param DOCUMENT_ROOT __APP_ROOT__/laravel-api/public;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_pass unix:__PHP_FPM_SOCK__;
+    fastcgi_read_timeout 120;
+    fastcgi_buffers 16 16k;
+    fastcgi_buffer_size 32k;
+}

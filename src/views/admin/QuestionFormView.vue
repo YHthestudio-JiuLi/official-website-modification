@@ -239,7 +239,16 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import {
+  fetchQuestions,
+  fetchQuestion,
+  createQuestion,
+  updateQuestion,
+  initQuestionUpload,
+  uploadQuestionChunk,
+  completeQuestionUpload,
+  QUESTION_CHUNK_SIZE
+} from '@/services/v2/admin/questions'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 
@@ -298,7 +307,7 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const response = await api.get(`/api/admin/questions/${route.params.id}`)
+      const response = await fetchQuestion(route.params.id)
       form.value.name = response.data.name || ''
       form.value.category_name = (response.data.category_name || '').trim()
       existingDbFile.value = response.data.db_file_path || null
@@ -337,7 +346,7 @@ watch([categorySelectValue, customCategoryValue], () => {
 
 async function fetchExistingCategories() {
   try {
-    const response = await api.get('/api/admin/questions')
+    const response = await fetchQuestions()
     const list = Array.isArray(response.data) ? response.data : []
     const values = [...new Set(list.map(item => String(item.category_name || '').trim()).filter(Boolean))]
     const collatorLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
@@ -426,6 +435,8 @@ async function handleSubmit() {
     if (pendingUploads.length > 0) {
       uploadingChunks.value = true
       chunkUploadProgress.value = 0
+      const { prepareLegacyNodeUpload } = await import('@/utils/uploadBridge')
+      await prepareLegacyNodeUpload()
     }
     for (let index = 0; index < pendingUploads.length; index += 1) {
       const item = pendingUploads[index]
@@ -446,9 +457,9 @@ async function handleSubmit() {
       }
       
       // 大题库/向量上传由 api 拦截器统一延长超时，勿在此写 60s
-      await api.put(`/api/admin/questions/${route.params.id}`, formData)
+      await updateQuestion(route.params.id, formData)
     } else {
-      await api.post('/api/admin/questions', formData)
+      await createQuestion(formData)
     }
 
     showToast(t('admin.questionsForm.saveSuccess'), 'success')
@@ -456,7 +467,11 @@ async function handleSubmit() {
       router.push('/admin/questions')
     }, 1500)
   } catch (err) {
-    const errorMsg = err.response?.data?.error || err.message || t('admin.questionsForm.saveError')
+    const data = err.response?.data
+    const errorMsg =
+      (typeof data === 'object' && data ? (data.error || data.message) : null) ||
+      err.message ||
+      t('admin.questionsForm.saveError')
     error.value = errorMsg
     showToast(errorMsg, 'error')
   } finally {
@@ -467,9 +482,9 @@ async function handleSubmit() {
 }
 
 async function uploadQuestionFileInChunks(file, fileField, fileIndex, totalFiles) {
-  const chunkSize = 5 * 1024 * 1024
+  const chunkSize = QUESTION_CHUNK_SIZE
   const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
-  const initResp = await api.post('/api/admin/questions/upload/init', {
+  const initResp = await initQuestionUpload({
     fileName: file.name,
     fileField,
     fileSize: file.size,
@@ -488,12 +503,12 @@ async function uploadQuestionFileInChunks(file, fileField, fileIndex, totalFiles
     fd.append('chunkIndex', String(chunkIndex))
     fd.append('totalChunks', String(totalChunks))
     fd.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
-    await api.post('/api/admin/questions/upload/chunk', fd)
+    await uploadQuestionChunk(fd)
     const partProgress = (chunkIndex + 1) / totalChunks
     const progress = ((fileIndex + partProgress) / totalFiles) * 100
     chunkUploadProgress.value = Math.round(progress)
   }
-  await api.post('/api/admin/questions/upload/complete', {
+  await completeQuestionUpload({
     uploadId,
     fileName: file.name,
     fileField,

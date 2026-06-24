@@ -249,7 +249,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import api from '@/services/api'
+import { fetchUsers as fetchUsersApi, deleteUser } from '@/services/v2/admin/users'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t, locale, te } = useI18n()
@@ -299,7 +299,7 @@ onMounted(fetchUsers)
 async function fetchUsers() {
   loading.value = true
   try {
-    const response = await api.get('/api/admin/users')
+    const response = await fetchUsersApi()
     const payload = response.data
     users.value = Array.isArray(payload) ? payload : (payload?.data ?? [])
   } catch (error) {
@@ -326,7 +326,7 @@ async function executeDelete() {
   const username = userToDelete.value.username
 
   try {
-    await api.delete(`/api/admin/users/${userId}`)
+    await deleteUser(userId)
     closeDeleteModal()
     await fetchUsers()
     showToast(`${username} deleted successfully`, 'success')
@@ -397,7 +397,7 @@ async function executeBatchDelete() {
 
   try {
     // Delete users one by one
-    const deletePromises = selectedIds.map(id => api.delete(`/api/admin/users/${id}`))
+    const deletePromises = selectedIds.map((id) => deleteUser(id))
     await Promise.all(deletePromises)
 
     closeBatchDeleteModal()

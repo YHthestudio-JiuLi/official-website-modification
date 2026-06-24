@@ -296,18 +296,22 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import {
+  fetchFirmwares,
+  initFirmwareUpload,
+  uploadFirmwareChunk,
+  completeFirmwareUpload,
+  FIRMWARE_CHUNK_SIZE,
+  registerLocalFirmware,
+  updateFirmwareRemark,
+  setDefaultFirmware as setDefaultFirmwareApi,
+  deleteFirmware as deleteFirmwareApi
+} from '@/services/v2/admin/firmware'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
-import { useAdminStore } from '@/stores/admin'
-import { useAdminV2Store } from '@/stores/adminV2'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
-import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
-const router = useRouter()
-const adminStore = useAdminStore()
-const adminV2Store = useAdminV2Store()
 const { has } = useAdminPermissions()
 const { t, locale } = useI18n()
 
@@ -351,11 +355,8 @@ const toast = ref({
 onMounted(initPage)
 
 async function initPage() {
-  if (!canAccessPage.value) return
-  const hasNodeSession = await hasLegacyNodeAdminSession()
-  if (!hasNodeSession) {
-    showToast(t('admin.firmware.sessionRequired'), 'error')
-    await forceAdminReauth(router, adminStore, adminV2Store)
+  if (!canAccessPage.value) {
+    firmwareLoading.value = false
     return
   }
   await fetchFirmwareItems()
@@ -364,15 +365,13 @@ async function initPage() {
 async function fetchFirmwareItems() {
   firmwareLoading.value = true
   try {
-    const response = await api.get('/api/admin/device-firmwares')
+    const response = await fetchFirmwares()
     firmwareItems.value = response.data.items || []
   } catch (error) {
-    if (error.response?.status === 401) {
-      showToast(t('admin.firmware.sessionExpired'), 'error')
-      await forceAdminReauth(router, adminStore, adminV2Store)
-      return
-    }
-    showToast(error.response?.data?.error || t('admin.firmware.loadError'), 'error')
+    if (await handleAdminApiFailure(error, {
+      onForbidden: (msg) => showToast(msg, 'error')
+    })) return
+    showToast(readAdminApiError(error, t('admin.firmware.loadError')), 'error')
   } finally {
     firmwareLoading.value = false
   }
@@ -406,10 +405,12 @@ async function confirmUpload() {
   firmwareUploading.value = true
   firmwareUploadProgress.value = 0
   try {
+    const { prepareLegacyNodeUpload } = await import('@/utils/uploadBridge')
+    await prepareLegacyNodeUpload()
     const remark = uploadRemark.value.trim() || null
-    const chunkSize = 5 * 1024 * 1024
+    const chunkSize = FIRMWARE_CHUNK_SIZE
     const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
-    const initResp = await api.post('/api/admin/device-firmwares/upload/init', {
+    const initResp = await initFirmwareUpload({
       fileName: file.name,
       fileSize: file.size,
       totalChunks
@@ -427,10 +428,10 @@ async function confirmUpload() {
       chunkFormData.append('chunkIndex', String(chunkIndex))
       chunkFormData.append('totalChunks', String(totalChunks))
       chunkFormData.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
-      await api.post('/api/admin/device-firmwares/upload/chunk', chunkFormData)
+      await uploadFirmwareChunk(chunkFormData)
       firmwareUploadProgress.value = Math.round(((chunkIndex + 1) / totalChunks) * 100)
     }
-    await api.post('/api/admin/device-firmwares/upload/complete', {
+    await completeFirmwareUpload({
       uploadId,
       fileName: file.name,
       fileSize: file.size,
@@ -469,7 +470,7 @@ async function confirmRegisterFromServer() {
   }
   registerSubmitting.value = true
   try {
-    await api.post('/api/admin/device-firmwares/register-local', {
+    await registerLocalFirmware({
       file_name: normalizedName,
       remark: registerRemark.value.trim() || null
     })
@@ -516,7 +517,7 @@ async function commitInlineRemark(item) {
 
   remarkSavingId.value = item.id
   try {
-    const response = await api.put(`/api/admin/device-firmwares/${item.id}/remark`, {
+    const response = await updateFirmwareRemark(item.id, {
       remark: newRemark
     })
     const savedRemark = response.data?.firmware?.remark ?? newRemark
@@ -566,7 +567,7 @@ function resolveUploadErrorMessage(error) {
 async function setDefaultFirmware(item) {
   if (!item || item.is_default) return
   try {
-    await api.put(`/api/admin/device-firmwares/${item.id}/default`)
+    await setDefaultFirmwareApi(item.id)
     await fetchFirmwareItems()
     showToast(t('admin.firmware.setDefaultSuccess'), 'success')
   } catch (error) {
@@ -587,7 +588,7 @@ function closeDeleteModal() {
 async function executeDelete() {
   if (!firmwareToDelete.value) return
   try {
-    await api.delete(`/api/admin/device-firmwares/${firmwareToDelete.value.id}`)
+    await deleteFirmwareApi(firmwareToDelete.value.id)
     closeDeleteModal()
     await fetchFirmwareItems()
     showToast(t('admin.firmware.deleteSuccess'), 'success')

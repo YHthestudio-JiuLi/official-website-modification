@@ -8,6 +8,10 @@ if [ -n "${LARAVEL_PHP:-}" ] && [ -x "$LARAVEL_PHP" ]; then
 fi
 
 for candidate in \
+  /www/server/php/85/bin/php \
+  /www/server/php/84/bin/php \
+  /www/server/php/83/bin/php \
+  /www/server/php/82/bin/php \
   /opt/homebrew/opt/php@8.5/bin/php \
   /opt/homebrew/opt/php@8.4/bin/php \
   /opt/homebrew/opt/php@8.3/bin/php \

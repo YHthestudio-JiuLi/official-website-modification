@@ -24,6 +24,12 @@ echo "==> 检查前端 V2 路径映射"
 test -f src/utils/apiPath.js
 grep -q "VITE_USE_V2_API" .env.example
 
+echo "==> 检查 Node server 模块化"
+test -f server/bootstrap.js
+test -f server/routes/chat.js
+test -f server/routes/device.js
+test -f src/services/v2/index.js
+
 echo "==> 检查 dist 产物"
 test -d dist
 test -f dist/index.html

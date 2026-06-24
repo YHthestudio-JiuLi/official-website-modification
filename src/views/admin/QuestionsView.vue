@@ -176,18 +176,15 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import {
+  fetchQuestions as fetchQuestionsApi,
+  deleteQuestion
+} from '@/services/v2/admin/questions'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
-import { useAdminStore } from '@/stores/admin'
-import { useAdminV2Store } from '@/stores/adminV2'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
-import { forceAdminReauth, hasLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
-const router = useRouter()
-const adminStore = useAdminStore()
-const adminV2Store = useAdminV2Store()
 const { has } = useAdminPermissions()
 
 const { t, locale } = useI18n()
@@ -212,11 +209,8 @@ const toast = ref({
 onMounted(initPage)
 
 async function initPage() {
-  if (!canAccessPage.value) return
-  const hasNodeSession = await hasLegacyNodeAdminSession()
-  if (!hasNodeSession) {
-    showToast('题库功能需要重新登录，请使用管理员账号登录一次', 'error')
-    await forceAdminReauth(router, adminStore, adminV2Store)
+  if (!canAccessPage.value) {
+    loading.value = false
     return
   }
   await fetchQuestions()
@@ -239,15 +233,14 @@ const filteredQuestions = computed(() => {
 async function fetchQuestions() {
   loading.value = true
   try {
-    const response = await api.get('/api/admin/questions')
-    questions.value = response.data
+    const response = await fetchQuestionsApi()
+    const data = response.data
+    questions.value = Array.isArray(data) ? data : (data?.items || [])
   } catch (error) {
-    if (error.response?.status === 401) {
-      showToast('题库会话已过期，请重新登录', 'error')
-      await forceAdminReauth(router, adminStore, adminV2Store)
-      return
-    }
-    showToast(t('admin.questions.loadError'), 'error')
+    if (await handleAdminApiFailure(error, {
+      onForbidden: (msg) => showToast(msg, 'error')
+    })) return
+    showToast(readAdminApiError(error, t('admin.questions.loadError')), 'error')
   } finally {
     loading.value = false
   }
@@ -267,7 +260,7 @@ async function executeDelete() {
   if (!questionToDelete.value) return
 
   try {
-    await api.delete(`/api/admin/questions/${questionToDelete.value.id}`)
+    await deleteQuestion(questionToDelete.value.id)
     closeDeleteModal()
     await fetchQuestions()
     showToast(t('admin.questions.deleteSuccess', { name: questionToDelete.value.name }), 'success')

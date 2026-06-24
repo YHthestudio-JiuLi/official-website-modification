@@ -157,7 +157,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import api from '@/services/api'
+import { fetchPaymentSettings, updatePaymentSettings } from '@/services/v2/admin/paymentSettings'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
@@ -208,7 +208,7 @@ function extractSaveError(err) {
 
 onMounted(async () => {
   try {
-    const response = await api.get('/api/admin/payment-settings')
+    const response = await fetchPaymentSettings()
     applySettings(response.data)
   } catch (err) {
     console.error('Failed to fetch settings:', err)
@@ -223,7 +223,7 @@ async function handleSubmit() {
   success.value = false
 
   try {
-    const response = await api.put('/api/admin/payment-settings', buildPayload())
+    const response = await updatePaymentSettings(buildPayload())
     applySettings(response.data)
     success.value = true
     ElMessage.success(t('admin.paymentSettings.saved'))

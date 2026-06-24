@@ -99,6 +99,13 @@ import ProductCard from '@/components/user/ProductCard.vue'
 import { productMatchesSearch } from '@/utils/productSearch'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
+/** 兼容 Laravel 直出数组或误返回 HTML/对象 */
+function normalizeListPayload(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && Array.isArray(payload.data)) return payload.data
+  return []
+}
+
 const route = useRoute()
 const router = useRouter()
 const { locale } = useI18n()
@@ -187,8 +194,8 @@ onMounted(async () => {
       catalogApi.getProducts(),
       catalogApi.getProductCategories()
     ])
-    products.value = productsRes.data
-    categories.value = categoriesRes.data || []
+    products.value = normalizeListPayload(productsRes.data)
+    categories.value = normalizeListPayload(categoriesRes.data)
   } catch (error) {
     console.error('Failed to fetch products:', error)
     loadError.value = true

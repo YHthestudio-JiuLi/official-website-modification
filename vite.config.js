@@ -36,11 +36,13 @@ export default defineConfig(({ mode }) => {
       // Laravel v2 API（须在 /api 之前）
       '/api/v2': {
         target: 'http://127.0.0.1:8000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       },
       '/sanctum': {
         target: 'http://127.0.0.1:8000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       },
       '/ws': {
         target: 'http://localhost:3000',
@@ -67,7 +69,8 @@ export default defineConfig(({ mode }) => {
       output: {
         manualChunks: {
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          'i18n': ['vue-i18n']
+          'i18n': ['vue-i18n'],
+          'element-plus': ['element-plus']
         }
       }
     }

@@ -41,4 +41,18 @@ return [
         'sandbox' => env('SF_SANDBOX', false),
     ],
 
+    // Node legacy API（config:cache 后须通过 config() 读取，不可在控制器里直接 env()）
+    'legacy_node' => [
+        'url' => env('LEGACY_NODE_URL', 'http://127.0.0.1:3000'),
+        'internal_secret' => env('NODE_INTERNAL_SECRET'),
+    ],
+
+    'py_db' => [
+        'url' => env('PY_DB_URL') ?: 'http://127.0.0.1:5100',
+    ],
+
+    'legacy_uploads' => [
+        'root' => env('LEGACY_UPLOADS_ROOT') ?: dirname(base_path()).'/uploads',
+    ],
+
 ];

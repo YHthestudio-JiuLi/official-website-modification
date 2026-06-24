@@ -1,16 +1,16 @@
 # YHthestudio | Official
 
-[![Version](https://img.shields.io/badge/version-V2.1.0-blue?style=for-the-badge)](https://github.com/YHthestudio-JiuLi/official-website-modification/releases/tag/V2.1.0)
+[![Version](https://img.shields.io/badge/version-V2.1.1-blue?style=for-the-badge)](https://github.com/YHthestudio-JiuLi/official-website-modification/releases/tag/V2.1.1)
 [![Branch](https://img.shields.io/badge/branch-vue__0.2.0-blue?style=for-the-badge)](https://github.com/YHthestudio-JiuLi/official-website-modification/tree/vue_0.2.0)
 
 **创新科技，引领未来 · Innovative Technology, Leading the Future**
 
 YHthestudio 官方站点：双语（中/英）官网 + 电商订单 + 技术论坛 + 在线客服 + 设备验签与固件/题库管理。
 
-前端 **Vue 3**；后端 **三栈并行**：Laravel V2（认证/RBAC/商城主 API）+ Node.js Express（聊天/设备验签/题库 RPC 网关）+ Python FastAPI（数据库 RPC）。
+前端 **Vue 3**；后端 **三栈并行**：Laravel V2（认证/RBAC/商城主 API）+ Node.js Express（聊天/上传/Telegram）+ Python FastAPI（数据库 RPC）。架构详情见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 
 **仓库：** https://github.com/YHthestudio-JiuLi/official-website-modification.git  
-**当前版本：** `V2.1.0`（分支 `vue_0.2.0`）
+**当前版本：** `V2.1.1`（分支 `vue_0.2.0`）
 
 ---
 
@@ -22,6 +22,14 @@ YHthestudio 官方站点：双语（中/英）官网 + 电商订单 + 技术论�
 💬 [在线客服中心](https://yhthestudio.com/#/chat)
 
 ---
+
+## V2.1.1 版本亮点
+
+- **题库/固件分片上传修复**：`chunk` 直连 Node，避免误走 Laravel 导致 401 与「登录失效」
+- **一键部署**：`scripts/deploy.sh`、Laravel PHP-FPM 可选脚本、DB 凭据一致性检查
+- **后台会话加固**：admin boot session、CSRF 重试、上传 401 不再整页踢出登录
+- **性能优化**：Element Plus 按需加载、管理端减少重复鉴权请求
+- **Node 路由拆分**：`server/` 模块化，Laravel Bridge 转发大文件上传
 
 ## V2.1.0 版本亮点
 
@@ -190,38 +198,14 @@ python -m py_backend.migrate_sqlite_to_mysql
 
 ## 生产部署
 
-详见 [`yhweb部署命令.md`](./yhweb部署命令.md) 或：
+**新手请直接阅读 [DEPLOY.md](./DEPLOY.md)**：12 步宝塔部署教程，含 PHP 扩展、PM2、`ecosystem.config.js`、**完整 Nginx 配置文件**与故障排查。
 
-```bash
-bash deploy.sh
-```
+快速要点：
 
-### 简要流程
-
-```bash
-npm install && npm run build
-npm run laravel:setup    # 或服务器上 composer install + migrate + seed
-
-# PM2 建议同时运行：
-# yh-py (5100)、yh-api (3000)、yh-laravel (8000)
-pm2 start ecosystem.config.js --env production
-pm2 save
-```
-
-**Nginx 要点：**
-
-- `/api/v2/`、`/sanctum/` → `127.0.0.1:8000`
-- 其余 → `127.0.0.1:3000`
-- 大文件上传调大 `client_max_body_size` 与代理超时
-
-### 验证
-
-```bash
-curl http://127.0.0.1:8000/api/v2/health
-curl http://127.0.0.1:5100/health
-curl -I http://127.0.0.1:3000
-pm2 list
-```
+- PM2 三进程：`yh-laravel`(8000)、`yh-api`(3000)、`yh-py`(5100)
+- Laravel 在宝塔上用 `php -S ... server.php` 启动（见 `ecosystem.config.js`）
+- Nginx：`/api/v2/`、`/sanctum/` → 8000；反代 `Host` 必须为 `$host`
+- 部署后必须 `npm run build`（`VITE_USE_V2_API=true`）
 
 ---
 
@@ -264,12 +248,13 @@ pm2 list
 
 | 标签/分支 | 说明 |
 |-----------|------|
-| **V2.1.0** | 当前：Laravel V2、RBAC、代理、固件/题库拆分、MySQL 主库 |
+| **V2.1.1** | 当前：上传桥接修复、部署脚本、会话加固、PHP-FPM 支持 |
+| **V2.1.0** | Laravel V2、RBAC、代理、固件/题库拆分、MySQL 主库 |
 | `vue_0.2.0` | 开发主分支 |
 | `vue_0.1.3` | 上一稳定（无 Laravel V2） |
 | `vue_0.1.2` | 更早版本（SQLite 为主） |
 
-发布页：https://github.com/YHthestudio-JiuLi/official-website-modification/releases/tag/V2.1.0
+发布页：https://github.com/YHthestudio-JiuLi/official-website-modification/releases/tag/V2.1.1
 
 ---
 

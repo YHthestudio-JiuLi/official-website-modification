@@ -10,12 +10,16 @@ use App\Http\Controllers\Api\V2\PopupNoticeController;
 use App\Http\Controllers\Api\V2\ProductCategoryController;
 use App\Http\Controllers\Api\V2\ProductController;
 use App\Http\Controllers\Api\V2\ProductImageController;
+use App\Http\Controllers\Api\V2\Admin\AdminChatSettingsController;
+use App\Http\Controllers\Api\V2\Admin\AdminDeviceVerificationController;
+use App\Http\Controllers\Api\V2\Admin\AdminFirmwareController;
 use App\Http\Controllers\Api\V2\Admin\AdminForumController;
 use App\Http\Controllers\Api\V2\Admin\AdminOrderController;
 use App\Http\Controllers\Api\V2\Admin\AdminPaymentSettingsController;
 use App\Http\Controllers\Api\V2\Admin\AdminPopupNoticeController;
 use App\Http\Controllers\Api\V2\Admin\AgentController;
 use App\Http\Controllers\Api\V2\Admin\DashboardController;
+use App\Http\Controllers\Api\V2\Admin\AdminQuestionController;
 use App\Http\Controllers\Api\V2\Admin\MenuController;
 use App\Http\Controllers\Api\V2\Admin\PermissionController;
 use App\Http\Controllers\Api\V2\Admin\ProductCategoryController as AdminProductCategoryController;
@@ -23,13 +27,35 @@ use App\Http\Controllers\Api\V2\Admin\ProductController as AdminProductControlle
 use App\Http\Controllers\Api\V2\Admin\ProductImageController as AdminProductImageController;
 use App\Http\Controllers\Api\V2\Admin\RoleController;
 use App\Http\Controllers\Api\V2\Admin\UserController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', fn () => response()->json([
-    'ok' => true,
-    'service' => 'laravel-api',
-    'version' => '2.2.0',
-]));
+Route::get('/health', function () {
+    $payload = [
+        'ok' => true,
+        'service' => 'laravel-api',
+        'version' => '2.2.0',
+    ];
+
+    try {
+        DB::connection()->getPdo();
+        $payload['db'] = DB::connection()->getDatabaseName();
+        $payload['tables'] = [
+            'products' => Schema::hasTable('products'),
+            'product_categories' => Schema::hasTable('product_categories'),
+            'users' => Schema::hasTable('users'),
+        ];
+        if (Schema::hasTable('products')) {
+            $payload['product_count'] = DB::table('products')->count();
+        }
+    } catch (\Throwable $e) {
+        $payload['ok'] = false;
+        $payload['db_error'] = $e->getMessage();
+    }
+
+    return response()->json($payload, $payload['ok'] ? 200 : 503);
+});
 
 // ---------- 公开 API（只读，限流） ----------
 Route::middleware('throttle:api')->group(function () {
@@ -79,9 +105,10 @@ Route::middleware(['auth:web', 'use.guard:web', 'throttle:api'])->group(function
 });
 
 // 后台管理 API（admin guard，与前台 web 会话独立）
-Route::middleware(['auth:admin', 'use.guard:admin', 'throttle:api'])->group(function () {
+Route::middleware(['auth:admin', 'use.guard:admin', 'admin.boot', 'throttle:api'])->group(function () {
     Route::post('/auth/admin/logout', [AuthController::class, 'adminLogout']);
     Route::get('/auth/admin/me', [AuthController::class, 'adminMe']);
+    Route::post('/auth/admin/legacy-node-bridge', [AuthController::class, 'legacyNodeBridgeToken']);
 
     Route::prefix('admin')->group(function () {
         Route::get('/menus', [MenuController::class, 'index'])
@@ -121,7 +148,8 @@ Route::middleware(['auth:admin', 'use.guard:admin', 'throttle:api'])->group(func
             ->middleware('permission:agent.create');
         Route::put('/agents/{agent}', [AgentController::class, 'update'])
             ->middleware('permission:agent.manage');
-        Route::delete('/agents/{agent}', [AgentController::class, 'destroy']);
+        Route::delete('/agents/{agent}', [AgentController::class, 'destroy'])
+            ->middleware('permission:agent.manage');
 
         // 商品与分类
         Route::get('/products', [AdminProductController::class, 'index'])
@@ -192,9 +220,92 @@ Route::middleware(['auth:admin', 'use.guard:admin', 'throttle:api'])->group(func
             ->middleware('permission:content.manage');
         Route::delete('/popup-notices/{id}', [AdminPopupNoticeController::class, 'destroy'])
             ->middleware('permission:content.manage');
+
+        // 题库（V2 原生 + 分片上传经 Node 代发）
+        Route::get('/questions', [AdminQuestionController::class, 'index'])
+            ->middleware('role_or_permission:question.view|question.edit|question.delete');
+        Route::get('/questions/{id}', [AdminQuestionController::class, 'show'])
+            ->whereNumber('id')
+            ->middleware('role_or_permission:question.view|question.edit|question.delete');
+        Route::post('/questions', [AdminQuestionController::class, 'store'])
+            ->middleware('permission:question.edit');
+        Route::put('/questions/{id}', [AdminQuestionController::class, 'update'])
+            ->whereNumber('id')
+            ->middleware('permission:question.edit');
+        Route::delete('/questions/{id}', [AdminQuestionController::class, 'destroy'])
+            ->whereNumber('id')
+            ->middleware('permission:question.delete');
+        Route::post('/questions/upload/init', [AdminQuestionController::class, 'uploadInit'])
+            ->middleware('permission:question.edit');
+        Route::post('/questions/upload/chunk', [AdminQuestionController::class, 'uploadChunk'])
+            ->middleware('permission:question.edit');
+        Route::post('/questions/upload/complete', [AdminQuestionController::class, 'uploadComplete'])
+            ->middleware('permission:question.edit');
+
+        // 固件
+        Route::get('/device-firmwares', [AdminFirmwareController::class, 'index'])
+            ->middleware('role_or_permission:firmware.view|firmware.edit|firmware.delete');
+        Route::get('/device-firmwares/local-files', [AdminFirmwareController::class, 'localFiles'])
+            ->middleware('role_or_permission:firmware.view|firmware.edit|firmware.delete');
+        Route::post('/device-firmwares/register-local', [AdminFirmwareController::class, 'registerLocal'])
+            ->middleware('permission:firmware.edit');
+        Route::post('/device-firmwares/upload/init', [AdminFirmwareController::class, 'uploadInit'])
+            ->middleware('permission:firmware.edit');
+        Route::post('/device-firmwares/upload/chunk', [AdminFirmwareController::class, 'uploadChunk'])
+            ->middleware('permission:firmware.edit');
+        Route::post('/device-firmwares/upload/complete', [AdminFirmwareController::class, 'uploadComplete'])
+            ->middleware('permission:firmware.edit');
+        Route::post('/device-firmwares/upload', [AdminFirmwareController::class, 'uploadLegacy'])
+            ->middleware('permission:firmware.edit');
+        Route::put('/device-firmwares/{id}/default', [AdminFirmwareController::class, 'setDefault'])
+            ->whereNumber('id')
+            ->middleware('permission:firmware.edit');
+        Route::put('/device-firmwares/{id}/remark', [AdminFirmwareController::class, 'updateRemark'])
+            ->whereNumber('id')
+            ->middleware('permission:firmware.edit');
+        Route::delete('/device-firmwares/{id}', [AdminFirmwareController::class, 'destroy'])
+            ->whereNumber('id')
+            ->middleware('permission:firmware.delete');
+
+        // 设备验证
+        Route::get('/device-verification/settings', [AdminDeviceVerificationController::class, 'settings'])
+            ->middleware('permission:device.view');
+        Route::put('/device-verification/settings', [AdminDeviceVerificationController::class, 'updateSettings'])
+            ->middleware('permission:device.view');
+        Route::get('/devices', [AdminDeviceVerificationController::class, 'index'])
+            ->middleware('permission:device.view');
+        Route::get('/devices/{id}', [AdminDeviceVerificationController::class, 'show'])
+            ->whereNumber('id')
+            ->middleware('permission:device.view');
+        Route::post('/devices', [AdminDeviceVerificationController::class, 'store'])
+            ->middleware('permission:device.view');
+        Route::put('/devices/{deviceId}', [AdminDeviceVerificationController::class, 'update'])
+            ->middleware('permission:device.view');
+        Route::delete('/devices/{deviceId}', [AdminDeviceVerificationController::class, 'destroy'])
+            ->middleware('permission:device.view');
+        Route::post('/devices/{deviceId}/reset-count', [AdminDeviceVerificationController::class, 'resetCount'])
+            ->middleware('permission:device.view');
+        Route::get('/devices/{deviceId}/keys', [AdminDeviceVerificationController::class, 'keys'])
+            ->middleware('permission:device.keys.view');
+        Route::get('/devices/{deviceId}/logs', [AdminDeviceVerificationController::class, 'logs'])
+            ->middleware('permission:device.view');
+
+        // 客服 / Telegram 设置
+        Route::get('/chat/community-links', [AdminChatSettingsController::class, 'communityLinks'])
+            ->middleware('permission:chat.settings');
+        Route::put('/chat/community-links', [AdminChatSettingsController::class, 'updateCommunityLinks'])
+            ->middleware('permission:chat.settings');
+        Route::get('/chat-admins', [AdminChatSettingsController::class, 'chatAdmins'])
+            ->middleware('permission:chat.settings');
+        Route::put('/chat-admins/{id}', [AdminChatSettingsController::class, 'updateChatAdmin'])
+            ->whereNumber('id')
+            ->middleware('permission:chat.settings');
+        Route::put('/chat-admins/{id}/chatbot', [AdminChatSettingsController::class, 'updateChatbot'])
+            ->whereNumber('id')
+            ->middleware('permission:chat.settings');
     });
 });
 
-// 尚未移植的接口：转发至旧 Node（聊天、设备验签、题库等）
+// 尚未移植的接口：转发至旧 Node（用户聊天 WebSocket、设备公开验签等）
 Route::any('/bridge/{path}', [LegacyBridgeController::class, 'handle'])
     ->where('path', '.*');

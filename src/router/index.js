@@ -4,6 +4,8 @@ import { isSafeInternalRedirect } from '@/utils/authRedirect'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
+import { useV2Api } from '@/utils/apiPath'
+import { ensureElementPlus } from '@/plugins/elementPlus'
 import i18n from '@/i18n'
 
 const routes = [
@@ -235,11 +237,17 @@ router.beforeEach(async (to, from, next) => {
   const adminStore = useAdminStore()
   const adminV2Store = useAdminV2Store()
 
-  // Check auth status on first navigation
-  if (!authStore.checked) {
+  const isAdminArea = to.path.startsWith('/admin') || to.name === 'admin-login'
+
+  if (to.meta.requiresAdmin) {
+    await ensureElementPlus()
+  }
+
+  // 后台路由不查前台 web 会话，减少一次 /api/v2/auth/me
+  if (!authStore.checked && !isAdminArea) {
     await authStore.checkAuth()
   }
-  if (!adminStore.checked) {
+  if (!useV2Api() && !adminStore.checked && isAdminArea) {
     await adminStore.checkAuth()
   }
   // V2 权限须在页面渲染前就绪（v-permission / 角色模块 API）
@@ -253,8 +261,9 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // Routes requiring admin authentication
-  if (to.meta.requiresAdmin && !adminStore.isLoggedIn) {
-    return next({ name: 'admin-login' })
+  const adminAuthed = useV2Api() ? adminV2Store.isLoggedIn : adminStore.isLoggedIn
+  if (to.meta.requiresAdmin && !adminAuthed) {
+    return next({ name: 'admin-login', query: { redirect: to.fullPath } })
   }
 
   // Logged in users accessing guest pages
@@ -273,7 +282,7 @@ router.beforeEach(async (to, from, next) => {
       }
       return next({ name: 'home' })
     }
-    if (adminStore.isLoggedIn && to.name === 'admin-login' && to.query.reauth !== '1') {
+    if ((useV2Api() ? adminV2Store.isLoggedIn : adminStore.isLoggedIn) && to.name === 'admin-login' && to.query.reauth !== '1') {
       return next({ name: 'admin-dashboard' })
     }
   }

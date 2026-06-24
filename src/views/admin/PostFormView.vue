@@ -94,7 +94,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '@/services/api'
+import { fetchPost, createPost, updatePost } from '@/services/v2/admin/forum'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const route = useRoute()
@@ -122,7 +122,7 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const response = await api.get(`/api/admin/posts/${route.params.id}`)
+      const response = await fetchPost(route.params.id)
       form.value = {
         title: response.data.title,
         author: response.data.author || '',
@@ -144,9 +144,9 @@ async function handleSubmit() {
 
   try {
     if (isEdit.value) {
-      await api.put(`/api/admin/posts/${route.params.id}`, form.value)
+      await updatePost(route.params.id, form.value)
     } else {
-      await api.post('/api/admin/posts', form.value)
+      await createPost(form.value)
     }
     showToast('Post saved successfully', 'success')
     setTimeout(() => {

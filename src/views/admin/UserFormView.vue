@@ -167,7 +167,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import { fetchUser, createUser, updateUser } from '@/services/v2/admin/users'
 import { fetchRoles } from '@/services/v2/admin/roles'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 
@@ -236,7 +236,7 @@ onMounted(async () => {
     }
 
     if (isEdit.value) {
-      const response = await api.get(`/api/admin/users/${route.params.id}`)
+      const response = await fetchUser(route.params.id)
       const data = response.data || {}
       form.value = {
         username: data.username || '',
@@ -278,9 +278,9 @@ async function handleSubmit() {
     }
 
     if (isEdit.value) {
-      await api.put(`/api/admin/users/${route.params.id}`, payload)
+      await updateUser(route.params.id, payload)
     } else {
-      await api.post('/api/admin/users', payload)
+      await createUser(payload)
     }
 
     showToast(t('admin.users.saveSuccess'), 'success')

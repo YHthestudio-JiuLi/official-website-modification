@@ -305,18 +305,20 @@ class OrderService
             ];
         }
 
-        $totalOrders = Order::query()->count();
-        $pendingOrders = Order::query()->where('status', 'pending')->count();
-        $totalRevenue = (float) Order::query()->whereIn('status', ['paid', 'completed'])->sum('totalAmount');
+        $orderAgg = Order::query()
+            ->selectRaw('COUNT(*) as total_orders')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders")
+            ->selectRaw("SUM(CASE WHEN status IN ('paid', 'completed') THEN totalAmount ELSE 0 END) as total_revenue")
+            ->first();
 
         return [
             'scope' => 'admin',
             'totalUsers' => User::query()->count(),
             'totalProducts' => Product::query()->count(),
             'totalPosts' => ForumPost::query()->count(),
-            'totalOrders' => $totalOrders,
-            'pendingOrders' => $pendingOrders,
-            'totalRevenue' => $totalRevenue,
+            'totalOrders' => (int) ($orderAgg->total_orders ?? 0),
+            'pendingOrders' => (int) ($orderAgg->pending_orders ?? 0),
+            'totalRevenue' => (float) ($orderAgg->total_revenue ?? 0),
         ];
     }
 

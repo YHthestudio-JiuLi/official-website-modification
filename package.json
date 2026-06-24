@@ -1,12 +1,13 @@
 {
   "name": "yhthestudio-web",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "YHthestudio - Vue 3 E-commerce & Forum Platform",
   "main": "api-server.js",
   "scripts": {
     "py": ".venv/bin/python -m uvicorn py_backend.main:app --host 127.0.0.1 --port 5100 --reload",
     "laravel": "bash scripts/laravel-serve.sh",
     "laravel:setup": "bash scripts/laravel-setup.sh",
+    "deploy": "bash scripts/deploy.sh",
     "validate": "bash scripts/validate-migration.sh",
     "dev": "npm run build && npm start",
     "build": "vite build",

@@ -43,6 +43,54 @@ class UserManager:
         self.cur.execute("SELECT * FROM users WHERE email = ?", (email,))
         return row_to_dict(self.cur.fetchone())
 
+    def can_access_admin(self, user_id: int) -> bool:
+        """与 Laravel User::canAccessAdmin 对齐：isAdmin / user_type / Spatie 角色与 admin.access 权限"""
+        user = self.find_by_id(user_id)
+        if not user:
+            return False
+        if user.get("isAdmin") in (1, True, "1"):
+            return True
+        user_type = str(user.get("user_type") or "customer").lower()
+        if user_type in ("agent", "staff", "super_admin"):
+            return True
+
+        model_type = "App\\Models\\User"
+        self.cur.execute(
+            """
+            SELECT r.name FROM roles r
+            INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
+            WHERE mhr.model_type = ? AND mhr.model_id = ?
+            """,
+            (model_type, user_id),
+        )
+        role_names = {str(row[0]) for row in self.cur.fetchall()}
+        if role_names & {"super_admin", "staff", "agent"}:
+            return True
+
+        self.cur.execute(
+            """
+            SELECT 1 FROM permissions p
+            INNER JOIN model_has_permissions mhp ON mhp.permission_id = p.id
+            WHERE mhp.model_type = ? AND mhp.model_id = ? AND p.name = 'admin.access'
+            LIMIT 1
+            """,
+            (model_type, user_id),
+        )
+        if self.cur.fetchone():
+            return True
+
+        self.cur.execute(
+            """
+            SELECT 1 FROM permissions p
+            INNER JOIN role_has_permissions rhp ON rhp.permission_id = p.id
+            INNER JOIN model_has_roles mhr ON mhr.role_id = rhp.role_id
+            WHERE mhr.model_type = ? AND mhr.model_id = ? AND p.name = 'admin.access'
+            LIMIT 1
+            """,
+            (model_type, user_id),
+        )
+        return self.cur.fetchone() is not None
+
     def create(self, username: str, email: str, password: str, is_admin: int = 0) -> int:
         self.cur.execute(
             "INSERT INTO users (username, email, password, isAdmin) VALUES (?, ?, ?, ?)",

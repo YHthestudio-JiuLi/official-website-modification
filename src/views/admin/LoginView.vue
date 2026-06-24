@@ -51,20 +51,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
 import { useV2Api } from '@/utils/apiPath'
-import { syncLegacyNodeAdminSession } from '@/utils/legacyNodeSession'
+import { isSafeInternalRedirect } from '@/utils/authRedirect'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const adminStore = useAdminStore()
 const adminV2Store = useAdminV2Store()
-const authStore = useAuthStore()
 const useV2 = useV2Api()
 
 const form = ref({
@@ -74,31 +73,41 @@ const form = ref({
 const error = ref('')
 const loading = ref(false)
 
+onMounted(() => {
+  if (route.query.reauth === '1') {
+    error.value = t('admin.login.sessionExpired')
+  }
+})
+
 async function handleLogin() {
   loading.value = true
   error.value = ''
 
   try {
     if (useV2) {
-      await adminV2Store.login(form.value)
-      await adminStore.checkAuth()
-      await syncLegacyNodeAdminSession(form.value)
-      // 同步前台登录态（不踢线，仅刷新 Pinia）
-      await authStore.checkAuth()
+      const loginData = await adminV2Store.login(form.value)
+      adminStore.admin = loginData.admin || loginData.user
+      adminStore.checked = true
     } else {
       await adminStore.login(form.value)
-      await syncLegacyNodeAdminSession(form.value)
       await adminV2Store.syncLogin(form.value)
     }
-    router.push('/admin')
+    const redirect = route.query.redirect
+    const target =
+      typeof redirect === 'string' && isSafeInternalRedirect(redirect)
+        ? redirect
+        : { name: 'admin-dashboard' }
+    await router.replace(target)
   } catch (err) {
     const status = err.response?.status
+    const data = err.response?.data
+    const fieldError = data?.errors?.username?.[0] || data?.errors?.password?.[0]
     if (status === 429) {
       error.value = t('admin.login.tooManyRequests')
     } else if (status >= 500) {
       error.value = t('admin.login.serverUnavailable')
     } else {
-      error.value = err.response?.data?.message || err.response?.data?.error || t('admin.login.error')
+      error.value = fieldError || data?.message || data?.error || t('admin.login.error')
     }
   } finally {
     loading.value = false

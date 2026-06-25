@@ -15,8 +15,10 @@ class ProductController extends Controller
     {
         $locale = $request->header('Accept-Language', '');
         $translateEn = ! str_starts_with(strtolower($locale), 'zh');
+        $limit = $request->integer('limit');
+        $limit = $limit > 0 ? min($limit, 100) : null;
 
-        return response()->json($this->catalog->listProductsForApi($translateEn));
+        return response()->json($this->catalog->listProductsForApi($translateEn, null, $limit));
     }
 
     public function show(Request $request, int $id): JsonResponse

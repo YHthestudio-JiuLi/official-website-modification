@@ -20,7 +20,8 @@ class UserResource extends JsonResource
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
             'permissions' => $this->when(
                 $request->user()?->id === $this->id,
-                fn () => $this->getAllPermissions()->pluck('name')
+                fn () => $request->attributes->get('resolved_permissions')
+                    ?? $this->getAllPermissions()->pluck('name')
             ),
             'agent' => $this->whenLoaded('agent', fn () => [
                 'id' => $this->agent->id,

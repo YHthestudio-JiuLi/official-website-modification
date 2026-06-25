@@ -41,14 +41,6 @@ Route::get('/health', function () {
     try {
         DB::connection()->getPdo();
         $payload['db'] = DB::connection()->getDatabaseName();
-        $payload['tables'] = [
-            'products' => Schema::hasTable('products'),
-            'product_categories' => Schema::hasTable('product_categories'),
-            'users' => Schema::hasTable('users'),
-        ];
-        if (Schema::hasTable('products')) {
-            $payload['product_count'] = DB::table('products')->count();
-        }
     } catch (\Throwable $e) {
         $payload['ok'] = false;
         $payload['db_error'] = $e->getMessage();

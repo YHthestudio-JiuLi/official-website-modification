@@ -57,6 +57,7 @@ import { useI18n } from 'vue-i18n'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
 import { useV2Api } from '@/utils/apiPath'
+import { ensureElementPlus } from '@/plugins/elementPlus'
 import { isSafeInternalRedirect } from '@/utils/authRedirect'
 
 const router = useRouter()
@@ -77,6 +78,8 @@ onMounted(() => {
   if (route.query.reauth === '1') {
     error.value = t('admin.login.sessionExpired')
   }
+  // 预加载后台 UI 库，减少登录后首屏等待
+  ensureElementPlus()
 })
 
 async function handleLogin() {

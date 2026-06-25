@@ -10,11 +10,11 @@ function langHeaders() {
   return { headers: { 'Accept-Language': locale } }
 }
 
-export function getProducts() {
+export function getProducts(config = {}) {
   if (USE_V2) {
-    return catalogV2.fetchProducts(langHeaders())
+    return catalogV2.fetchProducts({ ...langHeaders(), ...config })
   }
-  return api.get('/api/products')
+  return api.get('/api/products', config)
 }
 
 export function getProduct(id) {

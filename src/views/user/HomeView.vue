@@ -183,10 +183,10 @@ const statItems = computed(() => [
 
 onMounted(async () => {
   try {
-    const response = await catalogApi.getProducts()
+    const response = await catalogApi.getProducts({ params: { limit: 3 } })
     const list = response.data || []
-    productTotal.value = list.length
-    products.value = list.slice(0, 3)
+    products.value = list
+    productTotal.value = list.length >= 3 ? '3+' : list.length
   } catch (error) {
     console.error('Failed to fetch products:', error)
   }

@@ -572,13 +572,18 @@ watch(() => form.value.categoryId, () => {
 })
 
 onMounted(async () => {
-  if (!isScopedAgent.value) {
-    await loadCategories()
-  }
+  const categoryPromise = isScopedAgent.value ? Promise.resolve() : loadCategories()
+  const productPromise = isEdit.value
+    ? fetchAdminProduct(route.params.id)
+    : Promise.resolve(null)
+
   if (isEdit.value) {
     loading.value = true
-    try {
-      const response = await fetchAdminProduct(route.params.id)
+  }
+
+  try {
+    const [, response] = await Promise.all([categoryPromise, productPromise])
+    if (isEdit.value && response) {
       form.value = {
         name: response.data.name || '',
         description: response.data.description || '',
@@ -592,14 +597,16 @@ onMounted(async () => {
       loadFeatureRowsFromProduct(response.data)
       loadSpecCardRowsFromProduct(response.data)
       loadUsageNoticeRowsFromProduct(response.data)
-    } catch (err) {
-      error.value = t('admin.productForm.errors.load', {
-        message: err.response?.data?.message || err.message
-      })
-      setTimeout(() => {
-        router.push('/admin/products')
-      }, 2000)
-    } finally {
+    }
+  } catch (err) {
+    error.value = t('admin.productForm.errors.load', {
+      message: err.response?.data?.message || err.message
+    })
+    setTimeout(() => {
+      router.push('/admin/products')
+    }, 2000)
+  } finally {
+    if (isEdit.value) {
       loading.value = false
     }
   }

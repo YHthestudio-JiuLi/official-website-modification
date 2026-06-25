@@ -118,10 +118,11 @@ const trackingLoading = ref(false)
 const externalCopiedHint = ref('')
 
 onMounted(async () => {
+  loading.value = true
   try {
     const response = await api.get(`/api/orders/${route.params.id}`)
     order.value = response.data
-    await loadTracking()
+    loadTracking()
   } catch (error) {
     console.error('Failed to fetch order:', error)
   } finally {

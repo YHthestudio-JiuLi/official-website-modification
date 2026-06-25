@@ -224,7 +224,10 @@ watch(form, () => {
 onMounted(async () => {
   loading.value = true
   try {
-    const rolesRes = await fetchRoles()
+    const rolesPromise = fetchRoles()
+    const userPromise = isEdit.value ? fetchUser(route.params.id) : Promise.resolve(null)
+    const [rolesRes, userRes] = await Promise.all([rolesPromise, userPromise])
+
     availableRoles.value = Array.isArray(rolesRes.data) ? rolesRes.data : []
     if (!availableRoles.value.length) {
       availableRoles.value = [
@@ -235,9 +238,8 @@ onMounted(async () => {
       ]
     }
 
-    if (isEdit.value) {
-      const response = await fetchUser(route.params.id)
-      const data = response.data || {}
+    if (isEdit.value && userRes) {
+      const data = userRes.data || {}
       form.value = {
         username: data.username || '',
         email: data.email || '',

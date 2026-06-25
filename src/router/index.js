@@ -235,7 +235,6 @@ export const isRouterPending = ref(false)
 
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
-  isRouterPending.value = true
   setDocumentTitle(to, i18n.global.t)
 
   const authStore = useAuthStore()
@@ -243,21 +242,38 @@ router.beforeEach(async (to, from, next) => {
   const adminV2Store = useAdminV2Store()
 
   const isAdminArea = to.path.startsWith('/admin') || to.name === 'admin-login'
+  const mustCheckUserAuth =
+    !isAdminArea &&
+    !authStore.checked &&
+    (to.meta.requiresAuth || to.meta.guest)
+
+  const bootstrapTasks = []
+
+  if (mustCheckUserAuth) {
+    bootstrapTasks.push(authStore.checkAuth())
+  } else if (!authStore.checked && !isAdminArea) {
+    // 公开页不阻塞导航，异步补全会话供顶栏登录态展示
+    authStore.checkAuth()
+  }
+
+  if (!useV2Api() && !adminStore.checked && isAdminArea) {
+    bootstrapTasks.push(adminStore.checkAuth())
+  }
 
   if (to.meta.requiresAdmin) {
-    await ensureElementPlus()
+    if (useV2Api() && !adminV2Store.checked) {
+      bootstrapTasks.push(adminV2Store.checkAuth())
+    }
+    bootstrapTasks.push(ensureElementPlus())
   }
 
-  // 后台路由不查前台 web 会话，减少一次 /api/v2/auth/me
-  if (!authStore.checked && !isAdminArea) {
-    await authStore.checkAuth()
-  }
-  if (!useV2Api() && !adminStore.checked && isAdminArea) {
-    await adminStore.checkAuth()
-  }
-  // V2 权限须在页面渲染前就绪（v-permission / 角色模块 API）
-  if (to.meta.requiresAdmin && !adminV2Store.checked) {
-    await adminV2Store.checkAuth()
+  if (bootstrapTasks.length > 0) {
+    isRouterPending.value = true
+    try {
+      await Promise.all(bootstrapTasks)
+    } finally {
+      isRouterPending.value = false
+    }
   }
 
   // Routes requiring user authentication

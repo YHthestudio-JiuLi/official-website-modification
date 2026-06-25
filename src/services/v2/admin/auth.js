@@ -10,7 +10,7 @@ export function logout() {
 
 export function fetchMe() {
   // 会话检查须快速失败，避免路由守卫长时间白屏
-  return v2.get('/auth/admin/me', { timeout: 10000 })
+  return v2.get('/auth/admin/me', { timeout: 5000 })
 }
 
 export function fetchMenus() {

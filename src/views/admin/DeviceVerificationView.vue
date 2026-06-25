@@ -714,7 +714,10 @@ onUnmounted(() => {
 })
 
 async function initPage() {
-  await Promise.all([fetchCooldownSettings(), fetchDevices(), fetchQuestions(), fetchFirmwareItems()])
+  await Promise.all([fetchCooldownSettings(), fetchDevices()])
+  // 题库/固件列表仅用于下拉，后台加载不阻塞首屏
+  fetchQuestions()
+  fetchFirmwareItems()
 }
 
 async function handleUnauthorized(error) {

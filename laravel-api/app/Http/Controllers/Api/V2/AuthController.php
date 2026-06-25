@@ -117,10 +117,13 @@ class AuthController extends Controller
 
         $user->load(['roles', 'agent']);
 
+        $permissions = $user->getAllPermissions()->pluck('name');
+        $request->attributes->set('resolved_permissions', $permissions);
+
         return response()->json([
             'admin' => new UserResource($user),
             'user' => new UserResource($user),
-            'permissions' => $user->getAllPermissions()->pluck('name'),
+            'permissions' => $permissions,
         ]);
     }
 

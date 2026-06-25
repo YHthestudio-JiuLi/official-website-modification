@@ -35,12 +35,12 @@ export const useAdminV2Store = defineStore('adminV2', () => {
       const { data } = await authApi.fetchMe()
       user.value = data.admin || data.user
       permissions.value = data.permissions || []
-      await syncLegacyAdminMirror()
+      syncLegacyAdminMirror()
     } catch {
       user.value = null
       permissions.value = []
       menus.value = []
-      await syncLegacyAdminMirror()
+      syncLegacyAdminMirror()
     } finally {
       checked.value = true
     }

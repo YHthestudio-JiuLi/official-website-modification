@@ -14,11 +14,14 @@ class ProductCatalogService
         private readonly ProductTranslator $translator,
     ) {}
 
-    public function listProductsForApi(bool $translateEn = true, ?int $ownerUserId = null): array
+    public function listProductsForApi(bool $translateEn = true, ?int $ownerUserId = null, ?int $limit = null): array
     {
         $query = $this->productQuery()->orderByDesc('p.date')->orderByDesc('p.id');
         if ($ownerUserId !== null) {
             $query->where('p.createdByUserId', $ownerUserId);
+        }
+        if ($limit !== null && $limit > 0) {
+            $query->limit($limit);
         }
         $rows = $query->get();
         $normalized = $this->normalizer->normalizeMany($rows->map(fn ($r) => (array) $r)->all());

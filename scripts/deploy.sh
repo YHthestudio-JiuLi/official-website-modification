@@ -252,6 +252,12 @@ setup_laravel() {
     "$PHP_BIN" artisan permission:cache
   fi
 
+  if grep -qE '^(SESSION_DRIVER|CACHE_STORE)=redis' "$ROOT/laravel-api/.env" 2>/dev/null; then
+    if command -v redis-cli >/dev/null 2>&1 && ! redis-cli ping >/dev/null 2>&1; then
+      warn "laravel-api/.env 使用 Redis，但本机 redis-cli ping 失败，会话/缓存可能间歇超时变慢"
+    fi
+  fi
+
   info "php artisan optimize（config/route 缓存）..."
   if "$PHP_BIN" artisan optimize 2>/dev/null; then
     :

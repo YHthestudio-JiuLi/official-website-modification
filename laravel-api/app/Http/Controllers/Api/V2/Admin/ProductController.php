@@ -21,7 +21,7 @@ class ProductController extends Controller
     {
         $user = $request->user();
         $ownerId = $this->agentScope->isScopedAgent($user) ? $user->id : null;
-        $rows = $this->catalog->listProductsForApi(false, $ownerId);
+        $rows = $this->catalog->listProductsForAdminIndex($ownerId);
         if ($ownerId !== null) {
             $rows = array_map(fn (array $row) => $this->stripCategoryFields($row), $rows);
         }

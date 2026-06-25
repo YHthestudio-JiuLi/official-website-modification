@@ -29,6 +29,65 @@ class ProductCatalogService
         return $this->translator->translateMany($normalized, $translateEn);
     }
 
+    /**
+     * 管理端列表：不加载 features/specs 等大 JSON，减轻响应体积与解析耗时
+     */
+    public function listProductsForAdminIndex(?int $ownerUserId = null): array
+    {
+        $query = DB::table('products as p')
+            ->leftJoin('product_categories as c', 'p.categoryId', '=', 'c.id')
+            ->leftJoin('product_categories as sc', 'p.subCategoryId', '=', 'sc.id')
+            ->select([
+                'p.id',
+                'p.name',
+                'p.description',
+                'p.image',
+                'p.date',
+                'p.price',
+                'p.priceUsdt',
+                'p.categoryId',
+                'p.subCategoryId',
+                'c.name as categoryName',
+                'c.nameEn as categoryNameEn',
+                'c.slug as categorySlug',
+                'sc.name as subCategoryName',
+                'sc.nameEn as subCategoryNameEn',
+                'sc.slug as subCategorySlug',
+            ])
+            ->orderByDesc('p.date')
+            ->orderByDesc('p.id');
+
+        if ($ownerUserId !== null) {
+            $query->where('p.createdByUserId', $ownerUserId);
+        }
+
+        $out = [];
+        foreach ($query->get() as $row) {
+            $arr = (array) $row;
+            $images = $this->normalizer->parseImages($arr['image'] ?? null);
+            $out[] = [
+                'id' => (int) $arr['id'],
+                'name' => $arr['name'],
+                'description' => $arr['description'],
+                'image' => $images[0] ?? '',
+                'images' => $images,
+                'date' => $arr['date'],
+                'price' => (float) ($arr['price'] ?? 0),
+                'priceUsdt' => (float) ($arr['priceUsdt'] ?? $arr['price'] ?? 0),
+                'categoryId' => $arr['categoryId'] !== null ? (int) $arr['categoryId'] : null,
+                'subCategoryId' => $arr['subCategoryId'] !== null ? (int) $arr['subCategoryId'] : null,
+                'categoryName' => $arr['categoryName'] ?? null,
+                'categoryNameEn' => $arr['categoryNameEn'] ?? null,
+                'categorySlug' => $arr['categorySlug'] ?? null,
+                'subCategoryName' => $arr['subCategoryName'] ?? null,
+                'subCategoryNameEn' => $arr['subCategoryNameEn'] ?? null,
+                'subCategorySlug' => $arr['subCategorySlug'] ?? null,
+            ];
+        }
+
+        return $out;
+    }
+
     public function findProductForApi(int $id, bool $translateEn = true): ?array
     {
         $row = $this->productQuery()->where('p.id', $id)->first();

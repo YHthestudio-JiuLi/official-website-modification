@@ -7,6 +7,7 @@ const { translateProduct, translateProducts } = require('../../translate');
 const { notifyForumNewPost, notifyForumNewReply, notifyOrderPaid } = require('../../telegram');
 const { verifyOrderPaymentTx, messageForVerifyFailure } = require('../../usdt-tx-verify');
 const questionsService = require('../../services/questionsService');
+const { deleteQuestionUploadFilesLocally } = require('../lib/questionUploadCleanup');
 const { comparePassword } = require('../lib/password');
 const { saveSession } = require('../lib/session');
 const { verifyLegacyNodeBridgeToken } = require('../lib/bridge-token');
@@ -41,7 +42,8 @@ function registerLegacyMigratedRoutes(app, deps) {
     serializeProductDetailJson,
     parseProductCategoryId,
     parseProductSubCategoryId,
-    parseCategoryParentId
+    parseCategoryParentId,
+    rootDir
   } = deps;
 
 app.get('/api/auth/me', (req, res) => {
@@ -1132,8 +1134,25 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
 });
 
 app.delete('/api/admin/questions/:id', requireAdmin, async (req, res) => {
+  const questionId = parseInt(req.params.id, 10);
+  if (Number.isNaN(questionId) || questionId <= 0) {
+    return res.status(400).json({ error: 'Invalid question id' });
+  }
   try {
-    await questionsService.delete(parseInt(req.params.id));
+    let question = null;
+    try {
+      question = await questionsService.findById(questionId);
+    } catch (lookupError) {
+      logger.warn('Delete question: findById failed, will still try disk cleanup', {
+        questionId,
+        error: lookupError.message
+      });
+    }
+
+    await questionsService.delete(questionId);
+
+    // 删库成功后在本机 uploads 兜底清理（防止 Python 路径/权限不一致导致残留）
+    deleteQuestionUploadFilesLocally(questionId, question, questionUploadsPath, rootDir);
     res.json({ success: true });
   } catch (error) {
     if (error.message.includes('404') || error.message.includes('not found')) {

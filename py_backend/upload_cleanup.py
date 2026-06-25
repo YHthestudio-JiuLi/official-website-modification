@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("py_backend")
 
-# 与 Node api-server 项目根一致
+# 与 Node api-server 项目根一致；支持 LEGACY_UPLOADS_ROOT 指向 uploads 目录
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-QUESTIONS_UPLOAD_DIR = PROJECT_ROOT / "uploads" / "questions"
-FIRMWARE_UPLOAD_DIR = PROJECT_ROOT / "uploads" / "nano-firmwares"
+_UPLOADS_ENV = (os.environ.get("LEGACY_UPLOADS_ROOT") or os.environ.get("YH_UPLOADS_ROOT") or "").strip()
+UPLOADS_ROOT = Path(_UPLOADS_ENV).resolve() if _UPLOADS_ENV else (PROJECT_ROOT / "uploads")
+QUESTIONS_UPLOAD_DIR = UPLOADS_ROOT / "questions"
+FIRMWARE_UPLOAD_DIR = UPLOADS_ROOT / "nano-firmwares"
 
 
 def resolve_upload_path(stored: str | None) -> Optional[Path]:
@@ -21,7 +24,7 @@ def resolve_upload_path(stored: str | None) -> Optional[Path]:
     if not raw:
         return None
     if raw.startswith("/uploads/") or raw.startswith("uploads/"):
-        return (PROJECT_ROOT / raw.lstrip("/")).resolve()
+        return (UPLOADS_ROOT / raw.split("uploads/", 1)[-1].lstrip("/")).resolve()
     candidate = Path(raw)
     if candidate.is_absolute():
         return candidate.resolve()

@@ -37,6 +37,9 @@ const LEGACY_PRODUCT_IMAGE = /^\/api\/product-images\/\d+$/
 /** PUT 允许：题库带文件更新 */
 const LEGACY_NODE_PUT_QUESTION = /^\/api\/admin\/questions\/\d+$/
 
+/** DELETE 允许：题库删除（含 uploads 清理） */
+const LEGACY_NODE_DELETE_QUESTION = /^\/api\/admin\/questions\/\d+$/
+
 /**
  * @param {string} path
  * @param {string} prefix
@@ -70,6 +73,9 @@ function isLegacyNodeAllowedPath(url, method = 'GET') {
     return true
   }
   if (LEGACY_NODE_PUT_QUESTION.test(path) && m === 'PUT') {
+    return true
+  }
+  if (LEGACY_NODE_DELETE_QUESTION.test(path) && m === 'DELETE') {
     return true
   }
 

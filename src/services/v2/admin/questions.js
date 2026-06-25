@@ -13,15 +13,16 @@ export function fetchQuestion(id) {
   return v2.get(`/admin/questions/${id}`)
 }
 
+/** 含分片 uploadId 的保存须直连 Node，与 chunk/complete 共用内存态 */
 export function createQuestion(formData, config = {}) {
-  return v2.post('/admin/questions', formData, {
+  return api.post('/api/admin/questions', formData, {
     timeout: UPLOAD_TIMEOUT,
     ...config
   })
 }
 
 export function updateQuestion(id, formData, config = {}) {
-  return v2.put(`/admin/questions/${id}`, formData, {
+  return api.put(`/api/admin/questions/${id}`, formData, {
     timeout: UPLOAD_TIMEOUT,
     ...config
   })

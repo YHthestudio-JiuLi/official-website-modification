@@ -36,12 +36,15 @@ class LegacyNodeBridge
             return $http->get($url, $request->query());
         }
 
-        if ($request->allFiles()) {
+        $fileKeys = array_keys($request->allFiles());
+        $formFields = $request->except($fileKeys);
+        $isMultipart = str_contains(strtolower((string) $request->header('Content-Type', '')), 'multipart/form-data');
+
+        if ($request->allFiles() || ($isMultipart && $formFields !== [])) {
             $multipart = [];
-            $fileKeys = array_keys($request->allFiles());
 
             // 文本字段须先于文件：Node multer 在解析 chunk 时依赖 uploadId/chunkIndex 已写入 req.body
-            foreach ($request->except($fileKeys) as $k => $v) {
+            foreach ($formFields as $k => $v) {
                 if (is_array($v)) {
                     $multipart[] = ['name' => $k, 'contents' => json_encode($v)];
                 } elseif ($v !== null) {
@@ -69,7 +72,7 @@ class LegacyNodeBridge
         }
 
         return $http
-            ->withBody($body, $request->header('Content-Type', 'application/json'))
+            ->withBody($body, 'application/json')
             ->send($method, $url);
     }
 

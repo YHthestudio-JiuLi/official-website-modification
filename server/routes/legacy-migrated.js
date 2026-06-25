@@ -1070,7 +1070,7 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
     consumedDbChunk = dbChunkUploadId ? consumeCompletedQuestionUpload(dbChunkUploadId, 'dbFile') : null;
     consumedVectorChunk = vectorChunkUploadId ? consumeCompletedQuestionUpload(vectorChunkUploadId, 'vectorFile') : null;
 
-    if (req.files.dbFile && req.files.dbFile[0]) {
+    if (req.files?.dbFile?.[0]) {
       const dbFile = req.files.dbFile[0];
       formData.append('db_file', fs.createReadStream(dbFile.path), {
         filename: dbFile.originalname,
@@ -1082,7 +1082,7 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
       });
     }
     
-    if (req.files.vectorFile && req.files.vectorFile[0]) {
+    if (req.files?.vectorFile?.[0]) {
       const vectorFile = req.files.vectorFile[0];
       formData.append('vector_file', fs.createReadStream(vectorFile.path), {
         filename: vectorFile.originalname,
@@ -1096,10 +1096,10 @@ app.put('/api/admin/questions/:id', requireAdmin, questionFilesUpload.fields([
     
     const result = await questionsService.updateWithFiles(parseInt(req.params.id), formData);
     
-    if (req.files.dbFile && req.files.dbFile[0]) {
+    if (req.files?.dbFile?.[0]) {
       try { fs.unlinkSync(req.files.dbFile[0].path); } catch (e) {}
     }
-    if (req.files.vectorFile && req.files.vectorFile[0]) {
+    if (req.files?.vectorFile?.[0]) {
       try { fs.unlinkSync(req.files.vectorFile[0].path); } catch (e) {}
     }
     if (consumedDbChunk?.storedPath) {

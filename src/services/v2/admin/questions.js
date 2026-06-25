@@ -1,6 +1,5 @@
 import v2 from '../http'
 import api from '@/services/api'
-import { prepareLegacyNodeUpload } from '@/utils/uploadBridge'
 
 const UPLOAD_TIMEOUT = 7200000
 /** 与 Node questionChunkUpload 限制及 PHP-FPM 兼容；直连 Node 时可用 5MB */
@@ -37,7 +36,6 @@ export function initQuestionUpload(payload) {
 }
 
 export async function uploadQuestionChunk(formData, config = {}) {
-  await prepareLegacyNodeUpload()
   return api.post('/api/admin/questions/upload/chunk', formData, {
     timeout: UPLOAD_TIMEOUT,
     ...config
@@ -45,6 +43,5 @@ export async function uploadQuestionChunk(formData, config = {}) {
 }
 
 export async function completeQuestionUpload(payload) {
-  await prepareLegacyNodeUpload()
   return api.post('/api/admin/questions/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
 }

@@ -263,7 +263,10 @@ router.beforeEach(async (to, from, next) => {
   // Routes requiring admin authentication
   const adminAuthed = useV2Api() ? adminV2Store.isLoggedIn : adminStore.isLoggedIn
   if (to.meta.requiresAdmin && !adminAuthed) {
-    return next({ name: 'admin-login', query: { redirect: to.fullPath } })
+    return next({
+      name: 'admin-login',
+      query: { redirect: to.fullPath, reauth: '1' }
+    })
   }
 
   // Logged in users accessing guest pages

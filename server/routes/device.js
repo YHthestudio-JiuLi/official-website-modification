@@ -18,7 +18,7 @@ function registerDeviceRoutes(app, deps) {
     firmwareChunkSessions,
     cleanupFirmwareChunkSession,
     buildFirmwareStoredName,
-    appendChunkFile,
+    mergeChunkFiles,
     sha256FileHex
   } = deps;
 
@@ -580,17 +580,8 @@ app.post('/api/admin/device-firmwares/upload/complete', requireAdmin, async (req
 
   const storedName = buildFirmwareStoredName(fileName);
   const finalPath = path.join(nanoFirmwareUploadsPath, storedName);
-  let out = null;
   try {
-    out = fs.createWriteStream(finalPath, { flags: 'wx' });
-    for (let i = 0; i < totalChunks; i += 1) {
-      const partPath = path.join(chunkDir, `chunk_${i}.part`);
-      await appendChunkFile(out, partPath);
-    }
-    await new Promise((resolve, reject) => {
-      out.end(() => resolve());
-      out.on('error', reject);
-    });
+    await mergeChunkFiles(chunkDir, totalChunks, finalPath);
     const stat = fs.statSync(finalPath);
     if (!stat || !stat.size || stat.size <= 0) {
       throw new Error('Merged firmware file is empty');

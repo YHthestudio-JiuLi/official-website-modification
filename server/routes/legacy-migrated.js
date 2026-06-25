@@ -30,7 +30,7 @@ function registerLegacyMigratedRoutes(app, deps) {
     buildQuestionStoredName,
     cleanupQuestionChunkSession,
     consumeCompletedQuestionUpload,
-    appendChunkFile,
+    mergeChunkFiles,
     getPaymentSettings,
     clearPaymentSettingsCache,
     normalizeProductRecord,
@@ -920,20 +920,8 @@ app.post('/api/admin/questions/upload/complete', requireAdmin, async (req, res) 
   const chunkDir = path.join(questionChunksPath, uploadId);
   const storedName = buildQuestionStoredName(fileName);
   const finalPath = path.join(questionUploadsPath, storedName);
-  let out = null;
   try {
-    out = fs.createWriteStream(finalPath, { flags: 'wx' });
-    for (let i = 0; i < totalChunks; i += 1) {
-      const partPath = path.join(chunkDir, `chunk_${i}.part`);
-      if (!fs.existsSync(partPath)) {
-        throw new Error(`Missing chunks: ${i}`);
-      }
-      await appendChunkFile(out, partPath);
-    }
-    await new Promise((resolve, reject) => {
-      out.end(() => resolve());
-      out.on('error', reject);
-    });
+    await mergeChunkFiles(chunkDir, totalChunks, finalPath);
     const stat = fs.statSync(finalPath);
     if (!stat || !stat.size || stat.size <= 0) {
       throw new Error('Merged question file is empty');

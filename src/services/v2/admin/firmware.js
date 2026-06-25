@@ -1,6 +1,5 @@
 import v2 from '../http'
 import api from '@/services/api'
-import { prepareLegacyNodeUpload } from '@/utils/uploadBridge'
 
 const UPLOAD_TIMEOUT = 7200000
 export const FIRMWARE_CHUNK_SIZE = 5 * 1024 * 1024
@@ -34,7 +33,6 @@ export function initFirmwareUpload(payload) {
 }
 
 export async function uploadFirmwareChunk(formData, config = {}) {
-  await prepareLegacyNodeUpload()
   return api.post('/api/admin/device-firmwares/upload/chunk', formData, {
     timeout: UPLOAD_TIMEOUT,
     ...config
@@ -42,7 +40,6 @@ export async function uploadFirmwareChunk(formData, config = {}) {
 }
 
 export async function completeFirmwareUpload(payload) {
-  await prepareLegacyNodeUpload()
   return api.post('/api/admin/device-firmwares/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
 }
 

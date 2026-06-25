@@ -1,5 +1,6 @@
 import { logoutNodeAdmin } from '@/services/legacyNodeAuth'
 import { finalizeAdminLogout } from '@/utils/adminLogout'
+import { LEGACY_NODE_BRIDGE_TOKEN_KEY } from '@/constants/legacyNodeBridge'
 
 /** 避免 logout 请求 401 再次触发跳转 */
 let suppress401Redirect = false
@@ -44,8 +45,10 @@ export function isAdminSessionRedirectActive() {
 
 /**
  * 后台会话失效：清本地状态并跳转登录页（保留当前页路径供登录后回跳）
+ * @param {{ skipServerLogout?: boolean }} options - 401 时会话已失效，跳过服务端 logout 避免长时间挂起
  */
-export async function redirectToAdminLogin() {
+export async function redirectToAdminLogin(options = {}) {
+  const { skipServerLogout = false } = options
   if (suppress401Redirect) return
   if (redirectInFlight) return redirectInFlight
 
@@ -60,13 +63,23 @@ export async function redirectToAdminLogin() {
     const adminStore = useAdminStore()
     const adminV2Store = useAdminV2Store()
 
-    await logoutNodeAdmin().catch(() => {})
+    if (skipServerLogout) {
+      sessionStorage.removeItem(LEGACY_NODE_BRIDGE_TOKEN_KEY)
+      const [{ resetApiCsrf }, { resetV2Csrf }] = await Promise.all([
+        import('@/services/api'),
+        import('@/services/v2/http')
+      ])
+      resetApiCsrf()
+      resetV2Csrf()
+    } else {
+      await logoutNodeAdmin().catch(() => {})
 
-    suppress401Redirect = true
-    try {
-      await finalizeAdminLogout(adminStore, adminV2Store)
-    } finally {
-      suppress401Redirect = false
+      suppress401Redirect = true
+      try {
+        await finalizeAdminLogout(adminStore, adminV2Store)
+      } finally {
+        suppress401Redirect = false
+      }
     }
 
     adminStore.$patch({ admin: null, checked: true })
@@ -95,5 +108,5 @@ export function handleAdminSessionUnauthorized(url) {
   // /me 401 由 checkAuth 处理，避免登录页加载时误触发 legacy logout
   if (path.includes('/auth/admin/me')) return
 
-  redirectToAdminLogin().catch(() => {})
+  redirectToAdminLogin({ skipServerLogout: true }).catch(() => {})
 }

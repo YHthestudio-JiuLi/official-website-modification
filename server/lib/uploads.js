@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { pipeline, finished } = require('stream/promises');
+const { createReadStream, createWriteStream } = require('fs');
 const multer = require('multer');
 const { dbOperations } = require('../../database');
 const {
@@ -157,13 +159,31 @@ function buildFirmwareStoredName(originalName) {
   return `nano_firmware_${Date.now()}_${Math.random().toString(36).slice(2, 10)}${safeExt}`;
 }
 
+/**
+ * 将分片顺序合并为最终文件（须等每片完全写入后再写下一片，避免写流死锁挂起）
+ */
+async function mergeChunkFiles(chunkDir, totalChunks, finalPath) {
+  const out = createWriteStream(finalPath, { flags: 'wx' });
+  try {
+    for (let i = 0; i < totalChunks; i += 1) {
+      const partPath = path.join(chunkDir, `chunk_${i}.part`);
+      if (!fs.existsSync(partPath)) {
+        throw new Error(`Missing chunks: ${i}`);
+      }
+      await pipeline(createReadStream(partPath), out, { end: false });
+    }
+    const done = finished(out);
+    out.end();
+    await done;
+  } catch (error) {
+    out.destroy();
+    throw error;
+  }
+}
+
+/** @deprecated 使用 mergeChunkFiles */
 async function appendChunkFile(outputStream, chunkPath) {
-  await new Promise((resolve, reject) => {
-    const rs = fs.createReadStream(chunkPath);
-    rs.on('error', reject);
-    rs.on('end', resolve);
-    rs.pipe(outputStream, { end: false });
-  });
+  await pipeline(createReadStream(chunkPath), outputStream, { end: false });
 }
 
 async function sha256FileHex(filePath) {
@@ -408,6 +428,7 @@ module.exports = {
   ALLOWED_FIRMWARE_EXTS,
   cleanupFirmwareChunkSession,
   buildFirmwareStoredName,
+  mergeChunkFiles,
   appendChunkFile,
   sha256FileHex,
   getPaymentSettings,

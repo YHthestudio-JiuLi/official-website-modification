@@ -18,7 +18,9 @@ class FirmwareService
 
     public function listFirmwareFiles(): array
     {
-        return $this->db->call('deviceVerification.listFirmwareFiles') ?? [];
+        $list = $this->db->call('deviceVerification.listFirmwareFiles') ?? [];
+
+        return array_map(fn (array $row) => $this->enrichFirmwareFileSize($row), $list);
     }
 
     public function listLocalFiles(): array
@@ -109,6 +111,24 @@ class FirmwareService
         if (File::isFile($abs)) {
             File::delete($abs);
         }
+    }
+
+    private function enrichFirmwareFileSize(array $row): array
+    {
+        if (! empty($row['file_size'])) {
+            return $row;
+        }
+        $fileUrl = $row['file_url'] ?? null;
+        if (! is_string($fileUrl) || $fileUrl === '') {
+            return $row;
+        }
+        $baseName = basename(str_replace('\\', '/', $fileUrl));
+        $abs = $this->firmwareUploadDir().DIRECTORY_SEPARATOR.$baseName;
+        if (File::isFile($abs)) {
+            $row['file_size'] = filesize($abs) ?: 0;
+        }
+
+        return $row;
     }
 
     private function firmwareUploadDir(): string

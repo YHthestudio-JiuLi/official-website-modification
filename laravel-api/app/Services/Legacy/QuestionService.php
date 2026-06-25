@@ -14,7 +14,9 @@ class QuestionService
 
     public function findAll(): array
     {
-        return $this->db->call('questions.findAll') ?? [];
+        $list = $this->db->call('questions.findAll') ?? [];
+
+        return array_map(fn (array $item) => $this->enrichWithFileSizes($item), $list);
     }
 
     public function findById(int $id): array
@@ -24,7 +26,36 @@ class QuestionService
             throw new RuntimeException('Question not found');
         }
 
-        return $question;
+        return $this->enrichWithFileSizes($question);
+    }
+
+    /**
+     * 根据磁盘文件补充题库文件大小（编辑页展示用）
+     */
+    private function enrichWithFileSizes(array $item): array
+    {
+        $uploadsRoot = rtrim((string) config('services.legacy_uploads.root'), DIRECTORY_SEPARATOR);
+        $dbSize = $this->fileSizeOnDisk($item['db_file_path'] ?? null, $uploadsRoot);
+        $vectorSize = $this->fileSizeOnDisk($item['vector_file_path'] ?? null, $uploadsRoot);
+
+        $item['db_file_size'] = $dbSize;
+        $item['vector_file_size'] = $vectorSize;
+        $item['total_file_size'] = ($dbSize ?? 0) + ($vectorSize ?? 0);
+
+        return $item;
+    }
+
+    private function fileSizeOnDisk(?string $stored, string $uploadsRoot): ?int
+    {
+        if (! is_string($stored) || $stored === '') {
+            return null;
+        }
+        $abs = $this->resolveUploadPath($uploadsRoot, $stored);
+        if (! $abs || ! File::isFile($abs)) {
+            return null;
+        }
+
+        return filesize($abs) ?: null;
     }
 
     /** 走 Python REST 删除（含上传目录清理），与 Node questionsService.delete 一致 */

@@ -106,8 +106,8 @@
                     <p class="file-status existing">
                       <i class="fas fa-check-circle"></i>
                       {{ $t('admin.questionsForm.currentFile') }}
-                      <span v-if="existingDbFileSize"> · {{ formatFileSize(existingDbFileSize) }}</span>
                     </p>
+                    <p v-if="existingDbFileSize" class="file-size">{{ formatFileSize(existingDbFileSize) }}</p>
                   </div>
                   <div class="file-actions">
                     <button type="button" class="btn-file btn-replace" @click="$refs.dbFileInput.click()">
@@ -169,8 +169,8 @@
                     <p class="file-status existing">
                       <i class="fas fa-check-circle"></i>
                       {{ $t('admin.questionsForm.currentFile') }}
-                      <span v-if="existingVectorFileSize"> · {{ formatFileSize(existingVectorFileSize) }}</span>
                     </p>
+                    <p v-if="existingVectorFileSize" class="file-size">{{ formatFileSize(existingVectorFileSize) }}</p>
                   </div>
                   <div class="file-actions">
                     <button type="button" class="btn-file btn-replace" @click="$refs.vectorFileInput.click()">

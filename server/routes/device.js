@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { deleteFirmwareFileLocally } = require('../lib/firmwareUploadCleanup');
 
 function registerDeviceRoutes(app, deps) {
   const {
@@ -695,12 +696,8 @@ app.delete('/api/admin/device-firmwares/:id', requireAdmin, async (req, res) => 
     if (!removed) {
       return res.status(404).json({ error: 'Firmware not found' });
     }
-    if (removed.file_url && typeof removed.file_url === 'string' && removed.file_url.startsWith('/uploads/nano-firmwares/')) {
-      const abs = path.join(rootDir, removed.file_url.replace(/^\//, ''));
-      if (abs.startsWith(nanoFirmwareUploadsPath) && fs.existsSync(abs)) {
-        fs.unlinkSync(abs);
-      }
-    }
+    // Node（常为 root）删盘，弥补 PHP/Python 权限不足导致的残留
+    deleteFirmwareFileLocally(removed, nanoFirmwareUploadsPath, rootDir);
     res.json({ ok: true });
   } catch (error) {
     console.error('[API Error] DELETE /api/admin/device-firmwares/:id:', error.message);

@@ -367,7 +367,7 @@ fi
 echo "    curl -s http://127.0.0.1:3000/api/csrf-token"
 echo "    curl -s http://127.0.0.1:5100/health"
 echo ""
-echo "  若 API 仍慢，请执行: bash scripts/setup-laravel-fpm.sh  （PHP-FPM 替代 php -S）"
+echo "  若 API 响应慢，请执行: bash scripts/setup-laravel-fpm.sh  （PHP-FPM 替代 php -S）"
 echo "  若外网无法访问，请按 DEPLOY.md 配置 Nginx："
 if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
   echo "    /api/v2/ 、/sanctum/ → PHP-FPM 8.5（extension/yh-laravel-fpm.conf）"

@@ -4,7 +4,7 @@
  * 仍直连 Node 的前端路径（见 staysOnLegacyNode）：
  * - /api/chat/*、/ws：在线客服
  * - /api/device/*：设备公开验签
- * - /api/admin/questions/*、/api/admin/device-firmwares/upload/*：题库保存与分片直连 Node
+ * - /api/admin/questions/*、/api/admin/device-firmwares/*（含删除与分片上传）直连 Node
  * - /api/admin/auth/establish：Laravel bridge 建立 Node 会话
  *
  * init 仍走 Laravel /api/v2；chunk/complete 直连 Node（勿被 resolveApiPath 改写成 v2）
@@ -15,6 +15,7 @@ const LEGACY_NODE_PREFIXES = [
   '/api/chat/',
   '/api/device/',
   '/api/admin/questions',
+  '/api/admin/device-firmwares',
   '/api/admin/device-firmwares/upload',
   '/api/admin/auth/establish',
 ]

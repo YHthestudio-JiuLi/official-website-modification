@@ -386,16 +386,22 @@ function onFirmwareFileChange(event) {
 
 function closeUploadModal() {
   if (firmwareUploading.value) return
-  resetUploadModalState()
+  finishFirmwareUploadUi()
 }
 
-function resetUploadModalState() {
+function finishFirmwareUploadUi() {
+  firmwareUploading.value = false
+  firmwareUploadProgress.value = 0
   showUploadModal.value = false
   pendingUploadFile.value = null
   uploadRemark.value = ''
   if (firmwareInputRef.value) {
     firmwareInputRef.value.value = ''
   }
+}
+
+function resetUploadModalState() {
+  finishFirmwareUploadUi()
 }
 
 async function confirmUpload() {
@@ -437,14 +443,13 @@ async function confirmUpload() {
       totalChunks,
       remark
     })
+    finishFirmwareUploadUi()
     await fetchFirmwareItems()
     showToast(t('admin.firmware.uploadSuccess'), 'success')
   } catch (error) {
     showToast(resolveUploadErrorMessage(error), 'error')
   } finally {
-    firmwareUploading.value = false
-    firmwareUploadProgress.value = 0
-    resetUploadModalState()
+    finishFirmwareUploadUi()
   }
 }
 
@@ -590,10 +595,13 @@ function closeDeleteModal() {
 
 async function executeDelete() {
   if (!firmwareToDelete.value) return
+  const target = firmwareToDelete.value
   try {
-    await deleteFirmwareApi(firmwareToDelete.value.id)
+    const { prepareLegacyNodeUpload } = await import('@/utils/uploadBridge')
+    await prepareLegacyNodeUpload()
+    await deleteFirmwareApi(target.id)
     closeDeleteModal()
-    await fetchFirmwareItems()
+    fetchFirmwareItems().catch(() => {})
     showToast(t('admin.firmware.deleteSuccess'), 'success')
   } catch (error) {
     showToast(error.response?.data?.error || t('admin.firmware.deleteError'), 'error')

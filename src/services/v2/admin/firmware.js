@@ -41,8 +41,9 @@ export async function uploadFirmwareChunk(formData, config = {}) {
   })
 }
 
-export function completeFirmwareUpload(payload) {
-  return v2.post('/admin/device-firmwares/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
+export async function completeFirmwareUpload(payload) {
+  await prepareLegacyNodeUpload()
+  return api.post('/api/admin/device-firmwares/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
 }
 
 export function uploadFirmwareLegacy(formData, config = {}) {

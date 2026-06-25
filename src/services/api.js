@@ -68,15 +68,22 @@ api.interceptors.request.use(
       return config
     }
 
+    const reqUrl = String(config.url || '')
+
     if (config.data instanceof FormData) {
       if (!Number.isFinite(config.timeout) || config.timeout < 600000) {
         config.timeout = 7200000
       }
+    } else if (
+      reqUrl.includes('/upload/complete')
+      && (!Number.isFinite(config.timeout) || config.timeout < 600000)
+    ) {
+      // 分片合并耗时较长
+      config.timeout = 7200000
     } else if (!config.headers['Content-Type']) {
       config.headers['Content-Type'] = 'application/json'
     }
 
-    const reqUrl = String(config.url || '')
     if (reqUrl.includes('/api/admin') || reqUrl.includes('/api/v2/admin')) {
       const bridgeToken = readLegacyNodeBridgeToken()
       if (bridgeToken) {

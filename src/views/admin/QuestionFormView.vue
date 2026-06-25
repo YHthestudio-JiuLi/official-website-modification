@@ -249,6 +249,7 @@ import {
   completeQuestionUpload,
   QUESTION_CHUNK_SIZE
 } from '@/services/v2/admin/questions'
+import { resetV2Csrf } from '@/services/v2/http'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 
@@ -447,7 +448,12 @@ async function handleSubmit() {
         formData.append('vectorChunkUploadId', uploadId)
       }
     }
-    
+
+    // 长时上传后 Sanctum CSRF 可能过期，保存前强制刷新
+    if (pendingUploads.length > 0) {
+      resetV2Csrf()
+    }
+
     if (isEdit.value) {
       if (clearDbFileFlag.value) {
         formData.append('clearDbFile', 'true')

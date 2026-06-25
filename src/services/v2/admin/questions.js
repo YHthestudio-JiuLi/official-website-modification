@@ -44,6 +44,7 @@ export async function uploadQuestionChunk(formData, config = {}) {
   })
 }
 
-export function completeQuestionUpload(payload) {
-  return v2.post('/admin/questions/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
+export async function completeQuestionUpload(payload) {
+  await prepareLegacyNodeUpload()
+  return api.post('/api/admin/questions/upload/complete', payload, { timeout: UPLOAD_TIMEOUT })
 }

@@ -7,7 +7,7 @@
  * - /api/admin/questions/upload/*、/api/admin/device-firmwares/upload/*：大文件分片直连 Node
  * - /api/admin/auth/establish：Laravel bridge 建立 Node 会话
  *
- * init/complete 仍走 Laravel /api/v2；chunk 必须直连 Node（勿被 resolveApiPath 改写成 v2）
+ * init 仍走 Laravel /api/v2；chunk/complete 直连 Node（勿被 resolveApiPath 改写成 v2）
  */
 
 const LEGACY_NODE_PREFIXES = [

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.posts.title') }}</template>
-
-    <div class="posts-page">
+  <div class="posts-page">
       <div class="page-header">
         <div class="header-content">
           <h2><i class="fas fa-comments"></i> {{ $t('admin.posts.listTitle') }}</h2>
@@ -191,7 +188,6 @@
         </div>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -204,7 +200,6 @@ import {
   fetchReplies,
   deleteReply as deleteReplyApi
 } from '@/services/v2/admin/forum'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
 const posts = ref([])
@@ -309,7 +304,7 @@ function truncateTitle(title) {
 
 <style scoped>
 .posts-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .page-header {

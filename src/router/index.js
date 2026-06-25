@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
 import { useV2Api } from '@/utils/apiPath'
-import { ensureElementPlus } from '@/plugins/elementPlus'
+import { ensureElementPlus, isElementPlusReady } from '@/plugins/elementPlus'
 import i18n from '@/i18n'
 
 const routes = [
@@ -83,14 +83,8 @@ const routes = [
     component: () => import('@/views/user/ChatView.vue'),
     meta: { titleKey: 'titles.chat' }
   },
-  {
-    path: '/admin/chat',
-    name: 'admin-chat',
-    component: () => import('@/views/user/ChatAdminView.vue'),
-    meta: { titleKey: 'titles.adminChat', requiresAdmin: true, layout: 'admin' }
-  },
 
-  // Admin routes
+  // Admin routes（侧栏壳层复用，子路由只换内容区）
   {
     path: '/admin/login',
     name: 'admin-login',
@@ -99,129 +93,142 @@ const routes = [
   },
   {
     path: '/admin',
-    name: 'admin-dashboard',
-    component: () => import('@/views/admin/DashboardView.vue'),
-    meta: { titleKey: 'titles.adminDashboard', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/users',
-    name: 'admin-users',
-    component: () => import('@/views/admin/UsersView.vue'),
-    meta: { titleKey: 'titles.adminUsers', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/roles',
-    name: 'admin-roles',
-    component: () => import('@/views/admin/RolesView.vue'),
-    meta: { titleKey: 'titles.adminRoles', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/agents',
-    name: 'admin-agents',
-    component: () => import('@/views/admin/AgentsView.vue'),
-    meta: { titleKey: 'titles.adminAgents', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/users/edit/:id?',
-    name: 'admin-user-form',
-    component: () => import('@/views/admin/UserFormView.vue'),
-    meta: { titleKey: 'titles.adminUserForm', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/products',
-    name: 'admin-products',
-    component: () => import('@/views/admin/ProductsView.vue'),
-    meta: { titleKey: 'titles.adminProducts', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/products/add',
-    name: 'admin-product-add',
-    component: () => import('@/views/admin/ProductFormView.vue'),
-    meta: { titleKey: 'titles.adminProductAdd', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/products/edit/:id',
-    name: 'admin-product-edit',
-    component: () => import('@/views/admin/ProductFormView.vue'),
-    meta: { titleKey: 'titles.adminProductEdit', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/product-categories',
-    name: 'admin-product-categories',
-    component: () => import('@/views/admin/ProductCategoriesView.vue'),
-    meta: { titleKey: 'titles.adminProductCategories', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/posts',
-    name: 'admin-posts',
-    component: () => import('@/views/admin/PostsView.vue'),
-    meta: { titleKey: 'titles.adminPosts', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/posts/add',
-    name: 'admin-post-add',
-    component: () => import('@/views/admin/PostFormView.vue'),
-    meta: { titleKey: 'titles.adminPostAdd', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/posts/edit/:id',
-    name: 'admin-post-edit',
-    component: () => import('@/views/admin/PostFormView.vue'),
-    meta: { titleKey: 'titles.adminPostEdit', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/orders',
-    name: 'admin-orders',
-    component: () => import('@/views/admin/OrdersView.vue'),
-    meta: { titleKey: 'titles.adminOrders', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/payment-settings',
-    name: 'admin-payment-settings',
-    component: () => import('@/views/admin/PaymentSettingsView.vue'),
-    meta: { titleKey: 'titles.adminPaymentSettings', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/popup-notices',
-    name: 'admin-popup-notices',
-    component: () => import('@/views/admin/PopupNoticesView.vue'),
-    meta: { titleKey: 'titles.adminPopupNotices', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/chat-settings',
-    name: 'admin-chat-settings',
-    component: () => import('@/views/admin/ChatSettingsView.vue'),
-    meta: { titleKey: 'titles.adminChatSettings', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/device-verification',
-    name: 'admin-device-verification',
-    component: () => import('@/views/admin/DeviceVerificationView.vue'),
-    meta: { titleKey: 'titles.adminDeviceVerification', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/questions',
-    name: 'admin-questions',
-    component: () => import('@/views/admin/QuestionsView.vue'),
-    meta: { titleKey: 'titles.adminQuestions', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/questions/add',
-    name: 'admin-question-add',
-    component: () => import('@/views/admin/QuestionFormView.vue'),
-    meta: { titleKey: 'titles.adminQuestionAdd', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/questions/edit/:id',
-    name: 'admin-question-edit',
-    component: () => import('@/views/admin/QuestionFormView.vue'),
-    meta: { titleKey: 'titles.adminQuestionEdit', requiresAdmin: true, layout: 'admin' }
-  },
-  {
-    path: '/admin/firmwares',
-    name: 'admin-firmwares',
-    component: () => import('@/views/admin/FirmwareView.vue'),
-    meta: { titleKey: 'titles.adminFirmwares', requiresAdmin: true, layout: 'admin' }
+    component: () => import('@/views/admin/AdminShellView.vue'),
+    meta: { requiresAdmin: true, layout: 'admin' },
+    children: [
+      {
+        path: '',
+        name: 'admin-dashboard',
+        component: () => import('@/views/admin/DashboardView.vue'),
+        meta: { titleKey: 'titles.adminDashboard' }
+      },
+      {
+        path: 'users',
+        name: 'admin-users',
+        component: () => import('@/views/admin/UsersView.vue'),
+        meta: { titleKey: 'titles.adminUsers' }
+      },
+      {
+        path: 'users/edit/:id?',
+        name: 'admin-user-form',
+        component: () => import('@/views/admin/UserFormView.vue'),
+        meta: { titleKey: 'titles.adminUserForm' }
+      },
+      {
+        path: 'roles',
+        name: 'admin-roles',
+        component: () => import('@/views/admin/RolesView.vue'),
+        meta: { titleKey: 'titles.adminRoles' }
+      },
+      {
+        path: 'agents',
+        name: 'admin-agents',
+        component: () => import('@/views/admin/AgentsView.vue'),
+        meta: { titleKey: 'titles.adminAgents' }
+      },
+      {
+        path: 'products',
+        name: 'admin-products',
+        component: () => import('@/views/admin/ProductsView.vue'),
+        meta: { titleKey: 'titles.adminProducts' }
+      },
+      {
+        path: 'products/add',
+        name: 'admin-product-add',
+        component: () => import('@/views/admin/ProductFormView.vue'),
+        meta: { titleKey: 'titles.adminProductAdd' }
+      },
+      {
+        path: 'products/edit/:id',
+        name: 'admin-product-edit',
+        component: () => import('@/views/admin/ProductFormView.vue'),
+        meta: { titleKey: 'titles.adminProductEdit' }
+      },
+      {
+        path: 'product-categories',
+        name: 'admin-product-categories',
+        component: () => import('@/views/admin/ProductCategoriesView.vue'),
+        meta: { titleKey: 'titles.adminProductCategories' }
+      },
+      {
+        path: 'posts',
+        name: 'admin-posts',
+        component: () => import('@/views/admin/PostsView.vue'),
+        meta: { titleKey: 'titles.adminPosts' }
+      },
+      {
+        path: 'posts/add',
+        name: 'admin-post-add',
+        component: () => import('@/views/admin/PostFormView.vue'),
+        meta: { titleKey: 'titles.adminPostAdd' }
+      },
+      {
+        path: 'posts/edit/:id',
+        name: 'admin-post-edit',
+        component: () => import('@/views/admin/PostFormView.vue'),
+        meta: { titleKey: 'titles.adminPostEdit' }
+      },
+      {
+        path: 'orders',
+        name: 'admin-orders',
+        component: () => import('@/views/admin/OrdersView.vue'),
+        meta: { titleKey: 'titles.adminOrders' }
+      },
+      {
+        path: 'payment-settings',
+        name: 'admin-payment-settings',
+        component: () => import('@/views/admin/PaymentSettingsView.vue'),
+        meta: { titleKey: 'titles.adminPaymentSettings' }
+      },
+      {
+        path: 'popup-notices',
+        name: 'admin-popup-notices',
+        component: () => import('@/views/admin/PopupNoticesView.vue'),
+        meta: { titleKey: 'titles.adminPopupNotices' }
+      },
+      {
+        path: 'chat-settings',
+        name: 'admin-chat-settings',
+        component: () => import('@/views/admin/ChatSettingsView.vue'),
+        meta: { titleKey: 'titles.adminChatSettings' }
+      },
+      {
+        path: 'device-verification',
+        name: 'admin-device-verification',
+        component: () => import('@/views/admin/DeviceVerificationView.vue'),
+        meta: { titleKey: 'titles.adminDeviceVerification' }
+      },
+      {
+        path: 'questions',
+        name: 'admin-questions',
+        component: () => import('@/views/admin/QuestionsView.vue'),
+        meta: { titleKey: 'titles.adminQuestions' }
+      },
+      {
+        path: 'questions/add',
+        name: 'admin-question-add',
+        component: () => import('@/views/admin/QuestionFormView.vue'),
+        meta: { titleKey: 'titles.adminQuestionAdd' }
+      },
+      {
+        path: 'questions/edit/:id',
+        name: 'admin-question-edit',
+        component: () => import('@/views/admin/QuestionFormView.vue'),
+        meta: { titleKey: 'titles.adminQuestionEdit' }
+      },
+      {
+        path: 'firmwares',
+        name: 'admin-firmwares',
+        component: () => import('@/views/admin/FirmwareView.vue'),
+        meta: { titleKey: 'titles.adminFirmwares' }
+      },
+      {
+        path: 'chat',
+        name: 'admin-chat',
+        component: () => import('@/views/user/ChatAdminView.vue'),
+        meta: { titleKey: 'titles.adminChat' }
+      }
+    ]
   }
 ]
 
@@ -264,7 +271,11 @@ router.beforeEach(async (to, from, next) => {
     if (useV2Api() && !adminV2Store.checked) {
       bootstrapTasks.push(adminV2Store.checkAuth())
     }
-    bootstrapTasks.push(ensureElementPlus())
+    if (!isElementPlusReady()) {
+      bootstrapTasks.push(ensureElementPlus())
+    } else {
+      ensureElementPlus()
+    }
   }
 
   if (bootstrapTasks.length > 0) {

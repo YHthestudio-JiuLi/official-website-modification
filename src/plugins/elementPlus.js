@@ -8,6 +8,10 @@ export function bindVueApp(app) {
   appRef = app
 }
 
+export function isElementPlusReady() {
+  return isElementPlusInstalled()
+}
+
 function isElementPlusInstalled() {
   return Boolean(appRef?.config?.globalProperties?.$ELEMENT)
 }

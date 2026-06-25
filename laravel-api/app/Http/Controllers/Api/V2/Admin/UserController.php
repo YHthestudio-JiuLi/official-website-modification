@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -47,7 +48,7 @@ class UserController extends Controller
             'isAdmin' => ['sometimes', 'boolean'],
             'user_type' => ['nullable', 'in:customer,staff,agent,super_admin'],
             'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => ['string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
         ]);
 
         $roles = $this->resolveRolesFromRequest($request, $data);
@@ -60,6 +61,7 @@ class UserController extends Controller
             'user_type' => $userType,
             'status' => 'active',
             'isAdmin' => $userType === 'super_admin' ? 1 : 0,
+            'createdAt' => now(),
         ]);
 
         $user->syncRoles($roles);
@@ -76,7 +78,7 @@ class UserController extends Controller
             'user_type' => ['sometimes', 'in:customer,staff,agent,super_admin'],
             'status' => ['sometimes', 'in:active,suspended'],
             'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => ['string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
         ]);
 
         if ($request->user()?->id === $user->id && $request->has('isAdmin') && ! $request->boolean('isAdmin')) {

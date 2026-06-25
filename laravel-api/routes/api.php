@@ -28,7 +28,6 @@ use App\Http\Controllers\Api\V2\Admin\ProductImageController as AdminProductImag
 use App\Http\Controllers\Api\V2\Admin\RoleController;
 use App\Http\Controllers\Api\V2\Admin\UserController;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {

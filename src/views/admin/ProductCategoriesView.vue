@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.productCategories.title') }}</template>
-
-    <div class="categories-page">
+  <div class="categories-page">
       <div class="page-header">
         <div class="header-content">
           <h2><i class="fas fa-tags"></i> {{ $t('admin.productCategories.title') }}</h2>
@@ -105,7 +102,6 @@
         </table>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -117,7 +113,6 @@ import {
   updateCategory,
   deleteCategory
 } from '@/services/v2/catalog'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
 
 const { t } = useI18n()

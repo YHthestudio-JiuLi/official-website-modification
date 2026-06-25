@@ -31,6 +31,7 @@ class User extends Authenticatable
         'isAdmin',
         'user_type',
         'status',
+        'createdAt',
     ];
 
     protected $hidden = [
@@ -53,12 +54,15 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        // 已分配 Spatie 角色时以角色为准，避免 isAdmin 与 roles 不同步
-        if ($this->roles()->exists()) {
-            return $this->hasRole('super_admin');
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+        // 历史账号仅 isAdmin=1、尚未挂 Spatie 角色时仍视为超管
+        if (! $this->roles()->exists()) {
+            return (bool) $this->isAdmin;
         }
 
-        return (bool) $this->isAdmin;
+        return false;
     }
 
     public function canAccessAdmin(): bool

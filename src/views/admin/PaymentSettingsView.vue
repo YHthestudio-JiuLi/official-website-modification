@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.paymentSettings.pageTitle') }}</template>
-
-    <div class="payment-settings-page">
+  <div class="payment-settings-page">
       <div class="page-header">
         <div class="header-content">
           <h2><i class="fas fa-wallet"></i> {{ $t('admin.paymentSettings.heading') }}</h2>
@@ -150,7 +147,6 @@
         </form>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -158,7 +154,6 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { fetchPaymentSettings, updatePaymentSettings } from '@/services/v2/admin/paymentSettings'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t } = useI18n()
 
@@ -239,7 +234,7 @@ async function handleSubmit() {
 
 <style scoped>
 .payment-settings-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .page-header {

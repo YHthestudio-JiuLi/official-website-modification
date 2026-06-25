@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.questions.pageTitle') }}</template>
-
-    <div class="questions-page">
+  <div class="questions-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -171,7 +168,6 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -181,7 +177,6 @@ import {
   fetchQuestions as fetchQuestionsApi,
   deleteQuestion
 } from '@/services/v2/admin/questions'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
@@ -265,12 +260,8 @@ async function executeDelete() {
     await fetchQuestions()
     showToast(t('admin.questions.deleteSuccess', { name: questionToDelete.value.name }), 'success')
   } catch (error) {
-    showToast(
-      t('admin.questions.deleteError', {
-        message: error.response?.data?.message || t('common.unknownError')
-      }),
-      'error'
-    )
+    if (await handleAdminApiFailure(error, { onForbidden: (msg) => showToast(msg, 'error') })) return
+    showToast(readAdminApiError(error, t('common.unknownError')), 'error')
   }
 }
 
@@ -302,7 +293,7 @@ function formatDate(dateStr) {
 
 <style scoped>
 .questions-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .no-permission-card {

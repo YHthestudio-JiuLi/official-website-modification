@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.dashboard.title') }}</template>
-
-    <div class="dashboard-page">
+  <div class="dashboard-page">
       <!-- Stats Overview -->
       <div class="dashboard-stats">
         <div v-if="isAgentScope" class="stat-card stat-users">
@@ -180,13 +177,11 @@
         </div>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { fetchStats } from '@/services/v2/admin/dashboard'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const stats = ref({
   scope: 'admin',
@@ -215,7 +210,7 @@ onMounted(async () => {
 
 <style scoped>
 .dashboard-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 /* Stats Grid */

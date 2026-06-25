@@ -1,6 +1,5 @@
 <template>
-  <AdminLayout>
-    <div class="agents-page" v-loading="!authReady && loading">
+  <div class="agents-page" v-loading="!authReady && loading">
       <div class="page-header">
         <h1>{{ $t('admin.agents.title') }}</h1>
         <p class="page-desc">{{ $t('admin.agents.desc') }}</p>
@@ -187,14 +186,12 @@
         </template>
       </el-dialog>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import * as agentsApi from '@/services/v2/admin/agents'
 

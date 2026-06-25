@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.products.title') }}</template>
-
-    <div class="products-page">
+  <div class="products-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -177,14 +174,12 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchAdminProducts, deleteProduct } from '@/services/v2/catalog'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { primaryProductImage } from '@/utils/productImages'
 
@@ -276,7 +271,7 @@ function getProductImage(product) {
 
 <style scoped>
 .products-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
   position: relative;
 }
 

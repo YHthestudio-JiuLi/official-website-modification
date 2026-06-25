@@ -1,6 +1,5 @@
 <template>
-  <AdminLayout>
-    <div class="rbac-page">
+  <div class="rbac-page">
       <div class="page-header">
         <h1>{{ $t('admin.rbac.title') }}</h1>
         <p class="page-desc">{{ $t('admin.rbac.desc') }}</p>
@@ -141,14 +140,12 @@
         </template>
       </el-dialog>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import * as rolesApi from '@/services/v2/admin/roles'
 

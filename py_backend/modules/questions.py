@@ -94,5 +94,10 @@ class QuestionManager:
             self.conn.commit()
 
     def delete(self, question_id: int) -> None:
+        # 解除设备绑定，避免残留无效 question_id
+        self.cur.execute(
+            "UPDATE device_verifications SET question_id = NULL WHERE question_id = ?",
+            (question_id,),
+        )
         self.cur.execute("DELETE FROM questions WHERE id = ?", (question_id,))
         self.conn.commit()

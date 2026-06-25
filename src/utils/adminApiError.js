@@ -5,6 +5,10 @@ export function readAdminApiError(error, fallback = '请求失败') {
   const data = error?.response?.data
   if (!data) return error?.message || fallback
   if (typeof data === 'string') return data
+  if (data.errors && typeof data.errors === 'object') {
+    const first = Object.values(data.errors).flat().find(Boolean)
+    if (first) return String(first)
+  }
   return data.error || data.message || data.detail || fallback
 }
 

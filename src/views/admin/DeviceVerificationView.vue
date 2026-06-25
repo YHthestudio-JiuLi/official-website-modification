@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.deviceVerification.title') }}</template>
-
-    <div class="device-page">
+  <div class="device-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -559,7 +556,6 @@
         </div>
       </Teleport>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -578,7 +574,6 @@ import {
   fetchDeviceKeys,
   fetchDeviceLogs
 } from '@/services/v2/admin/devices'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
 const { t, locale } = useI18n()
@@ -1105,7 +1100,7 @@ function showToast(message, type = 'success') {
 
 <style scoped>
 .device-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
   position: relative;
 }
 

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.chatSettings.title') }}</template>
-
-    <div class="chat-settings-page">
+  <div class="chat-settings-page">
       <div v-if="error" class="alert alert-error">
         <i class="fas fa-exclamation-circle"></i> {{ error }}
       </div>
@@ -145,7 +142,6 @@
         </ul>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -159,7 +155,6 @@ import {
   fetchCommunityLinks,
   updateCommunityLinks
 } from '@/services/v2/admin/chatSettings'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { forceAdminReauth } from '@/utils/legacyNodeSession'
 

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.firmware.pageTitle') }}</template>
-
-    <div class="firmware-page">
+  <div class="firmware-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -291,7 +288,6 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -308,7 +304,6 @@ import {
   setDefaultFirmware as setDefaultFirmwareApi,
   deleteFirmware as deleteFirmwareApi
 } from '@/services/v2/admin/firmware'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
@@ -631,7 +626,7 @@ function showToast(message, type = 'success') {
 
 <style scoped>
 .firmware-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
   position: relative;
 }
 

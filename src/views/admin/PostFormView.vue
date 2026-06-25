@@ -1,6 +1,5 @@
 <template>
-  <AdminLayout>
-    <div class="post-form-page">
+  <div class="post-form-page">
       <div class="admin-page-header">
         <h2>
           <i class="fas fa-comments"></i>
@@ -88,14 +87,12 @@
       <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
       <span>{{ toast.message }}</span>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchPost, createPost, updatePost } from '@/services/v2/admin/forum'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const route = useRoute()
 const router = useRouter()

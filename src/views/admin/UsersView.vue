@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.users.title') }}</template>
-
-    <div class="users-page">
+  <div class="users-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -242,7 +239,6 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -250,7 +246,6 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { fetchUsers as fetchUsersApi, deleteUser } from '@/services/v2/admin/users'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t, locale, te } = useI18n()
 const router = useRouter()
@@ -412,7 +407,7 @@ async function executeBatchDelete() {
 
 <style scoped>
 .users-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
   position: relative;
 }
 

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.orders.title') }}</template>
-
-    <div class="orders-page">
+  <div class="orders-page">
       <div class="page-header">
         <div class="header-content">
           <h2><i class="fas fa-shopping-cart"></i> {{ $t('admin.orders.title') }}</h2>
@@ -311,7 +308,6 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -324,7 +320,6 @@ import {
   updateOrderTracking
 } from '@/services/v2/admin/orders'
 import { displayOrderNo } from '@/utils/orderNo'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const { t, locale } = useI18n()
 const orders = ref([])

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ isEdit ? $t('admin.questionsForm.editTitle') : $t('admin.questionsForm.addTitle') }}</template>
-
-    <div class="question-form-page">
+  <div class="question-form-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -232,7 +229,6 @@
         <span>{{ toast.message }}</span>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -250,7 +246,6 @@ import {
   QUESTION_CHUNK_SIZE
 } from '@/services/v2/admin/questions'
 import { resetV2Csrf } from '@/services/v2/http'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 
 const route = useRoute()
@@ -538,7 +533,7 @@ function showToast(message, type = 'success') {
 
 <style scoped>
 .question-form-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .page-header {

@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ $t('admin.popupNotices.title') }}</template>
-
-    <div class="popup-notices-view">
+  <div class="popup-notices-view">
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ $t('admin.popupNotices.title') }}</h1>
@@ -151,7 +148,6 @@
         </div>
       </div>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -163,7 +159,6 @@ import {
   updateNotice,
   deleteNotice as deleteNoticeApi
 } from '@/services/v2/admin/popupNotices'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { handleAdminApiFailure } from '@/utils/adminApiError'
 
 const { t } = useI18n()

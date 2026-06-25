@@ -49,6 +49,8 @@ class AdminQuestionController extends Controller
             }
 
             return response()->json(['error' => $e->getMessage()], 500);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

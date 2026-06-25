@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ isEdit ? $t('admin.users.editUser') : $t('admin.users.addUser') }}</template>
-
-    <div class="user-form-page">
+  <div class="user-form-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -160,16 +157,15 @@
       <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
       <span>{{ toast.message }}</span>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { readAdminApiError } from '@/utils/adminApiError'
 import { fetchUser, createUser, updateUser } from '@/services/v2/admin/users'
 import { fetchRoles } from '@/services/v2/admin/roles'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -288,9 +284,7 @@ async function handleSubmit() {
     showToast(t('admin.users.saveSuccess'), 'success')
     setTimeout(() => router.push('/admin/users'), 1200)
   } catch (err) {
-    error.value = err.response?.data?.message
-      || err.response?.data?.error
-      || t('admin.users.saveFailed')
+    error.value = readAdminApiError(err, t('admin.users.saveFailed'))
   } finally {
     submitting.value = false
   }
@@ -306,7 +300,7 @@ function showToast(message, type = 'success') {
 
 <style scoped>
 .user-form-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .page-header {

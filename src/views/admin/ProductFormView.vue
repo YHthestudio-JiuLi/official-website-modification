@@ -1,8 +1,5 @@
 <template>
-  <AdminLayout>
-    <template #header-title>{{ isEdit ? $t('admin.productForm.editTitle') : $t('admin.productForm.addTitle') }}</template>
-
-    <div class="product-form-page">
+  <div class="product-form-page">
       <div class="page-header">
         <div class="header-content">
           <h2>
@@ -351,7 +348,6 @@
       <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
       <span>{{ toast.message }}</span>
     </div>
-  </AdminLayout>
 </template>
 
 <script setup>
@@ -366,7 +362,6 @@ import {
   createProduct,
   updateProduct
 } from '@/services/v2/catalog'
-import AdminLayout from '@/components/admin/AdminLayout.vue'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
@@ -738,7 +733,7 @@ function showToast(message, type = 'success') {
 
 <style scoped>
 .product-form-page {
-  animation: fadeIn 0.5s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 .page-header {

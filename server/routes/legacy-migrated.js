@@ -26,6 +26,7 @@ function registerLegacyMigratedRoutes(app, deps) {
     questionFilesUpload,
     questionChunkUpload,
     questionChunksPath,
+    questionUploadsPath,
     questionChunkSessions,
     buildQuestionStoredName,
     cleanupQuestionChunkSession,

@@ -284,8 +284,9 @@ mkdir -p "$ROOT/laravel-api/storage/logs" "$ROOT/laravel-api/bootstrap/cache"
 pm2_deploy() {
   info "PM2 启动/重启 (APP_ROOT=$APP_ROOT, PHP_BIN=$PHP_BIN)..."
   export APP_ROOT PHP_BIN
+  export LARAVEL_PM2="${LARAVEL_PM2:-0}"
 
-  if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
+  if [ "$LARAVEL_PM2" = "0" ] || [ -f "$ROOT/.laravel-fpm-enabled" ]; then
     export LARAVEL_PM2=0
     pm2 delete yh-laravel 2>/dev/null || true
     info "Laravel 由 PHP-FPM 运行，跳过 yh-laravel"

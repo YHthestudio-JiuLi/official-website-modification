@@ -3,7 +3,7 @@
  * APP_ROOT / PHP_BIN 可由 scripts/deploy.sh 自动注入。
  *
  * Laravel 生产推荐 PHP-FPM（bash scripts/setup-laravel-fpm.sh），
- * 此时设置 LARAVEL_PM2=0 或存在 .laravel-fpm-enabled，不再启动 yh-laravel。
+ * 生产默认 LARAVEL_PM2=0（PHP-FPM）；仅本地无 FPM 时设 LARAVEL_PM2=1 启动 yh-laravel。
  */
 const path = require('path')
 const fs = require('fs')
@@ -11,7 +11,8 @@ const fs = require('fs')
 const APP_ROOT = process.env.APP_ROOT || path.resolve(__dirname)
 const PHP_BIN = process.env.PHP_BIN || '/www/server/php/85/bin/php'
 const fpmMarker = path.join(APP_ROOT, '.laravel-fpm-enabled')
-const useLaravelPm2 = process.env.LARAVEL_PM2 !== '0' && !fs.existsSync(fpmMarker)
+// 默认不启内置 PHP 服务；显式 LARAVEL_PM2=1 且未启用 FPM 标记时才启动 yh-laravel
+const useLaravelPm2 = (process.env.LARAVEL_PM2 ?? '0') === '1' && !fs.existsSync(fpmMarker)
 
 /** @type {import('pm2').StartOptions[]} */
 const apps = []

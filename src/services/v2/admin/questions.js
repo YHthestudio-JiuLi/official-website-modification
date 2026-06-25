@@ -28,8 +28,9 @@ export function updateQuestion(id, formData, config = {}) {
   })
 }
 
-export function deleteQuestion(id) {
-  return v2.delete(`/admin/questions/${id}`)
+/** 与上传相同，直连 Node 删除（含文件清理），避免 Sanctum CSRF 与 Laravel 转发问题 */
+export async function deleteQuestion(id) {
+  return api.delete(`/api/admin/questions/${id}`)
 }
 
 export function initQuestionUpload(payload) {

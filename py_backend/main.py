@@ -573,6 +573,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("vector_file_path"),
         )
     if op == "questions.delete":
-        return db_manager.questions.delete(args["id"])
+        from .upload_cleanup import delete_question_with_files
+        delete_question_with_files(db_manager, int(args["id"]))
+        return {"ok": True}
 
     raise ValueError(f"Unknown op: {op}")

@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from pydantic import BaseModel
 
 from ..modules import DatabaseManager
+from ..upload_cleanup import delete_question_with_files
 from ..utils import connect, get_db_lock
 
 logger = logging.getLogger("py_backend")
@@ -225,16 +226,10 @@ async def delete_question(
     db_manager: DatabaseManager = Depends(get_db_manager)
 ) -> Dict[str, Any]:
     try:
-        question = db_manager.questions.find_by_id(id)
-        if not question:
+        if not db_manager.questions.find_by_id(id):
             raise HTTPException(status_code=404, detail="Question not found")
-        
-        question_dir = QUESTIONS_UPLOAD_DIR / str(id)
-        if question_dir.exists():
-            shutil.rmtree(question_dir)
-        
-        with get_db_lock():
-            db_manager.questions.delete(id)
+
+        delete_question_with_files(db_manager, id)
         logger.info(f"Deleted question {id}")
         return {"ok": True}
     except HTTPException:

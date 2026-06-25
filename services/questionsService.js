@@ -18,8 +18,18 @@ class QuestionsService {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || `HTTP ${response.status}`);
+      const text = await response.text();
+      let message = text || `HTTP ${response.status}`;
+      try {
+        const parsed = JSON.parse(text);
+        message = parsed.detail || parsed.message || parsed.error || message;
+        if (Array.isArray(message)) {
+          message = message.map((item) => item?.msg || String(item)).join('; ');
+        }
+      } catch {
+        // 非 JSON 响应保持原文
+      }
+      throw new Error(message);
     }
 
     return response.json();

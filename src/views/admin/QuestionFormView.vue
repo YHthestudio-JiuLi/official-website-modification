@@ -468,9 +468,7 @@ async function handleSubmit() {
     }
 
     showToast(t('admin.questionsForm.saveSuccess'), 'success')
-    setTimeout(() => {
-      router.push('/admin/questions')
-    }, 1500)
+    router.push('/admin/questions')
   } catch (err) {
     const data = err.response?.data
     const errorMsg =

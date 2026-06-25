@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.backends import default_backend
 
+from ..upload_cleanup import delete_firmware_upload_file
 from ..utils import row_to_dict, rows_to_dict
 
 
@@ -576,6 +577,7 @@ class DeviceVerificationManager:
         row = row_to_dict(self.cur.fetchone())
         if not row:
             return None
+        delete_firmware_upload_file(row.get("file_url"))
         self.cur.execute("DELETE FROM nano_firmware_files WHERE id = ?", (firmware_id,))
         self.cur.execute("UPDATE device_verifications SET firmware_id = NULL WHERE firmware_id = ?", (firmware_id,))
         self.cur.execute(

@@ -93,11 +93,19 @@ class QuestionManager:
             self.cur.execute(sql, params)
             self.conn.commit()
 
-    def delete(self, question_id: int) -> None:
-        # 解除设备绑定，避免残留无效 question_id
+    def unlink_devices(self, question_id: int) -> None:
+        """删除题库前解除设备绑定"""
         self.cur.execute(
             "UPDATE device_verifications SET question_id = NULL WHERE question_id = ?",
             (question_id,),
         )
+        self.conn.commit()
+
+    def delete_row(self, question_id: int) -> None:
+        """仅删除数据库记录（调用方负责清理上传目录）"""
         self.cur.execute("DELETE FROM questions WHERE id = ?", (question_id,))
         self.conn.commit()
+
+    def delete(self, question_id: int) -> None:
+        self.unlink_devices(question_id)
+        self.delete_row(question_id)

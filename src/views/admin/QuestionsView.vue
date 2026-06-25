@@ -254,14 +254,24 @@ function closeDeleteModal() {
 async function executeDelete() {
   if (!questionToDelete.value) return
 
+  const target = questionToDelete.value
+  const targetName = target.name
+
   try {
-    await deleteQuestion(questionToDelete.value.id)
+    const { prepareLegacyNodeUpload } = await import('@/utils/uploadBridge')
+    await prepareLegacyNodeUpload()
+    await deleteQuestion(target.id)
     closeDeleteModal()
-    await fetchQuestions()
-    showToast(t('admin.questions.deleteSuccess', { name: questionToDelete.value.name }), 'success')
+    showToast(t('admin.questions.deleteSuccess', { name: targetName }), 'success')
+    fetchQuestions().catch(() => {})
   } catch (error) {
     if (await handleAdminApiFailure(error, { onForbidden: (msg) => showToast(msg, 'error') })) return
-    showToast(readAdminApiError(error, t('common.unknownError')), 'error')
+    showToast(
+      t('admin.questions.deleteError', {
+        message: readAdminApiError(error, t('common.unknownError'))
+      }),
+      'error'
+    )
   }
 }
 

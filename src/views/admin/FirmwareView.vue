@@ -386,6 +386,10 @@ function onFirmwareFileChange(event) {
 
 function closeUploadModal() {
   if (firmwareUploading.value) return
+  resetUploadModalState()
+}
+
+function resetUploadModalState() {
   showUploadModal.value = false
   pendingUploadFile.value = null
   uploadRemark.value = ''
@@ -433,7 +437,6 @@ async function confirmUpload() {
       totalChunks,
       remark
     })
-    closeUploadModal()
     await fetchFirmwareItems()
     showToast(t('admin.firmware.uploadSuccess'), 'success')
   } catch (error) {
@@ -441,6 +444,7 @@ async function confirmUpload() {
   } finally {
     firmwareUploading.value = false
     firmwareUploadProgress.value = 0
+    resetUploadModalState()
   }
 }
 
@@ -452,6 +456,10 @@ function registerFirmwareFromServer() {
 
 function closeRegisterModal() {
   if (registerSubmitting.value) return
+  resetRegisterModalState()
+}
+
+function resetRegisterModalState() {
   showRegisterModal.value = false
   registerFileName.value = ''
   registerRemark.value = ''
@@ -469,7 +477,6 @@ async function confirmRegisterFromServer() {
       file_name: normalizedName,
       remark: registerRemark.value.trim() || null
     })
-    closeRegisterModal()
     await fetchFirmwareItems()
     showToast(t('admin.firmware.registerFromServerSuccess'), 'success')
   } catch (error) {
@@ -479,6 +486,7 @@ async function confirmRegisterFromServer() {
     )
   } finally {
     registerSubmitting.value = false
+    resetRegisterModalState()
   }
 }
 

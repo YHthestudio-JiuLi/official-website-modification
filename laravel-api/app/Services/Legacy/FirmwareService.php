@@ -88,7 +88,27 @@ class FirmwareService
 
     public function delete(int $id): void
     {
-        $this->db->call('deviceVerification.deleteFirmwareFile', ['id' => $id]);
+        $removed = $this->db->call('deviceVerification.deleteFirmwareFile', ['id' => $id]);
+        if (! is_array($removed)) {
+            throw new RuntimeException('Firmware not found');
+        }
+        // RPC 已删盘；此处再尝试一次，兼容历史部署
+        $this->removeFirmwareFileFromDisk($removed['file_url'] ?? null);
+    }
+
+    private function removeFirmwareFileFromDisk(?string $fileUrl): void
+    {
+        if (! is_string($fileUrl) || $fileUrl === '') {
+            return;
+        }
+        if (! str_starts_with($fileUrl, '/uploads/nano-firmwares/')) {
+            return;
+        }
+        $baseName = basename(str_replace('\\', '/', $fileUrl));
+        $abs = $this->firmwareUploadDir().DIRECTORY_SEPARATOR.$baseName;
+        if (File::isFile($abs)) {
+            File::delete($abs);
+        }
     }
 
     private function firmwareUploadDir(): string

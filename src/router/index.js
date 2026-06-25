@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { ref } from 'vue'
 import { setDocumentTitle } from '@/utils/documentTitle'
 import { isSafeInternalRedirect } from '@/utils/authRedirect'
 import { useAuthStore } from '@/stores/auth'
@@ -229,8 +230,12 @@ const router = createRouter({
   routes
 })
 
+/** 路由守卫鉴权期间显示全局加载态，避免长时间白屏 */
+export const isRouterPending = ref(false)
+
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
+  isRouterPending.value = true
   setDocumentTitle(to, i18n.global.t)
 
   const authStore = useAuthStore()
@@ -301,6 +306,14 @@ router.beforeEach(async (to, from, next) => {
   }
 
   next()
+})
+
+router.afterEach(() => {
+  isRouterPending.value = false
+})
+
+router.onError(() => {
+  isRouterPending.value = false
 })
 
 export default router

@@ -304,18 +304,20 @@ onMounted(async () => {
     router.replace('/admin/questions')
     return
   }
-  await fetchExistingCategories()
   if (isEdit.value) {
     loading.value = true
     try {
-      const response = await fetchQuestion(route.params.id)
-      form.value.name = response.data.name || ''
-      form.value.category_name = (response.data.category_name || '').trim()
-      existingDbFile.value = response.data.db_file_path || null
-      existingVectorFile.value = response.data.vector_file_path || null
-      existingDbFileSize.value = Number(response.data.db_file_size || 0) || null
-      existingVectorFileSize.value = Number(response.data.vector_file_size || 0) || null
-      existingTotalFileSize.value = Number(response.data.total_file_size || 0) || 0
+      const [questionResp] = await Promise.all([
+        fetchQuestion(route.params.id),
+        fetchExistingCategories()
+      ])
+      form.value.name = questionResp.data.name || ''
+      form.value.category_name = (questionResp.data.category_name || '').trim()
+      existingDbFile.value = questionResp.data.db_file_path || null
+      existingVectorFile.value = questionResp.data.vector_file_path || null
+      existingDbFileSize.value = Number(questionResp.data.db_file_size || 0) || null
+      existingVectorFileSize.value = Number(questionResp.data.vector_file_size || 0) || null
+      existingTotalFileSize.value = Number(questionResp.data.total_file_size || 0) || 0
       if (!form.value.category_name) {
         categorySelectValue.value = ''
       } else if (existingCategories.value.includes(form.value.category_name)) {
@@ -334,7 +336,9 @@ onMounted(async () => {
     } finally {
       loading.value = false
     }
+    return
   }
+  await fetchExistingCategories()
 })
 
 watch([categorySelectValue, customCategoryValue], () => {

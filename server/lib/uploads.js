@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { pipeline, finished } = require('stream/promises');
-const { createReadStream, createWriteStream } = require('fs');
 const multer = require('multer');
 const { dbOperations } = require('../../database');
 const {
@@ -160,30 +158,39 @@ function buildFirmwareStoredName(originalName) {
 }
 
 /**
- * 将分片顺序合并为最终文件（须等每片完全写入后再写下一片，避免写流死锁挂起）
+ * 将分片顺序合并为最终文件（同步读写，避免 stream pipe 在部分环境永久挂起）
  */
 async function mergeChunkFiles(chunkDir, totalChunks, finalPath) {
-  const out = createWriteStream(finalPath, { flags: 'wx' });
+  const fd = fs.openSync(finalPath, 'wx');
   try {
     for (let i = 0; i < totalChunks; i += 1) {
       const partPath = path.join(chunkDir, `chunk_${i}.part`);
       if (!fs.existsSync(partPath)) {
         throw new Error(`Missing chunks: ${i}`);
       }
-      await pipeline(createReadStream(partPath), out, { end: false });
+      const data = fs.readFileSync(partPath);
+      fs.writeSync(fd, data);
     }
-    const done = finished(out);
-    out.end();
-    await done;
   } catch (error) {
-    out.destroy();
+    try {
+      fs.closeSync(fd);
+    } catch {
+      /* 已关闭则忽略 */
+    }
+    if (fs.existsSync(finalPath)) {
+      fs.rmSync(finalPath, { force: true });
+    }
     throw error;
   }
+  fs.closeSync(fd);
 }
 
 /** @deprecated 使用 mergeChunkFiles */
 async function appendChunkFile(outputStream, chunkPath) {
-  await pipeline(createReadStream(chunkPath), outputStream, { end: false });
+  const data = fs.readFileSync(chunkPath);
+  await new Promise((resolve, reject) => {
+    outputStream.write(data, (err) => (err ? reject(err) : resolve()));
+  });
 }
 
 async function sha256FileHex(filePath) {

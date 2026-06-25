@@ -29,7 +29,7 @@ export function deleteFirmware(id) {
 }
 
 export function initFirmwareUpload(payload) {
-  return v2.post('/admin/device-firmwares/upload/init', payload)
+  return api.post('/api/admin/device-firmwares/upload/init', payload)
 }
 
 export async function uploadFirmwareChunk(formData, config = {}) {

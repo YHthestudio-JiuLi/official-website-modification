@@ -920,9 +920,16 @@ app.post('/api/admin/questions/upload/complete', requireAdmin, async (req, res) 
   const chunkDir = path.join(questionChunksPath, uploadId);
   const storedName = buildQuestionStoredName(fileName);
   const finalPath = path.join(questionUploadsPath, storedName);
+  const mergeStarted = Date.now();
+  console.log('[QuestionUpload] complete 开始合并', { uploadId, fileName, totalChunks });
   try {
     await mergeChunkFiles(chunkDir, totalChunks, finalPath);
     const stat = fs.statSync(finalPath);
+    console.log('[QuestionUpload] complete 合并完成', {
+      uploadId,
+      bytes: stat.size,
+      ms: Date.now() - mergeStarted
+    });
     if (!stat || !stat.size || stat.size <= 0) {
       throw new Error('Merged question file is empty');
     }
@@ -935,6 +942,11 @@ app.post('/api/admin/questions/upload/complete', requireAdmin, async (req, res) 
     cleanupQuestionChunkSession(uploadId);
     res.json({ ok: true, uploadId });
   } catch (error) {
+    console.error('[QuestionUpload] complete 合并失败', {
+      uploadId,
+      ms: Date.now() - mergeStarted,
+      error: error.message
+    });
     if (fs.existsSync(finalPath)) {
       fs.rmSync(finalPath, { force: true });
     }

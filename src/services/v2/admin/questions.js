@@ -32,7 +32,7 @@ export function deleteQuestion(id) {
 }
 
 export function initQuestionUpload(payload) {
-  return v2.post('/admin/questions/upload/init', payload)
+  return api.post('/api/admin/questions/upload/init', payload)
 }
 
 export async function uploadQuestionChunk(formData, config = {}) {

@@ -166,10 +166,21 @@ fi
 # ── Git 拉取 ──
 if [ "$DO_PULL" = true ]; then
   require_cmd git
+  GIT=(git -c "safe.directory=$ROOT")
+
+  # npm install 可能在 node_modules 内留下脏文件，不应阻塞生产拉取
+  if "${GIT[@]}" status --porcelain -- node_modules/.package-lock.json 2>/dev/null | grep -q .; then
+    warn "还原 node_modules/.package-lock.json 本地变更以便 git pull"
+    "${GIT[@]}" checkout -- node_modules/.package-lock.json 2>/dev/null || rm -f node_modules/.package-lock.json
+  fi
+
   info "git pull..."
-  # root 部署时避免修改 global git config，用单次 safe.directory
-  git -c "safe.directory=$ROOT" pull --ff-only
-  ok "代码已更新"
+  if ! "${GIT[@]}" pull --ff-only; then
+    warn "git pull 失败，尝试 fetch github vue_0.2.0 后快进合并..."
+    "${GIT[@]}" fetch github vue_0.2.0
+    "${GIT[@]}" merge --ff-only github/vue_0.2.0
+  fi
+  ok "代码已更新 → $("${GIT[@]}" log -1 --oneline)"
 fi
 
 # ── Node 依赖与前端构建 ──

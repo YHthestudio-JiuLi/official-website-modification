@@ -5,12 +5,14 @@
           <h1 class="page-title">{{ $t('admin.popupNotices.title') }}</h1>
           <p class="page-subtitle">{{ $t('admin.popupNotices.subtitle') }}</p>
         </div>
-        <button class="btn btn-primary" @click="showCreateForm">
+        <button v-if="canManage" class="btn btn-primary" @click="showCreateForm">
           <i class="fas fa-plus"></i> {{ $t('admin.popupNotices.addNew') }}
         </button>
       </div>
 
-      <div v-if="loading" class="loading-state">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.popupNotices.noPermission" />
+
+      <div v-else-if="loading" class="loading-state">
         <i class="fas fa-spinner fa-spin"></i>
         <span>{{ $t('common.loading') }}</span>
       </div>
@@ -23,7 +25,7 @@
       <div v-else-if="notices.length === 0" class="empty-state">
         <i class="fas fa-inbox"></i>
         <p>{{ $t('admin.popupNotices.empty') }}</p>
-        <button class="btn btn-primary" @click="showCreateForm">
+        <button v-if="canManage" class="btn btn-primary" @click="showCreateForm">
           {{ $t('admin.popupNotices.createFirst') }}
         </button>
       </div>
@@ -43,7 +45,7 @@
             <span class="notice-date">
               <i class="fas fa-clock"></i> {{ formatDate(notice.updated_at) }}
             </span>
-            <div class="notice-actions">
+            <div v-if="canManage" class="notice-actions">
               <button class="btn-icon" @click.stop="toggleStatus(notice)" :title="$t('admin.popupNotices.toggleVisibility') || 'Toggle visibility'">
                 <i :class="notice.enabled ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
               </button>
@@ -151,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   fetchNotices as fetchNoticesApi,
@@ -160,6 +162,13 @@ import {
   deleteNotice as deleteNoticeApi
 } from '@/services/v2/admin/popupNotices'
 import { handleAdminApiFailure } from '@/utils/adminApiError'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('content.view') || has('content.manage'))
+const canManage = computed(() => has('content.manage'))
+const canAccessPage = computed(() => canView.value)
 
 const { t } = useI18n()
 
@@ -182,6 +191,10 @@ function isNoticeEnabled(value) {
 }
 
 async function fetchNotices() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   loading.value = true
   error.value = ''
   try {

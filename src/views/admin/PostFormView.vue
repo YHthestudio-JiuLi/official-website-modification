@@ -10,7 +10,9 @@
         </router-link>
       </div>
 
-      <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.posts.noPermission" />
+
+      <div v-else-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
       <div v-else class="admin-form-container">
         <form @submit.prevent="handleSubmit" class="admin-form">
@@ -93,6 +95,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchPost, createPost, updatePost } from '@/services/v2/admin/forum'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canAccessPage = computed(() => has('forum.manage'))
 
 const route = useRoute()
 const router = useRouter()
@@ -116,6 +123,10 @@ const toast = ref({
 })
 
 onMounted(async () => {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   if (isEdit.value) {
     loading.value = true
     try {

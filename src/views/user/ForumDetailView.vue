@@ -63,6 +63,7 @@
                   :key="reply.id"
                   :reply="reply"
                   :child-replies="childRepliesMap"
+                  :all-replies="replies"
                   :post-id="post.id"
                   :current-user="authStore.username"
                   @reply-deleted="fetchData"

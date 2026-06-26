@@ -13,7 +13,9 @@
         </router-link>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.users.noPermission" />
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.users.loadingUser') }}</span>
@@ -105,7 +107,7 @@
               <i class="fas fa-shield-alt"></i> {{ $t('admin.users.permissionsSection') }}
             </h3>
 
-            <div class="form-group">
+            <div v-if="canManageRoles" class="form-group">
               <label for="roles">
                 <i class="fas fa-user-tag"></i> {{ $t('admin.users.assignRoles') }}
               </label>
@@ -126,6 +128,15 @@
               </select>
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i> {{ $t('admin.users.rolesHint') }}
+              </p>
+            </div>
+
+            <div v-else class="form-group">
+              <label>
+                <i class="fas fa-user-tag"></i> {{ $t('admin.users.assignRoles') }}
+              </label>
+              <p class="form-hint">
+                <i class="fas fa-info-circle"></i> {{ $t('admin.users.rolesReadOnly') }}
               </p>
             </div>
 
@@ -166,6 +177,14 @@ import { useI18n } from 'vue-i18n'
 import { readAdminApiError } from '@/utils/adminApiError'
 import { fetchUser, createUser, updateUser } from '@/services/v2/admin/users'
 import { fetchRoles } from '@/services/v2/admin/roles'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canManageRoles = computed(() => has('role.view'))
+const canAccessPage = computed(() =>
+  isEdit.value ? has('user.update') : has('user.create')
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -208,22 +227,15 @@ const isValid = computed(() => {
   if (!form.value.username || !form.value.email) return false
   if (!isEdit.value && !form.value.password) return false
   if (form.value.password && form.value.password.length < 8) return false
-  if (!form.value.roles.length) return false
+  if (canManageRoles.value && !form.value.roles.length) return false
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(form.value.email)
 })
 
-watch(form, () => {
-  error.value = ''
-}, { deep: true })
-
-onMounted(async () => {
-  loading.value = true
+async function loadAvailableRoles() {
+  if (!canManageRoles.value) return
   try {
-    const rolesPromise = fetchRoles()
-    const userPromise = isEdit.value ? fetchUser(route.params.id) : Promise.resolve(null)
-    const [rolesRes, userRes] = await Promise.all([rolesPromise, userPromise])
-
+    const rolesRes = await fetchRoles()
     availableRoles.value = Array.isArray(rolesRes.data) ? rolesRes.data : []
     if (!availableRoles.value.length) {
       availableRoles.value = [
@@ -233,8 +245,26 @@ onMounted(async () => {
         { name: 'customer' },
       ]
     }
+  } catch (err) {
+    if (err.response?.status === 403) return
+    throw err
+  }
+}
 
-    if (isEdit.value && userRes) {
+watch(form, () => {
+  error.value = ''
+}, { deep: true })
+
+onMounted(async () => {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
+
+  loading.value = true
+  try {
+    if (isEdit.value) {
+      const userRes = await fetchUser(route.params.id)
       const data = userRes.data || {}
       form.value = {
         username: data.username || '',
@@ -243,6 +273,7 @@ onMounted(async () => {
         roles: normalizeRoles(data.roles, !!data.isAdmin),
       }
     }
+    await loadAvailableRoles()
   } catch (err) {
     error.value = t('admin.users.loadFailed', {
       message: err.response?.data?.message || err.message,
@@ -265,8 +296,13 @@ async function handleSubmit() {
   try {
     const payload = {
       email: form.value.email.trim(),
-      roles: [...form.value.roles],
       isAdmin: form.value.roles.includes('super_admin'),
+    }
+    if (canManageRoles.value) {
+      payload.roles = [...form.value.roles]
+    } else if (!isEdit.value) {
+      payload.roles = ['customer']
+      payload.isAdmin = false
     }
     if (!isEdit.value) {
       payload.username = form.value.username.trim()

@@ -57,6 +57,7 @@
           :key="child.id"
           :reply="child"
           :child-replies="childReplies"
+          :all-replies="allReplies"
           :post-id="postId"
           :current-user="currentUser"
           :is-child="true"
@@ -81,6 +82,10 @@ const props = defineProps({
   childReplies: {
     type: Object,
     default: () => ({})
+  },
+  allReplies: {
+    type: Array,
+    default: () => []
   },
   postId: {
     type: [String, Number],
@@ -107,9 +112,11 @@ const isExpanded = ref(true)
 
 const parentReplyAuthor = computed(() => {
   if (!props.reply.parentReplyId) return ''
+  const fromAll = props.allReplies.find((r) => r.id === props.reply.parentReplyId)
+  if (fromAll?.author) return fromAll.author
   const parent = Object.values(props.childReplies)
     .flat()
-    .find(r => r.id === props.reply.parentReplyId)
+    .find((r) => r.id === props.reply.parentReplyId)
   return parent?.author || ''
 })
 
@@ -125,6 +132,9 @@ function toggleReplyForm() {
   showReplyForm.value = !showReplyForm.value
   if (showReplyForm.value) {
     isExpanded.value = true
+    if (props.reply.author && !replyContent.value.trim()) {
+      replyContent.value = `@${props.reply.author} `
+    }
   }
 }
 

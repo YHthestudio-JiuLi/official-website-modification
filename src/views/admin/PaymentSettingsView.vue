@@ -7,7 +7,9 @@
         </div>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.paymentSettings.noPermission" />
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.paymentSettings.loading') }}</span>
@@ -28,6 +30,7 @@
             <i class="fas fa-check-circle"></i> {{ $t('admin.paymentSettings.saved') }}
           </div>
 
+          <fieldset :disabled="!canManage" class="settings-fieldset">
           <div class="form-group">
             <label for="wallet_address">
               <i class="fas fa-wallet"></i> {{ $t('admin.paymentSettings.walletAddress') }}
@@ -38,6 +41,7 @@
               id="wallet_address"
               v-model="form.wallet_address"
               required
+              :disabled="!canManage"
               :placeholder="$t('admin.paymentSettings.walletAddressPlaceholder')"
               class="form-input"
             />
@@ -52,7 +56,7 @@
               <i class="fas fa-network-wired"></i> {{ $t('admin.paymentSettings.network') }}
               <span class="required">*</span>
             </label>
-            <select id="network" v-model="form.network" class="form-input">
+            <select id="network" v-model="form.network" class="form-input" :disabled="!canManage">
               <option value="TRC20">{{ $t('admin.paymentSettings.networkTrc20') }}</option>
               <option value="ERC20">{{ $t('admin.paymentSettings.networkErc20') }}</option>
               <option value="BEP20">{{ $t('admin.paymentSettings.networkBep20') }}</option>
@@ -134,12 +138,16 @@
               </p>
             </div>
           </div>
+          </fieldset>
 
           <div class="form-actions">
+            <p v-if="!canManage" class="form-hint read-only-hint">
+              <i class="fas fa-lock"></i> {{ $t('admin.paymentSettings.readOnlyHint') }}
+            </p>
             <div v-if="success" class="save-success-inline">
               <i class="fas fa-check-circle"></i> {{ $t('admin.paymentSettings.saved') }}
             </div>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">
+            <button v-if="canManage" type="submit" class="btn btn-primary" :disabled="submitting">
               <i class="fas fa-save"></i>
               {{ submitting ? $t('admin.paymentSettings.saving') : $t('admin.paymentSettings.save') }}
             </button>
@@ -150,10 +158,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { fetchPaymentSettings, updatePaymentSettings } from '@/services/v2/admin/paymentSettings'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('payment.view') || has('payment.manage'))
+const canManage = computed(() => has('payment.manage'))
+const canAccessPage = computed(() => canView.value)
 
 const { t } = useI18n()
 
@@ -202,6 +217,10 @@ function extractSaveError(err) {
 }
 
 onMounted(async () => {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   try {
     const response = await fetchPaymentSettings()
     applySettings(response.data)
@@ -213,6 +232,7 @@ onMounted(async () => {
 })
 
 async function handleSubmit() {
+  if (!canManage.value) return
   submitting.value = true
   error.value = ''
   success.value = false

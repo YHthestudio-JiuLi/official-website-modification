@@ -8,7 +8,7 @@
       </div>
 
       <!-- Filter Section -->
-      <div class="filter-section">
+      <div v-if="canAccessPage" class="filter-section">
         <div class="filter-form">
           <div class="filter-group">
             <label for="status-filter">
@@ -35,7 +35,9 @@
         </div>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.orders.noPermission" />
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.orders.loading') }}</span>
@@ -102,6 +104,7 @@
                       <span class="btn-text">{{ $t('admin.orders.view') }}</span>
                     </button>
                     <select
+                      v-if="canManage"
                       :value="order.status"
                       @change="handleStatusUpdate(order.id, $event.target.value)"
                       class="status-select"
@@ -112,7 +115,11 @@
                       <option value="completed">{{ $t('admin.orders.filter.completed') }}</option>
                       <option value="cancelled">{{ $t('admin.orders.filter.cancelled') }}</option>
                     </select>
-                    <button 
+                    <span v-else :class="['status-badge-inline', 'status-' + order.status]">
+                      {{ getStatusText(order.status) }}
+                    </span>
+                    <button
+                      v-if="canManage"
                       @click="confirmDelete(order.id, displayOrderNo(order))" 
                       class="btn-delete"
                       :title="$t('admin.orders.deleteOrderTitle', { id: displayOrderNo(order) })"
@@ -311,7 +318,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   fetchOrders as fetchOrdersApi,
@@ -320,6 +327,13 @@ import {
   updateOrderTracking
 } from '@/services/v2/admin/orders'
 import { displayOrderNo } from '@/utils/orderNo'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('order.view') || has('order.view_own_tree'))
+const canManage = computed(() => has('order.manage'))
+const canAccessPage = computed(() => canView.value)
 
 const { t, locale } = useI18n()
 const orders = ref([])
@@ -349,6 +363,10 @@ const ORDER_STATUS_KEYS = ['pending', 'paid', 'completed', 'cancelled']
 onMounted(fetchOrders)
 
 async function fetchOrders() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const params = statusFilter.value ? { status: statusFilter.value } : {}

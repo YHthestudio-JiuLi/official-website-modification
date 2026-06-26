@@ -9,12 +9,12 @@
           <p>{{ $t('admin.deviceVerification.description') }}</p>
         </div>
         <div class="header-actions">
-          <button @click="showAddModal = true" class="btn btn-primary">
+          <button v-if="canManage" @click="showAddModal = true" class="btn btn-primary">
             <i class="fas fa-plus"></i>
             <span>{{ $t('admin.deviceVerification.addDevice') }}</span>
           </button>
           <button
-            v-if="selectedDevices.length > 0"
+            v-if="canManage && selectedDevices.length > 0"
             @click="confirmBatchDelete"
             class="btn btn-danger"
           >
@@ -25,6 +25,9 @@
         </div>
       </div>
 
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.deviceVerification.noPermission" />
+
+      <template v-else>
       <div class="cooldown-settings-bar">
         <div class="cooldown-settings-main">
           <div class="cooldown-settings-icon" aria-hidden="true">
@@ -525,23 +528,24 @@
           :style="actionMenuPanelStyle"
           @click.stop
         >
-          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showKeysModal(openActionMenuDevice))">
+          <button v-if="canViewKeys" type="button" class="action-menu-item" @click="runDeviceAction(() => showKeysModal(openActionMenuDevice))">
             <i class="fas fa-key"></i>
             <span>{{ $t('admin.deviceVerification.keys') }}</span>
           </button>
-          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showLogsModal(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => showLogsModal(openActionMenuDevice))">
             <i class="fas fa-history"></i>
             <span>{{ $t('admin.deviceVerification.logs') }}</span>
           </button>
-          <button type="button" class="action-menu-item" @click="runDeviceAction(() => showEditModal(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => showEditModal(openActionMenuDevice))">
             <i class="fas fa-edit"></i>
             <span>{{ $t('admin.deviceVerification.edit') }}</span>
           </button>
-          <button type="button" class="action-menu-item" @click="runDeviceAction(() => resetCount(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => resetCount(openActionMenuDevice))">
             <i class="fas fa-redo"></i>
             <span>{{ $t('admin.deviceVerification.reset') }}</span>
           </button>
           <button
+            v-if="canManage"
             type="button"
             class="action-menu-item"
             @click="runDeviceAction(() => toggleWhitelist(openActionMenuDevice))"
@@ -549,12 +553,13 @@
             <i :class="Number(openActionMenuDevice.is_whitelisted) === 1 ? 'fas fa-user-slash' : 'fas fa-user-check'"></i>
             <span>{{ Number(openActionMenuDevice.is_whitelisted) === 1 ? $t('admin.deviceVerification.revokeAuth') : $t('admin.deviceVerification.grantAuth') }}</span>
           </button>
-          <button type="button" class="action-menu-item danger" @click="runDeviceAction(() => confirmDelete(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item danger" @click="runDeviceAction(() => confirmDelete(openActionMenuDevice))">
             <i class="fas fa-trash"></i>
             <span>{{ $t('admin.deviceVerification.delete') }}</span>
           </button>
         </div>
       </Teleport>
+      </template>
     </div>
 </template>
 
@@ -575,6 +580,13 @@ import {
   fetchDeviceLogs
 } from '@/services/v2/admin/devices'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canManage = computed(() => has('device.view'))
+const canViewKeys = computed(() => has('device.keys.view'))
+const canAccessPage = computed(() => canManage.value || canViewKeys.value)
 
 const { t, locale } = useI18n()
 
@@ -709,6 +721,10 @@ onUnmounted(() => {
 })
 
 async function initPage() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   await Promise.all([fetchCooldownSettings(), fetchDevices()])
   // 题库/固件列表仅用于下拉，后台加载不阻塞首屏
   fetchQuestions()

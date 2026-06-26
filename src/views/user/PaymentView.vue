@@ -35,7 +35,7 @@
                   <span>{{ $t('payment.paymentAmount') }}: </span>
                   <span class="amount-highlight">{{ order.totalAmount }} USDT</span>
                 </div>
-                <div v-if="order.status === 'pending'" class="info-item">
+                <div v-if="order.status" class="info-item">
                   <span>{{ $t('payment.orderStatus') }}: </span>
                   <span :class="['status-badge', 'status-' + order.status]">
                     {{ getStatusText(order.status) }}
@@ -138,6 +138,20 @@
                 <code>{{ order.txHash }}</code>
               </div>
               <router-link to="/orders" class="btn btn-primary">{{ $t('payment.viewOrders') }}</router-link>
+            </div>
+
+            <div v-else-if="order.status === 'completed'" class="payment-success payment-success--completed">
+              <i class="fas fa-box-open success-icon"></i>
+              <h3>{{ $t('payment.completedTitle') }}</h3>
+              <p>{{ $t('payment.completedDesc') }}</p>
+              <router-link to="/orders" class="btn btn-primary">{{ $t('payment.viewOrders') }}</router-link>
+            </div>
+
+            <div v-else-if="order.status === 'cancelled'" class="payment-success payment-success--cancelled">
+              <i class="fas fa-ban success-icon"></i>
+              <h3>{{ $t('payment.cancelledTitle') }}</h3>
+              <p>{{ $t('payment.cancelledDesc') }}</p>
+              <router-link to="/orders" class="btn btn-secondary">{{ $t('payment.viewOrders') }}</router-link>
             </div>
           </div>
 
@@ -279,6 +293,7 @@ function isMobileBrowser() {
 }
 
 async function handleConfirmPayment() {
+  if (order.value?.status !== 'pending') return
   if (!recipientName.value || !recipientName.value.trim()) {
     alert(t('payment.recipientNameRequired'))
     return

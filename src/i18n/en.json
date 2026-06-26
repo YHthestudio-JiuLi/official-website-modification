@@ -323,6 +323,10 @@
     "copied": "Copied!",
     "successTitle": "Payment Successful!",
     "successDesc": "Your order payment has been confirmed, we are processing it.",
+    "completedTitle": "Order Completed",
+    "completedDesc": "This order has been completed. Thank you for your purchase.",
+    "cancelledTitle": "Order Cancelled",
+    "cancelledDesc": "This order has been cancelled and cannot be paid.",
     "txHashDisplay": "Transaction Hash",
     "viewOrders": "View My Orders",
     "shippingAddressValue": "Name: {name} | Phone: {phone} | Address: {address}",
@@ -370,6 +374,9 @@
   },
   "admin": {
     "title": "Admin Panel",
+    "common": {
+      "noPermission": "You do not have permission to access this page. Contact an administrator."
+    },
     "dashboard": {
       "title": "Dashboard",
       "overview": "Overview",
@@ -416,6 +423,8 @@
     },
     "users": {
       "title": "User Management",
+      "noPermission": "You do not have user management permissions. Contact an administrator.",
+      "rolesReadOnly": "You cannot view or edit roles. Only currently assigned roles are shown.",
       "listTitle": "User List",
       "description": "Manage all user accounts in the system",
       "id": "ID",
@@ -727,6 +736,7 @@
     },
     "productCategories": {
       "menu": "Categories",
+      "noPermission": "You do not have permission to manage product categories.",
       "title": "Product Categories",
       "subtitle": "Manage primary and secondary categories; deleting clears related product links",
       "backProducts": "Back to products",
@@ -839,6 +849,7 @@
     },
     "posts": {
       "menu": "Forum",
+      "noPermission": "You do not have forum management permissions. Contact an administrator.",
       "title": "Forum Management",
       "listTitle": "Forum Posts",
       "postTitle": "Title",
@@ -875,6 +886,7 @@
     },
     "orders": {
       "title": "Order Management",
+      "noPermission": "You do not have permission to view orders. Contact an administrator.",
       "subtitle": "Process and track customer orders",
       "listTitle": "Order List",
       "description": "Manage all orders in the system",
@@ -963,6 +975,8 @@
     },
     "paymentSettings": {
       "title": "Payment Settings",
+      "noPermission": "You do not have permission to view payment settings.",
+      "readOnlyHint": "Read-only mode. payment.manage permission is required to edit settings.",
       "pageTitle": "Payment Settings",
       "heading": "Payment Configuration",
       "subtitle": "Configure USDT wallet, auto-deletion, and on-chain TX verification rules",
@@ -1011,6 +1025,7 @@
     },
     "popupNotices": {
       "menu": "Popup Notices",
+      "noPermission": "You do not have popup notice permissions. Contact an administrator.",
       "title": "Popup Notices",
       "subtitle": "Manage homepage popup announcements",
       "addNew": "Add New",
@@ -1075,6 +1090,7 @@
     },
     "deviceVerification": {
       "menu": "Device Verification",
+      "noPermission": "You do not have device verification permissions. Contact an administrator.",
       "title": "Device Verification",
       "description": "Manage device verification quotas and keys",
       "addDevice": "Add Device",

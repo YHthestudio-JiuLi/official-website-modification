@@ -10,7 +10,10 @@
         </router-link>
       </div>
 
-      <div class="form-card">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.productCategories.noPermission" />
+
+      <template v-else>
+      <div v-if="canManage" class="form-card">
         <h3 class="section-title">
           <i class="fas fa-plus-circle"></i> {{ editingId ? $t('admin.productCategories.edit') : $t('admin.productCategories.add') }}
         </h3>
@@ -87,12 +90,15 @@
               <td><code>{{ cat.slug }}</code></td>
               <td>{{ cat.sortOrder }}</td>
               <td class="actions">
+                <template v-if="canManage">
                 <button type="button" class="btn-icon" @click="startEdit(cat)" :title="$t('common.edit')">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button type="button" class="btn-icon btn-danger" @click="handleDelete(cat)" :title="$t('common.delete')">
                   <i class="fas fa-trash"></i>
                 </button>
+                </template>
+                <span v-else>—</span>
               </td>
             </tr>
             <tr v-if="displayCategories.length === 0">
@@ -101,6 +107,7 @@
           </tbody>
         </table>
       </div>
+      </template>
     </div>
 </template>
 
@@ -114,6 +121,13 @@ import {
   deleteCategory
 } from '@/services/v2/catalog'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('product.view') || has('product.manage'))
+const canManage = computed(() => has('product.manage'))
+const canAccessPage = computed(() => canView.value)
 
 const { t } = useI18n()
 const categories = ref([])
@@ -141,6 +155,10 @@ const editingHasChildren = computed(() => {
 onMounted(fetchCategories)
 
 async function fetchCategories() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const res = await fetchAdminCategories()

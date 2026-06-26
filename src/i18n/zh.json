@@ -321,6 +321,10 @@
     "copied": "已复制！",
     "successTitle": "支付成功！",
     "successDesc": "您的订单支付已确认，我们正在处理中。",
+    "completedTitle": "订单已完成",
+    "completedDesc": "该订单已处理完成，感谢您的购买。",
+    "cancelledTitle": "订单已取消",
+    "cancelledDesc": "该订单已取消，无法继续支付。",
     "txHashDisplay": "交易哈希",
     "viewOrders": "查看我的订单",
     "shippingAddressValue": "姓名: {name} | 电话: {phone} | 地址: {address}",
@@ -368,6 +372,9 @@
   },
   "admin": {
     "title": "管理后台",
+    "common": {
+      "noPermission": "您没有访问此页面的权限，请联系管理员分配角色。"
+    },
     "dashboard": {
       "title": "仪表板",
       "overview": "概览",
@@ -414,6 +421,8 @@
     },
     "users": {
       "title": "用户管理",
+      "noPermission": "您没有用户管理相关权限，请联系管理员分配角色。",
+      "rolesReadOnly": "您没有角色查看权限，仅可查看当前已分配角色，无法修改。",
       "listTitle": "用户列表",
       "description": "管理系统中的所有用户账号",
       "id": "ID",
@@ -725,6 +734,7 @@
     },
     "productCategories": {
       "menu": "产品分类",
+      "noPermission": "您没有产品分类管理权限，请联系管理员分配角色。",
       "title": "产品分类管理",
       "subtitle": "支持一级与二级分类；删除分类后相关商品关联将被清除",
       "backProducts": "返回产品列表",
@@ -837,6 +847,7 @@
     },
     "posts": {
       "menu": "论坛",
+      "noPermission": "您没有论坛管理相关权限，请联系管理员分配角色。",
       "title": "论坛管理",
       "listTitle": "论坛帖子",
       "postTitle": "标题",
@@ -873,6 +884,7 @@
     },
     "orders": {
       "title": "订单管理",
+      "noPermission": "您没有订单查看权限，请联系管理员分配角色。",
       "subtitle": "处理并跟踪客户订单",
       "listTitle": "订单列表",
       "description": "管理系统中的所有订单",
@@ -961,6 +973,8 @@
     },
     "paymentSettings": {
       "title": "收款设置",
+      "noPermission": "您没有支付设置查看权限，请联系管理员分配角色。",
+      "readOnlyHint": "当前为只读模式，修改收款配置需要 payment.manage 权限。",
       "pageTitle": "收款设置",
       "heading": "收款配置",
       "subtitle": "配置 USDT 收款钱包、订单自动删除及链上验单规则",
@@ -1009,6 +1023,7 @@
     },
     "popupNotices": {
       "menu": "弹窗公告",
+      "noPermission": "您没有弹窗公告相关权限，请联系管理员分配角色。",
       "title": "弹窗公告管理",
       "subtitle": "管理网站主页弹窗公告",
       "addNew": "新建公告",
@@ -1073,6 +1088,7 @@
     },
     "deviceVerification": {
       "menu": "设备验证",
+      "noPermission": "您没有设备验证相关权限，请联系管理员分配角色。",
       "title": "设备权限验证",
       "description": "管理设备验证配额和密钥",
       "addDevice": "添加设备",

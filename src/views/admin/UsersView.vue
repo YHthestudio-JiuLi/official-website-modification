@@ -9,12 +9,12 @@
           <p>{{ $t('admin.users.description') }}</p>
         </div>
         <div class="header-actions">
-          <button @click="router.push('/admin/users/edit')" class="btn btn-primary" :title="$t('admin.users.addUser')">
+          <button v-if="canCreate" @click="router.push('/admin/users/edit')" class="btn btn-primary" :title="$t('admin.users.addUser')">
             <i class="fas fa-plus"></i>
             <span>{{ $t('admin.users.addUser') }}</span>
           </button>
           <button
-            v-if="selectedUsers.length > 0"
+            v-if="canDelete && selectedUsers.length > 0"
             @click="confirmBatchDelete"
             class="btn btn-danger"
           >
@@ -25,7 +25,9 @@
         </div>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.users.noPermission" />
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.users.loadingUsers') }}</span>
@@ -72,7 +74,7 @@
             <tbody>
               <tr v-for="user in users" :key="user.id" :class="{ 'admin-row': isSuperAdminUser(user), 'selected-row': selectedUsers.includes(user.id) }">
                 <td class="select-column">
-                  <input type="checkbox" v-model="selectedUsers" :value="user.id" :disabled="isSuperAdminUser(user)" />
+                  <input type="checkbox" v-model="selectedUsers" :value="user.id" :disabled="isSuperAdminUser(user) || !canDelete" />
                 </td>
                 <td>
                   <span class="id-badge">#{{ user.id }}</span>
@@ -106,6 +108,7 @@
                 <td class="actions-cell">
                   <div class="action-group" role="group" :aria-label="`Actions for ${user.username}`">
                     <router-link
+                      v-if="canUpdate"
                       :to="`/admin/users/edit/${user.id}`"
                       class="action-btn btn-edit"
                       :title="`${$t('admin.users.edit')} ${user.username}`"
@@ -114,7 +117,7 @@
                       <span class="action-text">{{ $t('admin.users.edit') }}</span>
                     </router-link>
                     <button
-                      v-if="!isSuperAdminUser(user)"
+                      v-if="canDelete && !isSuperAdminUser(user)"
                       @click="confirmDelete(user.id, user.username)"
                       class="action-btn btn-delete"
                       :title="`${$t('admin.users.delete')} ${user.username}`"
@@ -242,10 +245,21 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchUsers as fetchUsersApi, deleteUser } from '@/services/v2/admin/users'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('user.view'))
+const canCreate = computed(() => has('user.create'))
+const canUpdate = computed(() => has('user.update'))
+const canDelete = computed(() => has('user.delete'))
+const canAccessPage = computed(() =>
+  canView.value || canCreate.value || canUpdate.value || canDelete.value
+)
 
 const { t, locale, te } = useI18n()
 const route = useRoute()
@@ -299,6 +313,10 @@ watch(
 )
 
 async function fetchUsers() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const response = await fetchUsersApi()

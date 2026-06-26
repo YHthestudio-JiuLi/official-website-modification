@@ -5,12 +5,14 @@
           <h2><i class="fas fa-comments"></i> {{ $t('admin.posts.listTitle') }}</h2>
           <p>{{ $t('admin.posts.subtitle') }}</p>
         </div>
-        <router-link to="/admin/posts/add" class="btn btn-primary">
+        <router-link v-if="canManage" to="/admin/posts/add" class="btn btn-primary">
           <i class="fas fa-plus"></i> {{ $t('admin.posts.addPost') }}
         </router-link>
       </div>
 
-      <div v-if="loading" class="loading-container">
+      <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.posts.noPermission" />
+
+      <div v-else-if="loading" class="loading-container">
         <div class="loading-spinner">
           <i class="fas fa-spinner fa-spin"></i>
           <span>{{ $t('admin.posts.loading') }}</span>
@@ -72,7 +74,7 @@
                   </span>
                 </td>
                 <td class="actions-cell">
-                  <div class="action-buttons" role="group" :aria-label="`${$t('admin.posts.actions')}: ${post.title}`">
+                  <div v-if="canManage" class="action-buttons" role="group" :aria-label="`${$t('admin.posts.actions')}: ${post.title}`">
                     <button
                       @click="handlePin(post.id, post.isPinned)"
                       :class="['btn-icon action-btn', post.isPinned ? 'btn-warning' : 'btn-info']"
@@ -106,13 +108,22 @@
                       <span class="action-label">{{ $t('admin.posts.replies') }}</span>
                     </button>
                   </div>
+                  <button
+                    v-else
+                    @click="openRepliesModal(post)"
+                    class="btn-icon action-btn btn-replies"
+                    :title="$t('admin.posts.replies')"
+                  >
+                    <i class="fas fa-comments"></i>
+                    <span class="action-label">{{ $t('admin.posts.replies') }}</span>
+                  </button>
                 </td>
               </tr>
               <tr v-if="posts.length === 0">
                 <td colspan="7" class="empty-state">
                   <i class="fas fa-inbox"></i>
                   <p>{{ $t('admin.posts.empty') }}</p>
-                  <router-link to="/admin/posts/add" class="btn btn-primary btn-sm">
+                  <router-link v-if="canManage" to="/admin/posts/add" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus"></i> {{ $t('admin.posts.addFirstPost') }}
                   </router-link>
                 </td>
@@ -191,7 +202,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -201,6 +212,13 @@ import {
   fetchReplies,
   deleteReply as deleteReplyApi
 } from '@/services/v2/admin/forum'
+import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+
+const { has } = useAdminPermissions()
+const canView = computed(() => has('forum.view'))
+const canManage = computed(() => has('forum.manage'))
+const canAccessPage = computed(() => canView.value || canManage.value)
 
 const { t } = useI18n()
 const route = useRoute()
@@ -223,6 +241,10 @@ watch(
 )
 
 async function loadPosts() {
+  if (!canAccessPage.value) {
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const response = await fetchPosts()

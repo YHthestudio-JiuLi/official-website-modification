@@ -61,6 +61,11 @@ export PHP_BIN="${PHP_BIN:-$("$ROOT/scripts/resolve-php.sh")}"
 info "项目目录: $APP_ROOT"
 info "PHP:      $PHP_BIN ($("$PHP_BIN" -r 'echo PHP_VERSION;'))"
 
+if command -v git >/dev/null 2>&1 && [ -d "$ROOT/.git" ]; then
+  GIT_HEAD=(git -c "safe.directory=$ROOT")
+  info "Git:      $("${GIT_HEAD[@]}" log -1 --oneline 2>/dev/null || echo '无法读取')"
+fi
+
 # ── 依赖命令检查 ──
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "未找到命令: $1"

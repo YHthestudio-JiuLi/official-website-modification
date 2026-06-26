@@ -362,6 +362,7 @@ import {
   createProduct,
   updateProduct
 } from '@/services/v2/catalog'
+import { refreshV2Csrf } from '@/services/v2/http'
 import FaIconPicker from '@/components/admin/FaIconPicker.vue'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { getParentCategories, getSubCategories } from '@/utils/categorySort'
@@ -632,6 +633,8 @@ async function handleImageSelect(event) {
       if (file.size > 5 * 1024 * 1024) {
         throw new Error(t('admin.productForm.errors.imageTooLarge'))
       }
+      // 每张图上传前刷新 CSRF，避免连续 POST 时 token 轮换导致 419
+      await refreshV2Csrf()
       const formData = new FormData()
       formData.append('image', file)
       const response = await uploadProductImage(formData)
@@ -706,6 +709,8 @@ async function handleSubmit() {
       submitData.subCategoryId = null
     }
 
+    await refreshV2Csrf()
+
     if (isEdit.value) {
       await updateProduct(route.params.id, submitData)
     } else {
@@ -713,9 +718,7 @@ async function handleSubmit() {
     }
 
     showToast(t('admin.productForm.success.saved'), 'success')
-    setTimeout(() => {
-      router.back()
-    }, 1500)
+    await router.push({ name: 'admin-products' })
   } catch (err) {
     error.value = err.response?.data?.message || t('admin.productForm.errors.saveFailed')
   } finally {

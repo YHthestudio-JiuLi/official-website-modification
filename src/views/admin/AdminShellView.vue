@@ -2,9 +2,7 @@
   <AdminLayout>
     <template #header-title>{{ headerTitle }}</template>
     <router-view v-slot="{ Component }">
-      <transition name="admin-page" mode="out-in">
-        <component :is="Component" :key="route.fullPath" />
-      </transition>
+      <component :is="Component" :key="route.fullPath" />
     </router-view>
   </AdminLayout>
 </template>
@@ -26,15 +24,3 @@ const headerTitle = computed(() => {
   return key ? t(key) : t('admin.title')
 })
 </script>
-
-<style scoped>
-.admin-page-enter-active,
-.admin-page-leave-active {
-  transition: opacity 0.12s ease;
-}
-
-.admin-page-enter-from,
-.admin-page-leave-to {
-  opacity: 0;
-}
-</style>

@@ -245,7 +245,7 @@ import {
   completeQuestionUpload,
   QUESTION_CHUNK_SIZE
 } from '@/services/v2/admin/questions'
-import { resetV2Csrf } from '@/services/v2/http'
+import { refreshV2Csrf } from '@/services/v2/http'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 
 const route = useRoute()
@@ -450,7 +450,7 @@ async function handleSubmit() {
 
     // 长时上传后 Sanctum CSRF 可能过期，保存前强制刷新
     if (pendingUploads.length > 0) {
-      resetV2Csrf()
+      await refreshV2Csrf()
     }
 
     if (isEdit.value) {

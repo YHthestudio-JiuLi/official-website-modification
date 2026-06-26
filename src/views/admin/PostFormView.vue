@@ -147,8 +147,8 @@ async function handleSubmit() {
     }
     showToast('Post saved successfully', 'success')
     setTimeout(() => {
-      router.back()
-    }, 1500)
+      router.push('/admin/posts')
+    }, 800)
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to save post'
   } finally {

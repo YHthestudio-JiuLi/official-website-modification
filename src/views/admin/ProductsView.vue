@@ -177,12 +177,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchAdminProducts, deleteProduct } from '@/services/v2/catalog'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { primaryProductImage } from '@/utils/productImages'
 
+const route = useRoute()
 const { t } = useI18n()
 const { isScopedAgent } = useAdminPermissions()
 
@@ -198,7 +200,13 @@ const toast = ref({
   message: ''
 })
 
-onMounted(fetchProducts)
+watch(
+  () => route.name,
+  (name) => {
+    if (name === 'admin-products') fetchProducts()
+  },
+  { immediate: true }
+)
 
 async function fetchProducts() {
   loading.value = true

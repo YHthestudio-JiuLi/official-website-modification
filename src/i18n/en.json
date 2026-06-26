@@ -1439,6 +1439,7 @@
     "loadMessagesError": "Failed to load messages",
     "createSessionError": "Failed to create session",
     "sendError": "Failed to send",
-    "networkError": "Network error"
+    "networkError": "Network error",
+    "nodeSessionError": "Cannot connect to chat service. Ensure the Node API is running with the latest code (npm start)."
   }
 }

@@ -397,7 +397,7 @@ async function enterOnlineChat() {
   if (!authStore.isLoggedIn) return
   const nodeReady = await ensureLegacyNodeUserSession()
   if (!nodeReady) {
-    error.value = t('chat.networkError')
+    error.value = t('chat.nodeSessionError')
     pendingStartChat.value = false
     return
   }

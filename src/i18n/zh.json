@@ -1429,6 +1429,7 @@
     "loadMessagesError": "加载消息失败",
     "createSessionError": "创建会话失败",
     "sendError": "发送失败",
-    "networkError": "网络错误"
+    "networkError": "网络错误",
+    "nodeSessionError": "无法连接客服服务，请确认 Node API 已启动并已更新到最新版本（npm start）"
   }
 }

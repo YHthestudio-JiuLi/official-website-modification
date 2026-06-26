@@ -100,7 +100,7 @@ app.post('/api/auth/establish', express.json(), async (req, res) => {
   try {
     const user = await dbOperations.users.findById(uid);
     if (!user) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: 'User not found in legacy database' });
     }
     req.session.user = { id: user.id, username: user.username, email: user.email };
     await saveSession(req);

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import api from '@/services/api'
+import api, { resetApiCsrf } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -33,8 +33,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await api.post('/api/auth/logout')
-    user.value = null
+    try {
+      await api.post('/api/auth/logout')
+    } finally {
+      user.value = null
+      resetApiCsrf()
+    }
   }
 
   return {

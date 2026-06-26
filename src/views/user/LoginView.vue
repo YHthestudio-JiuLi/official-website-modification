@@ -65,7 +65,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
-import { useAdminV2Store } from '@/stores/adminV2'
+import { useV2Api } from '@/utils/apiPath'
 import { buildRegisterRoute, navigateAfterAuth } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
@@ -75,7 +75,6 @@ const route = useRoute()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const adminStore = useAdminStore()
-const adminV2Store = useAdminV2Store()
 
 const form = ref({
   username: '',
@@ -94,8 +93,10 @@ async function handleLogin() {
 
   try {
     await authStore.login(form.value)
-    // 同步后台登录态（不踢线，仅刷新 Pinia）
-    await Promise.all([adminStore.checkAuth(), adminV2Store.checkAuth()])
+    // 前台登录不探测后台会话，避免无权限用户触发 admin/me 401
+    if (!useV2Api()) {
+      await adminStore.checkAuth()
+    }
     await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
     const status = err.response?.status

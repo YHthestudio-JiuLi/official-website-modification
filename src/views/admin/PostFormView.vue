@@ -146,9 +146,7 @@ async function handleSubmit() {
       await createPost(form.value)
     }
     showToast('Post saved successfully', 'success')
-    setTimeout(() => {
-      router.push('/admin/posts')
-    }, 800)
+    await router.push('/admin/posts')
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to save post'
   } finally {

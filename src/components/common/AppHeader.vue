@@ -165,7 +165,11 @@ function getUserAvatarLetter(username) {
 }
 
 async function handleLogout() {
-  await authStore.logout()
+  try {
+    await authStore.logout()
+  } catch (_e) {
+    // 服务端 419/网络失败时 authStore 仍会在 finally 中清本地态
+  }
   window.location.href = '/'
 }
 </script>

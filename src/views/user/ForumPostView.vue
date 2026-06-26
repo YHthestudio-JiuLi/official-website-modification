@@ -10,6 +10,10 @@
 
       <div class="forum-post-page">
         <div class="container">
+          <div v-if="error" class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+          </div>
+
           <div class="post-form-container">
             <form @submit.prevent="handleSubmit" class="post-form">
               <div class="form-group">
@@ -56,25 +60,32 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const form = ref({
   title: '',
   content: ''
 })
 const submitting = ref(false)
+const error = ref('')
 
 async function handleSubmit() {
   submitting.value = true
+  error.value = ''
   try {
     await api.post('/api/forum/posts', form.value)
-    router.push('/forum')
-  } catch (error) {
-    console.error('Failed to create post:', error)
+    await router.push('/forum')
+  } catch (err) {
+    error.value =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      t('common.unknownError')
   } finally {
     submitting.value = false
   }

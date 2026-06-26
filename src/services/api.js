@@ -2,6 +2,13 @@ import axios from 'axios'
 import { resolveApiPath, useV2Api } from '@/utils/apiPath'
 import { readLegacyNodeBridgeToken } from '@/constants/legacyNodeBridge'
 import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
+import {
+  ensureV2Csrf,
+  attachV2CsrfHeader,
+  refreshV2Csrf,
+  resetV2Csrf,
+  isV2CsrfError
+} from '@/services/v2/http'
 
 const USE_V2 = useV2Api()
 
@@ -9,6 +16,8 @@ const api = axios.create({
   baseURL: '',
   timeout: 15000,
   withCredentials: true,
+  xsrfCookieName: USE_V2 ? 'XSRF-TOKEN' : undefined,
+  xsrfHeaderName: USE_V2 ? 'X-XSRF-TOKEN' : undefined,
   headers: {
     Accept: 'application/json',
     'X-Requested-With': 'XMLHttpRequest'
@@ -20,31 +29,15 @@ let csrfToken = null
 let isRefreshingToken = false
 let failedQueue = []
 const MAX_RETRIES = 1
-
-// Laravel Sanctum CSRF
-let sanctumReady = false
-let sanctumPending = null
-
-async function ensureSanctumCsrf() {
-  if (sanctumReady) return
-  if (sanctumPending) {
-    await sanctumPending
-    return
-  }
-  sanctumPending = axios.get('/sanctum/csrf-cookie', {
-    withCredentials: true,
-    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-  }).then(() => {
-    sanctumReady = true
-  }).finally(() => {
-    sanctumPending = null
-  })
-  await sanctumPending
-}
+const V2_CSRF_MAX_RETRIES = 3
 
 function isV2Request(url) {
   const resolved = resolveApiPath(url)
   return resolved.startsWith('/api/v2/')
+}
+
+function isMutatingMethod(method) {
+  return ['post', 'put', 'delete', 'patch'].includes(String(method || 'get').toLowerCase())
 }
 
 const processQueue = (error, token = null) => {
@@ -92,12 +85,14 @@ api.interceptors.request.use(
     }
 
     const method = (config.method || 'get').toLowerCase()
-    if (!['post', 'put', 'delete', 'patch'].includes(method)) {
+
+    if (isV2Request(config.url) && isMutatingMethod(method)) {
+      await ensureV2Csrf()
+      attachV2CsrfHeader(config)
       return config
     }
 
-    if (isV2Request(config.url)) {
-      await ensureSanctumCsrf()
+    if (!isMutatingMethod(method)) {
       return config
     }
 
@@ -136,14 +131,31 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
-    if (error.response?.status === 401) {
-      sanctumReady = false
-      if (originalRequest?.url) {
-        handleAdminSessionUnauthorized(originalRequest.url)
+    if (!originalRequest) {
+      return Promise.reject(error)
+    }
+
+    const v2Request = isV2Request(originalRequest.url)
+
+    if (error.response?.status === 401 && originalRequest.url) {
+      handleAdminSessionUnauthorized(originalRequest.url)
+    }
+
+    if (v2Request && isV2CsrfError(error)) {
+      const retryCount = originalRequest._v2CsrfRetryCount || 0
+      if (retryCount < V2_CSRF_MAX_RETRIES) {
+        originalRequest._v2CsrfRetryCount = retryCount + 1
+        try {
+          await refreshV2Csrf()
+          attachV2CsrfHeader(originalRequest)
+          return api.request(originalRequest)
+        } catch (refreshError) {
+          return Promise.reject(refreshError)
+        }
       }
     }
 
-    if (!originalRequest || isV2Request(originalRequest.url)) {
+    if (v2Request) {
       return Promise.reject(error)
     }
 
@@ -200,7 +212,7 @@ api.interceptors.response.use(
 
 export function resetApiCsrf() {
   csrfToken = null
-  sanctumReady = false
+  resetV2Csrf()
 }
 
 export default api

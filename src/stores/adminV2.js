@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '@/services/v2/admin/auth'
 import { resetV2Csrf } from '@/services/v2/http'
+import { resetApiCsrf } from '@/services/api'
 import { useV2Api } from '@/utils/apiPath'
 
 export const useAdminV2Store = defineStore('adminV2', () => {
@@ -73,6 +74,7 @@ export const useAdminV2Store = defineStore('adminV2', () => {
       permissions.value = []
       menus.value = []
       resetV2Csrf()
+      resetApiCsrf()
       await syncLegacyAdminMirror()
     }
   }

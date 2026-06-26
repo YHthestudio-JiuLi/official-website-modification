@@ -191,7 +191,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   fetchPosts,
@@ -202,6 +203,7 @@ import {
 } from '@/services/v2/admin/forum'
 
 const { t } = useI18n()
+const route = useRoute()
 const posts = ref([])
 const loading = ref(true)
 
@@ -212,7 +214,13 @@ const repliesPost = ref(null)
 const replies = ref([])
 const repliesLoading = ref(false)
 
-onMounted(loadPosts)
+watch(
+  () => route.name,
+  (name) => {
+    if (name === 'admin-posts') loadPosts()
+  },
+  { immediate: true }
+)
 
 async function loadPosts() {
   loading.value = true

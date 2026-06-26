@@ -135,7 +135,21 @@ v2.interceptors.response.use(
 )
 
 export function resetV2Csrf() {
-  // 保留 API 供登出等场景调用；下一次写操作会重新拉取 CSRF
+  csrfPending = null
+}
+
+/** 供 api.js 等复用：写操作前拉取 Sanctum CSRF */
+export async function ensureV2Csrf() {
+  return ensureCsrf()
+}
+
+/** 供 api.js 等复用：将 cookie 中的 token 写入请求头 */
+export function attachV2CsrfHeader(config) {
+  return attachXsrfHeader(config)
+}
+
+export function isV2CsrfError(error) {
+  return isCsrfError(error)
 }
 
 /** 写操作前强制刷新 CSRF（多图上传、长表单保存前调用） */

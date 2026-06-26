@@ -242,12 +242,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { fetchUsers as fetchUsersApi, deleteUser } from '@/services/v2/admin/users'
 
 const { t, locale, te } = useI18n()
+const route = useRoute()
 const router = useRouter()
 
 function roleLabel(name) {
@@ -289,7 +290,13 @@ const toast = ref({
   message: ''
 })
 
-onMounted(fetchUsers)
+watch(
+  () => route.name,
+  (name) => {
+    if (name === 'admin-users') fetchUsers()
+  },
+  { immediate: true }
+)
 
 async function fetchUsers() {
   loading.value = true

@@ -15,8 +15,13 @@
         <div class="container">
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
+          <div v-else-if="loadError" class="load-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ $t('forum.loadFailed') }}</p>
+          </div>
+
           <div v-else-if="!post" class="empty-state">
-            Post not found
+            {{ $t('forum.postNotFound') }}
           </div>
 
           <div v-else class="forum-detail">
@@ -127,6 +132,7 @@ const replies = ref([])
 const replyContent = ref('')
 const error = ref('')
 const loading = ref(true)
+const loadError = ref(false)
 const submitting = ref(false)
 
 const topLevelReplies = computed(() => {
@@ -150,6 +156,7 @@ onMounted(fetchData)
 
 async function fetchData() {
   loading.value = true
+  loadError.value = false
   try {
     const [postRes, repliesRes] = await Promise.all([
       api.get(`/api/forum/posts/${route.params.id}`),
@@ -159,6 +166,13 @@ async function fetchData() {
     replies.value = repliesRes.data
   } catch (error) {
     console.error('Failed to fetch data:', error)
+    const status = error.response?.status
+    if (status === 401) return
+    if (status !== 404) {
+      loadError.value = true
+    }
+    post.value = null
+    replies.value = []
   } finally {
     loading.value = false
   }
@@ -229,6 +243,19 @@ async function handleReply() {
   text-align: center;
   color: #8892b0;
   padding: 3rem;
+}
+
+.load-error {
+  text-align: center;
+  color: #8892b0;
+  padding: 3rem;
+}
+
+.load-error i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #f87171;
+  display: block;
 }
 
 .empty-state {

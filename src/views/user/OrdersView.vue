@@ -12,6 +12,11 @@
         <div class="container">
           <div v-if="loading" class="ov-loading">{{ $t('common.loading') }}</div>
 
+          <div v-else-if="loadError" class="ov-load-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ $t('orders.loadFailed') }}</p>
+          </div>
+
           <div v-else-if="orders.length === 0" class="ov-empty">
             <i class="fas fa-shopping-bag"></i>
             <h3>{{ $t('orders.empty') }}</h3>
@@ -162,6 +167,7 @@ import AppFooter from '@/components/common/AppFooter.vue'
 const { t, locale } = useI18n()
 const orders = ref([])
 const loading = ref(true)
+const loadError = ref(false)
 
 const progressSteps = [
   { key: 'pending', label: 'orders.progress.pending', icon: 'fas fa-wallet' },
@@ -180,6 +186,9 @@ onMounted(async () => {
     }))
   } catch (error) {
     console.error('Failed to fetch orders:', error)
+    if (error.response?.status !== 401) {
+      loadError.value = true
+    }
   } finally {
     loading.value = false
   }
@@ -219,6 +228,18 @@ async function copyTxHash(hash) {
   text-align: center;
   padding: 4rem;
   color: var(--primary-color);
+}
+
+.ov-load-error {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+.ov-load-error i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #f87171;
 }
 
 .ov-empty {

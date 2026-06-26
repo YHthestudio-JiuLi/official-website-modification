@@ -19,6 +19,11 @@
         <div class="container">
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
+          <div v-else-if="loadError" class="load-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ $t('forum.loadFailed') }}</p>
+          </div>
+
           <div v-else-if="posts.length === 0" class="empty-state">
             {{ $t('forum.empty') }}
           </div>
@@ -89,6 +94,7 @@ const loginRoute = computed(() =>
 )
 const posts = ref([])
 const loading = ref(true)
+const loadError = ref(false)
 
 onMounted(async () => {
   try {
@@ -96,6 +102,9 @@ onMounted(async () => {
     posts.value = response.data
   } catch (error) {
     console.error('Failed to fetch posts:', error)
+    if (error.response?.status !== 401) {
+      loadError.value = true
+    }
   } finally {
     loading.value = false
   }
@@ -112,5 +121,17 @@ onMounted(async () => {
 
 .post-actions .btn {
   white-space: nowrap;
+}
+
+.load-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #8892b0;
+}
+
+.load-error i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #f87171;
 }
 </style>

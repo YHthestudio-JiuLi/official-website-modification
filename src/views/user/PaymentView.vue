@@ -6,7 +6,12 @@
         <div class="container">
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
-          <div v-else-if="!order" class="empty-state">
+          <div v-else-if="loadError" class="load-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>{{ $t('payment.loadFailed') }}</p>
+          </div>
+
+          <div v-else-if="notFound" class="empty-state">
             {{ $t('payment.notFound') }}
           </div>
 
@@ -162,6 +167,8 @@ const recipientName = ref('')
 const recipientPhone = ref('')
 const shippingAddressDetail = ref('')
 const loading = ref(true)
+const loadError = ref(false)
+const notFound = ref(false)
 const submitting = ref(false)
 const copied = ref(false)
 
@@ -171,6 +178,13 @@ onMounted(async () => {
     order.value = response.data
   } catch (error) {
     console.error('Failed to fetch order:', error)
+    const status = error.response?.status
+    if (status === 401) return
+    if (status === 404) {
+      notFound.value = true
+    } else {
+      loadError.value = true
+    }
   } finally {
     loading.value = false
   }
@@ -314,4 +328,15 @@ async function handleConfirmPayment() {
 </script>
 
 <style scoped>
+.load-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #8892b0;
+}
+
+.load-error i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #f87171;
+}
 </style>

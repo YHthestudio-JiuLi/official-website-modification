@@ -18,6 +18,7 @@ const LEGACY_NODE_PREFIXES = [
   '/api/admin/device-firmwares',
   '/api/admin/device-firmwares/upload',
   '/api/admin/auth/establish',
+  '/api/auth/establish',
 ]
 
 /** 旧路径 → V2 路径的特殊映射（主 api 客户端） */

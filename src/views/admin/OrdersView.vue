@@ -372,6 +372,8 @@ function getStatusText(status) {
 async function handleStatusUpdate(id, status) {
   try {
     await updateOrderStatus(id, { status })
+    const row = orders.value.find((o) => o.id === id)
+    if (row) row.status = status
     showToast(t('admin.orders.toast.updateSuccess', { id, status: getStatusText(status) }), 'success')
   } catch (error) {
     showToast(t('admin.orders.toast.updateFailed'), 'error')

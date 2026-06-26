@@ -91,6 +91,26 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ message: 'Logged out' });
 });
 
+/** Laravel V2 已登录时，用短期 bridge token 建立 Node 前台用户会话（在线客服等） */
+app.post('/api/auth/establish', express.json(), async (req, res) => {
+  const uid = verifyLegacyNodeBridgeToken(req.body?.token);
+  if (!uid) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  try {
+    const user = await dbOperations.users.findById(uid);
+    if (!user) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    req.session.user = { id: user.id, username: user.username, email: user.email };
+    await saveSession(req);
+    return res.json({ user: req.session.user });
+  } catch (error) {
+    console.error('[auth/establish] 失败:', error.message);
+    return res.status(503).json({ error: 'Database service unavailable' });
+  }
+});
+
 // ==================== 产品 API ====================
 
 app.get('/api/product-categories', async (req, res) => {

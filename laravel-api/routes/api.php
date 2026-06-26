@@ -73,6 +73,7 @@ Route::middleware('throttle:login')->group(function () {
 Route::middleware(['auth:web', 'use.guard:web', 'throttle:api'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'userLogout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::post('/auth/legacy-node-bridge', [AuthController::class, 'userLegacyNodeBridgeToken']);
 
     // 购物车
     Route::get('/cart', [CartController::class, 'index']);

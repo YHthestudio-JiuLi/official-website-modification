@@ -450,6 +450,7 @@
       "deleteUsers": "Delete {count} Users",
       "successfullyDeleted": "Successfully deleted {count} users",
       "failedToDelete": "Failed to delete users",
+      "loadFailed": "Failed to load users",
       "loadingUsers": "Loading users...",
       "admin": "Admin",
       "userRole": "User",

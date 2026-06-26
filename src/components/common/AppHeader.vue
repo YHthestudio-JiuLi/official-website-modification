@@ -168,9 +168,9 @@ async function handleLogout() {
   try {
     await authStore.logout()
   } catch (_e) {
-    // 服务端 419/网络失败时 authStore 仍会在 finally 中清本地态
+    // 服务端失败时 authStore 仍会在 finally 中清本地态
   }
-  window.location.href = '/'
+  await router.push({ name: 'home' })
 }
 </script>
 

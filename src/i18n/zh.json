@@ -448,6 +448,7 @@
       "deleteUsers": "删除 {count} 个用户",
       "successfullyDeleted": "成功删除 {count} 个用户",
       "failedToDelete": "删除用户失败",
+      "loadFailed": "加载用户列表失败",
       "loadingUsers": "正在加载用户列表...",
       "admin": "管理员",
       "userRole": "普通用户",

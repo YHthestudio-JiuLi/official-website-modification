@@ -14,6 +14,7 @@
 
 const LEGACY_NODE_EXACT = new Set([
   '/api/csrf-token',
+  '/api/auth/me',
   '/api/admin/auth/me',
 ])
 
@@ -21,6 +22,7 @@ const LEGACY_NODE_EXACT = new Set([
 const LEGACY_NODE_POST_ONLY = new Set([
   '/api/admin/questions',
   '/api/admin/auth/establish',
+  '/api/auth/establish',
 ])
 
 const LEGACY_NODE_PREFIXES = [

@@ -305,7 +305,7 @@ async function fetchUsers() {
     const payload = response.data
     users.value = Array.isArray(payload) ? payload : (payload?.data ?? [])
   } catch (error) {
-    showToast(t('admin.users.failedToDelete'), 'error')
+    showToast(t('admin.users.loadFailed'), 'error')
   } finally {
     loading.value = false
   }

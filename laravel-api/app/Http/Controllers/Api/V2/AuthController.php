@@ -188,6 +188,26 @@ class AuthController extends Controller
     }
 
     /**
+     * 为已登录的前台用户签发短期令牌，供 Node 建立 legacy 会话（在线客服等）
+     */
+    public function userLegacyNodeBridgeToken(Request $request): JsonResponse
+    {
+        $user = Auth::guard('web')->user();
+        if (! $user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $secret = config('services.legacy_node.internal_secret');
+        if (! $secret) {
+            return response()->json(['error' => 'Bridge not configured'], 503);
+        }
+
+        return response()->json([
+            'token' => $this->legacyNodeTokens->mint($user->id),
+        ]);
+    }
+
+    /**
      * 为已登录的管理员签发短期令牌，供前端在 Node 建立 legacy 会话（题库/固件/设备等）
      * 避免生产环境 Laravel 与 Node 双栈 Cookie 不同步导致反复登出
      */

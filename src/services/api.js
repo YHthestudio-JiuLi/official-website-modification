@@ -2,6 +2,7 @@ import axios from 'axios'
 import { resolveApiPath, useV2Api } from '@/utils/apiPath'
 import { readLegacyNodeBridgeToken } from '@/constants/legacyNodeBridge'
 import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
+import { handleUserSessionUnauthorized } from '@/utils/userSessionRedirect'
 import {
   ensureV2Csrf,
   attachV2CsrfHeader,
@@ -139,6 +140,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && originalRequest.url) {
       handleAdminSessionUnauthorized(originalRequest.url)
+      handleUserSessionUnauthorized(originalRequest.url)
     }
 
     if (v2Request && isV2CsrfError(error)) {

@@ -50,3 +50,14 @@ export async function establishNodeAdminSession(token) {
   const { data } = await legacyNodeAuthClient.post('/api/admin/auth/establish', { token })
   return data
 }
+
+export async function fetchNodeUserMe() {
+  const { data } = await legacyNodeAuthClient.get('/api/auth/me')
+  return data
+}
+
+/** 用 bridge token 建立 Node 前台用户会话 */
+export async function establishNodeUserSession(token) {
+  const { data } = await legacyNodeAuthClient.post('/api/auth/establish', { token })
+  return data
+}

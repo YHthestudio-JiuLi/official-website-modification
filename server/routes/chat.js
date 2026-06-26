@@ -10,6 +10,15 @@ function registerChatRoutes(app, deps) {
     requireAdmin
   } = deps;
 
+  /** 校验当前请求是否可访问该聊天会话 */
+  function canAccessChatSession(req, session) {
+    if (!session) return false
+    const uid = req.session?.user?.id
+    if (!uid) return false
+    if (session.user_id == null) return true
+    return Number(session.user_id) === Number(uid)
+  }
+
 // 获取当前用户的聊天会话
 app.get('/api/chat/user-session', async (req, res) => {
   try {
@@ -72,8 +81,8 @@ app.post('/api/chat/sessions', async (req, res) => {
   const aid = Number(admin_id);
   const stype = service_type || 'support';
 
-  // 如果用户已登录，使用其 user_id
-  const uid = (req.session && req.session.user) ? req.session.user.id : (Number(user_id) || null);
+  // 已登录用户仅使用服务端会话中的 user_id，忽略客户端伪造
+  const uid = (req.session && req.session.user) ? req.session.user.id : null;
 
   if (!name || name.length < 1) {
     return res.status(400).json({ error: 'Nickname required' });
@@ -107,6 +116,9 @@ app.get('/api/chat/sessions/:id', async (req, res) => {
   try {
     const session = await dbOperations.chatSessions.findById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Not found' });
+    if (!canAccessChatSession(req, session)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     res.json({ session });
   } catch (error) {
     console.error('[API Error] /api/chat/sessions/:id:', error.message);
@@ -121,6 +133,9 @@ app.get('/api/chat/sessions/:id/messages', async (req, res) => {
     
     const session = await dbOperations.chatSessions.findById(sid);
     if (!session) return res.status(404).json({ error: 'Not found' });
+    if (!canAccessChatSession(req, session)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     let messages = await dbOperations.chatMessages.findBySessionId(sid);
     if (!messages) messages = [];
@@ -140,6 +155,9 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
   try {
     const session = await dbOperations.chatSessions.findById(sid);
     if (!session) return res.status(404).json({ error: 'Not found' });
+    if (!canAccessChatSession(req, session)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     let who = 'user';
     if (sender === 'admin') {
       const tok = req.headers.authorization?.replace(/^Bearer\s+/i, '');

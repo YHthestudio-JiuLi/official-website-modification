@@ -145,6 +145,7 @@ import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import LoginModal from '@/components/common/LoginModal.vue'
+import { ensureLegacyNodeUserSession } from '@/utils/legacyUserSession'
 
 const CHAT_AUTO_START_KEY = 'chat_auto_start'
 
@@ -182,6 +183,14 @@ const showLoginModal = ref(false)
 const pendingStartChat = ref(false)
 
 const seenMessageIds = new Set()
+
+/** 在线客服请求须携带 Cookie，以同步 Laravel → Node 用户会话 */
+function chatFetch(url, options = {}) {
+  return fetch(url, {
+    credentials: 'include',
+    ...options
+  })
+}
 
 /** 在线客服固定对接官方客服账号 support */
 function resolveSupportAdmin() {
@@ -307,7 +316,7 @@ async function loadAdmins() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/chat/admins')
+    const res = await chatFetch('/api/chat/admins')
     const data = await res.json()
     admins.value = data.admins || []
   } catch (e) {
@@ -319,7 +328,7 @@ async function loadAdmins() {
 
 async function loadCommunityLinks() {
   try {
-    const res = await fetch('/api/chat/community-links')
+    const res = await chatFetch('/api/chat/community-links')
     if (res.ok) {
       communityLinks.value = await res.json()
     }
@@ -330,7 +339,7 @@ async function loadCommunityLinks() {
 
 async function loadUserSession() {
   try {
-    const res = await fetch('/api/chat/user-session', {
+    const res = await chatFetch('/api/chat/user-session', {
       headers: { 'Content-Type': 'application/json' }
     })
     if (res.ok) {
@@ -355,7 +364,7 @@ async function loadHistory() {
   if (!sessionId.value) return
   loadHistoryLoading.value = true
   try {
-    const res = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId.value)}/messages`)
+    const res = await chatFetch(`/api/chat/sessions/${encodeURIComponent(sessionId.value)}/messages`)
     const data = await res.json()
     messages.value = data.messages || []
     seenMessageIds.clear()
@@ -386,6 +395,12 @@ async function onLoginSuccess() {
 
 async function enterOnlineChat() {
   if (!authStore.isLoggedIn) return
+  const nodeReady = await ensureLegacyNodeUserSession()
+  if (!nodeReady) {
+    error.value = t('chat.networkError')
+    pendingStartChat.value = false
+    return
+  }
   if (!admins.value.length) {
     await loadAdmins()
   }
@@ -426,14 +441,13 @@ async function startSession() {
   if (!selectedAdminId.value) return
 
   try {
-    const res = await fetch('/api/chat/sessions', {
+    const res = await chatFetch('/api/chat/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         nickname: authStore.user.username,
         admin_id: selectedAdminId.value,
-        service_type: serviceType.value,
-        user_id: authStore.user.id
+        service_type: serviceType.value
       }),
     })
     const data = await res.json()
@@ -460,7 +474,7 @@ async function sendMessage() {
   }
   
   try {
-    const res = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId.value)}/messages`, {
+    const res = await chatFetch(`/api/chat/sessions/${encodeURIComponent(sessionId.value)}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sender: 'user', body }),

@@ -312,7 +312,7 @@ app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
     );
     const updated = await dbOperations.chatAdmins.findById(adminId);
     res.json({ admin: updated });
-    deps.telegram?.restartMultiBotPolling?.().catch((err) => {
+    telegram.restartMultiBotPolling?.().catch((err) => {
       console.error('[Telegram] restart polling after config update:', err.message || err);
     });
   } catch (error) {

@@ -32,9 +32,15 @@
 
         <!-- 语言切换 -->
         <li class="lang-switcher">
-          <button @click="toggleLanguage" class="nav-link lang-btn" :title="$t('language.switch')">
-            <i class="fas fa-globe"></i>
-            <span>{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
+          <button
+            type="button"
+            class="lang-btn"
+            :title="$t('language.switch')"
+            :aria-label="$t('language.switch')"
+            @click="toggleLanguage"
+          >
+            <i class="fas fa-globe" aria-hidden="true" />
+            <span class="lang-btn-label">{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
           </button>
         </li>
 
@@ -157,6 +163,7 @@ onMounted(() => {
 function toggleLanguage() {
   const newLang = currentLang.value === 'en' ? 'zh' : 'en'
   setLanguage(newLang)
+  menuOpen.value = false
 }
 
 function getUserAvatarLetter(username) {
@@ -178,20 +185,27 @@ async function handleLogout() {
 .lang-switcher {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  list-style: none;
 }
 
 .lang-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.45rem;
   background: rgba(26, 31, 58, 0.8);
   border: 1px solid #233554;
   color: #e6f1ff;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  min-height: 40px;
+  white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .lang-btn:hover {
@@ -199,18 +213,62 @@ async function handleLogout() {
   border-color: #00d4ff;
 }
 
-.lang-btn i {
-  font-size: 16px;
+.lang-btn:focus-visible {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.22);
 }
 
-@media (max-width: 768px) {
-  .lang-switcher {
-    margin-top: 1rem;
-  }
-  
+.lang-btn i {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.lang-btn-label {
+  font-weight: 500;
+}
+
+/* 桌面窄屏：仅图标，节省顶栏空间 */
+@media (min-width: 993px) and (max-width: 1180px) {
   .lang-btn {
+    padding: 0.45rem 0.55rem;
+    min-width: 40px;
+  }
+
+  .lang-btn-label {
+    display: none;
+  }
+}
+
+/* 移动端抽屉菜单：与导航项分区，按钮居中 */
+@media (max-width: 992px) {
+  .lang-switcher {
     width: 100%;
     justify-content: center;
+    padding: 0.85rem 1.25rem 0.25rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid rgba(42, 47, 74, 0.55);
+    box-sizing: border-box;
+  }
+
+  .lang-btn {
+    min-width: 9.5rem;
+    max-width: min(300px, 100%);
+    min-height: 44px;
+    padding: 0.65rem 1.35rem;
+    font-size: 0.9375rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lang-switcher {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .lang-btn {
+    width: 100%;
+    max-width: none;
   }
 }
 

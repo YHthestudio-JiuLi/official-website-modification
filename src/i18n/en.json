@@ -145,8 +145,24 @@
         "serverUnavailable": "Server is temporarily unavailable, please try again later"
       }
     },
+    "errorCodes": {
+      "invalidCredentials": "Invalid username or password",
+      "accountSuspended": "Account suspended",
+      "noAdminAccess": "No admin access",
+      "usernameTaken": "Username already exists",
+      "emailTaken": "Email already in use",
+      "passwordMin": "Password must be at least 6 characters",
+      "usernameRequired": "Username is required",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email address",
+      "passwordRequired": "Password is required",
+      "adminIpDenied": "Admin access denied from this IP",
+      "unauthorized": "Unauthorized",
+      "validationFailed": "Please check your input"
+    },
     "register": {
       "title": "Register",
+      "subtitle": "Join YHthestudio and start your tech journey",
       "username": "Username",
       "email": "Email",
       "password": "Password",
@@ -156,7 +172,8 @@
       "error": {
         "usernameExists": "Username already exists",
         "emailExists": "Email already in use",
-        "fillAllFields": "Please fill in all required fields"
+        "fillAllFields": "Please fill in all required fields",
+        "validationFailed": "Registration failed. Please check your input."
       }
     }
   },
@@ -1027,25 +1044,35 @@
       "menu": "Popup Notices",
       "noPermission": "You do not have popup notice permissions. Contact an administrator.",
       "title": "Popup Notices",
-      "subtitle": "Manage homepage popup announcements",
+      "subtitle": "Manage homepage popups and in-page marquee display separately",
       "addNew": "Add New",
       "createFirst": "Create First Notice",
       "empty": "No notices yet",
       "active": "Active",
       "inactive": "Inactive",
+      "popupOn": "Popup on",
+      "popupOff": "Popup off",
+      "displayOn": "Display on",
+      "displayOff": "Display off",
       "edit": "Edit Notice",
       "create": "Create Notice",
       "titlePlaceholder": "Enter notice title",
       "contentPlaceholder": "Enter notice content (supports line breaks)",
       "enabled": "Enable this notice",
+      "popupEnabled": "Homepage popup",
+      "popupEnabledHint": "When enabled, this notice appears as a modal on the homepage. Only one notice can have popup enabled.",
+      "displayEnabled": "In-page display",
+      "displayEnabledHint": "When enabled, this notice scrolls at the top of product detail pages. Only one notice can have display enabled.",
       "noticeContent": "Notice Content",
-      "settings": "Settings",
+      "settings": "Display settings",
       "deleteConfirm": "Are you sure you want to delete this notice?",
-      "editDesc": "Update notice content and status",
-      "createDesc": "Create a new popup notice for homepage",
+      "editDesc": "Update content and display options",
+      "createDesc": "Create a notice with separate popup and display toggles",
       "contentHint": "Use line breaks to format your message",
-      "enabledHint": "Only one enabled notice will be shown on homepage",
+      "enabledHint": "Popup and in-page display can be toggled independently",
       "content": "Content",
+      "togglePopup": "Toggle homepage popup",
+      "toggleDisplay": "Toggle in-page display",
       "toggleVisibility": "Toggle visibility"
     },
     "chatSettings": {

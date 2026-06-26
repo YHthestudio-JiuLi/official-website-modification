@@ -11,6 +11,7 @@ const { deleteQuestionUploadFilesLocally } = require('../lib/questionUploadClean
 const { comparePassword } = require('../lib/password');
 const { saveSession } = require('../lib/session');
 const { verifyLegacyNodeBridgeToken } = require('../lib/bridge-token');
+const { sendAuthError } = require('../lib/auth-messages');
 
 function registerLegacyMigratedRoutes(app, deps) {
   const {
@@ -62,7 +63,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     req.session.user = { id: user.id, username: user.username, email: user.email };
     res.json({ user: req.session.user });
   } else {
-    res.status(401).json({ message: 'Invalid username or password' });
+    return sendAuthError(res, req, { code: 'invalid_credentials', status: 401 });
   }
 });
 
@@ -71,12 +72,12 @@ app.post('/api/auth/register', async (req, res) => {
 
   const existingUser = await dbOperations.users.findByUsername(username);
   if (existingUser) {
-    return res.status(400).json({ message: 'Username already exists' });
+    return sendAuthError(res, req, { code: 'username_taken', status: 400, field: 'username' });
   }
 
   const existingEmail = await dbOperations.users.findByEmail(email);
   if (existingEmail) {
-    return res.status(400).json({ message: 'Email already in use' });
+    return sendAuthError(res, req, { code: 'email_taken', status: 400, field: 'email' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -515,7 +516,7 @@ app.post('/api/admin/auth/login', loginLimiter, async (req, res) => {
       await saveSession(req);
       res.json({ admin: req.session.admin });
     } else {
-      res.status(401).json({ message: 'Invalid username or password' });
+      return sendAuthError(res, req, { code: 'invalid_credentials', status: 401 });
     }
   } catch (error) {
     console.error('[admin/auth/login] 失败:', error.message);
@@ -1351,7 +1352,10 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
 
 app.get('/api/popup-notice', async (req, res) => {
   try {
-    const notice = await dbOperations.popupNotices.findActive();
+    const scope = String(req.query.scope || 'popup').toLowerCase();
+    const notice = scope === 'display'
+      ? await dbOperations.popupNotices.findActiveDisplay()
+      : await dbOperations.popupNotices.findActive();
     res.json({ notice });
   } catch (error) {
     console.error('[API Error] /api/popup-notice:', error.message);
@@ -1370,9 +1374,11 @@ app.get('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
-  const { title, content, enabled } = req.body || {};
+  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
+  const popupEnabled = popup_enabled !== undefined ? popup_enabled !== false : enabled !== false;
+  const displayEnabled = display_enabled !== undefined ? display_enabled !== false : enabled !== false;
   try {
-    const notice = await dbOperations.popupNotices.create(title, content, enabled !== false);
+    const notice = await dbOperations.popupNotices.create(title, content, popupEnabled, displayEnabled);
     if (!notice) return res.status(400).json({ error: 'Invalid input' });
     res.json({ notice });
   } catch (error) {
@@ -1382,9 +1388,17 @@ app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
-  const { title, content, enabled } = req.body || {};
+  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
+  const popupEnabled = popup_enabled !== undefined ? !!popup_enabled : !!enabled;
+  const displayEnabled = display_enabled !== undefined ? !!display_enabled : !!enabled;
   try {
-    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled);
+    const notice = await dbOperations.popupNotices.update(
+      req.params.id,
+      title,
+      content,
+      popupEnabled,
+      displayEnabled
+    );
     if (!notice) return res.status(404).json({ error: 'Not found or invalid input' });
     res.json({ notice });
   } catch (error) {

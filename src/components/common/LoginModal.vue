@@ -68,7 +68,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
+import { resolveAuthError } from '@/utils/authErrorMessage'
 import { useAuthStore } from '@/stores/auth'
 import { buildRegisterRoute } from '@/utils/authRedirect'
 
@@ -82,7 +82,6 @@ const emit = defineEmits(['update:modelValue', 'success'])
 const CHAT_AUTO_START_KEY = 'chat_auto_start'
 
 const route = useRoute()
-const { t } = useI18n()
 const authStore = useAuthStore()
 
 const registerRoute = computed(() => {
@@ -126,17 +125,7 @@ async function handleLogin() {
     emit('success')
     emit('update:modelValue', false)
   } catch (err) {
-    const status = err.response?.status
-    if (status === 429) {
-      error.value = t('auth.login.error.tooManyRequests')
-    } else if (status >= 500) {
-      error.value = t('auth.login.error.serverUnavailable')
-    } else {
-      error.value =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        t('auth.login.error.invalidCredentials')
-    }
+    error.value = resolveAuthError(err, { context: 'login' })
   } finally {
     loading.value = false
   }

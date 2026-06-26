@@ -11,7 +11,7 @@
           </div>
 
           <div v-else class="product-detail-cyber">
-            <!-- 公告横幅：与弹窗公告同源，横向滚动展示 -->
+            <!-- 公告横幅：开启「页面展示」的公告，横向滚动展示 -->
             <div v-if="marqueePlainText" class="pdc-alert">
               <div class="pdc-alert-inner">
                 <i class="fas fa-bullhorn pdc-alert-icon" aria-hidden="true" />
@@ -53,11 +53,30 @@
                     </router-link>
                   </div>
                 </div>
-                <!-- 单图时主图只在英雄区展示；无图时仍保留占位框 -->
+                <!-- 主图 + 多图时下方横向缩略图，点击切换主图 -->
                 <div class="pdc-hero-visual">
                   <div class="pdc-float-wrap">
-                    <div class="pdc-img-frame pdc-img-frame-cyan">
-                      <img :src="heroCoverImage" :alt="product.name" @error="handleImageError" />
+                    <div class="pdc-img-frame pdc-img-frame-cyan pdc-hero-main-frame">
+                      <img
+                        :src="heroDisplayImage"
+                        :alt="product.name"
+                        @error="handleImageError"
+                      />
+                    </div>
+                    <div v-if="galleryImages.length > 1" class="pdc-hero-thumbs" role="listbox">
+                      <button
+                        v-for="(src, idx) in galleryImages"
+                        :key="'thumb-' + idx"
+                        type="button"
+                        class="pdc-hero-thumb"
+                        :class="{ 'pdc-hero-thumb--active': idx === selectedHeroImageIndex }"
+                        role="option"
+                        :aria-selected="idx === selectedHeroImageIndex"
+                        :aria-label="$t('products.detail.galleryAlt', { name: product.name, n: idx + 1 })"
+                        @click="selectedHeroImageIndex = idx"
+                      >
+                        <img :src="src" alt="" @error="handleImageError" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -84,34 +103,6 @@
                   </div>
                   <h3 class="pdc-feature-title">{{ item.title }}</h3>
                   <p class="pdc-feature-desc">{{ item.description }}</p>
-                </div>
-              </div>
-            </section>
-
-            <!-- 产品展示：仅当有多张图时显示（首张已在英雄区）；其余图自上而下铺开，无副标题文案 -->
-            <section v-if="galleryExtraImages.length > 0" class="pdc-section">
-              <div class="pdc-section-head">
-                <h2 class="pdc-h2">
-                  <span class="pdc-pink">{{ $t('products.detail.galleryTitlePink') }}</span>
-                  <span class="pdc-cyan">{{ $t('products.detail.galleryTitleCyan') }}</span>
-                </h2>
-              </div>
-              <div class="pdc-gallery-stack">
-                <div
-                  v-for="(src, idx) in galleryExtraImages"
-                  :key="'gal' + idx"
-                  class="pdc-gallery-stack-item"
-                >
-                  <div
-                    class="pdc-img-frame"
-                    :class="idx % 2 === 0 ? 'pdc-img-frame-cyan' : 'pdc-img-frame-pink'"
-                  >
-                    <img
-                      :src="src"
-                      :alt="$t('products.detail.galleryAlt', { name: product.name, n: idx + 2 })"
-                      @error="handleImageError"
-                    />
-                  </div>
                 </div>
               </div>
             </section>
@@ -254,6 +245,7 @@ import AppFooter from '@/components/common/AppFooter.vue'
 import { parseProductImages } from '@/utils/productImages'
 import { useAuthStore } from '@/stores/auth'
 import { startProductCheckout } from '@/utils/productCheckout'
+import { fetchDisplayNotice } from '@/services/popup'
 
 const route = useRoute()
 const router = useRouter()
@@ -266,21 +258,21 @@ const buySubmitting = ref(false)
 const checkoutLoginRedirectLock = ref(false)
 /** 登录回来自动下单只执行一次（成功后会清 query 并离开页面） */
 const checkoutSubmitLock = ref(false)
-/** 与弹窗公告接口同源，用于顶部滚动条 */
+/** 开启「页面展示」的公告，用于顶部滚动条 */
 const popupNotice = ref(null)
 
 const galleryImages = computed(() =>
   parseProductImages(product.value?.image, product.value?.images)
 )
 
-/** 主图固定为封面（首张），不轮播 */
-const heroCoverImage = computed(() => galleryImages.value[0] || '')
+/** 英雄区当前展示的图片索引（缩略图点击切换） */
+const selectedHeroImageIndex = ref(0)
+const heroDisplayImage = computed(
+  () => galleryImages.value[selectedHeroImageIndex.value] || galleryImages.value[0] || ''
+)
 
-/** 除首张外的图片：用于「产品展示」纵向列表（仅一张图时不渲染该区块） */
-const galleryExtraImages = computed(() => {
-  const arr = galleryImages.value
-  if (!arr.length || arr.length <= 1) return []
-  return arr.slice(1)
+watch(galleryImages, () => {
+  selectedHeroImageIndex.value = 0
 })
 
 /** 弹窗公告正文去标签后拼标题，供跑马灯使用 */
@@ -406,7 +398,7 @@ const showSpecsSection = computed(
 
 async function fetchPopupNotice() {
   try {
-    const res = await api.get('/api/popup-notice')
+    const res = await fetchDisplayNotice()
     popupNotice.value = res.data?.notice || null
   } catch (_e) {
     popupNotice.value = null
@@ -728,10 +720,13 @@ button.pdc-btn {
 
 .pdc-float-wrap {
   position: relative;
+  width: 100%;
 }
 .pdc-img-frame {
   border-radius: 1rem;
   overflow: hidden;
+}
+.pdc-hero-main-frame {
   animation: pdc-float 6s ease-in-out infinite;
 }
 .pdc-img-frame-cyan {
@@ -748,6 +743,49 @@ button.pdc-btn {
   vertical-align: middle;
   background: var(--pdc-dark);
 }
+
+.pdc-hero-thumbs {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.15rem 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.pdc-hero-thumb {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0;
+  border: 2px solid var(--pdc-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--pdc-dark);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pdc-hero-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pdc-hero-thumb:hover {
+  border-color: rgba(0, 243, 255, 0.55);
+}
+
+.pdc-hero-thumb--active {
+  border-color: var(--pdc-cyan);
+  box-shadow: 0 0 10px rgba(0, 243, 255, 0.35);
+}
+
 @keyframes pdc-float {
   0%,
   100% {
@@ -1018,25 +1056,6 @@ button.pdc-btn {
   color: #fff;
   line-height: 1.35;
   word-break: break-word;
-}
-
-/* 多图时：首张在英雄区；此处大屏两列自动换行，小屏单列自上而下 */
-.pdc-gallery-stack {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  width: 100%;
-  max-width: min(72rem, 100%);
-  margin: 0 auto;
-}
-@media (min-width: 900px) {
-  .pdc-gallery-stack {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.75rem 1.5rem;
-  }
-}
-.pdc-gallery-stack-item {
-  min-width: 0;
 }
 
 /* 仅有重要说明、无「技术规格」霓虹外框时的容器宽度 */

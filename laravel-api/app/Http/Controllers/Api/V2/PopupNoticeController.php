@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Api\V2;
 use App\Http\Controllers\Controller;
 use App\Services\Commerce\PopupNoticeService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PopupNoticeController extends Controller
 {
     public function __construct(private readonly PopupNoticeService $notices) {}
 
-    public function active(): JsonResponse
+    public function active(Request $request): JsonResponse
     {
-        return response()->json(['notice' => $this->notices->active()]);
+        $scope = strtolower((string) $request->query('scope', 'popup'));
+        $notice = $scope === 'display'
+            ? $this->notices->activeDisplay()
+            : $this->notices->activePopup();
+
+        return response()->json(['notice' => $notice]);
     }
 }

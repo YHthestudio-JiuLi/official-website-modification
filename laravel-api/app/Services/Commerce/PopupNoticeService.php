@@ -6,48 +6,112 @@ use App\Models\PopupNotice;
 
 class PopupNoticeService
 {
-    public function active(): ?array
+    public function activePopup(): ?array
     {
-        $row = PopupNotice::query()->where('enabled', true)->orderByDesc('id')->first();
+        $row = PopupNotice::query()
+            ->where('popup_enabled', true)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return $row?->toArray();
+    }
+
+    public function activeDisplay(): ?array
+    {
+        $row = PopupNotice::query()
+            ->where('display_enabled', true)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->first();
 
         return $row?->toArray();
     }
 
     public function list(): array
     {
-        return PopupNotice::query()->orderByDesc('id')->get()->map(fn ($n) => $n->toArray())->all();
+        return PopupNotice::query()
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($n) => $this->normalizeNotice($n->toArray()))
+            ->all();
     }
 
     public function create(array $data): array
     {
-        if (! empty($data['enabled'])) {
-            PopupNotice::query()->update(['enabled' => false]);
+        [$popupEnabled, $displayEnabled] = $this->resolveScopeFlags($data, true);
+
+        if ($popupEnabled) {
+            PopupNotice::query()->update(['popup_enabled' => false]);
+        }
+        if ($displayEnabled) {
+            PopupNotice::query()->update(['display_enabled' => false]);
         }
 
-        return PopupNotice::query()->create([
-            'title' => trim($data['title']),
-            'content' => trim($data['content']),
-            'enabled' => ! empty($data['enabled']),
-        ])->toArray();
+        $notice = PopupNotice::query()->create([
+            'title' => trim((string) $data['title']),
+            'content' => trim((string) $data['content']),
+            'popup_enabled' => $popupEnabled,
+            'display_enabled' => $displayEnabled,
+            'enabled' => $popupEnabled || $displayEnabled,
+        ]);
+
+        return $this->normalizeNotice($notice->toArray());
     }
 
     public function update(int $id, array $data): array
     {
         $notice = PopupNotice::query()->findOrFail($id);
-        if (! empty($data['enabled'])) {
-            PopupNotice::query()->where('id', '!=', $id)->update(['enabled' => false]);
+        [$popupEnabled, $displayEnabled] = $this->resolveScopeFlags($data, (bool) $notice->popup_enabled, (bool) $notice->display_enabled);
+
+        if ($popupEnabled) {
+            PopupNotice::query()->where('id', '!=', $id)->update(['popup_enabled' => false]);
         }
+        if ($displayEnabled) {
+            PopupNotice::query()->where('id', '!=', $id)->update(['display_enabled' => false]);
+        }
+
         $notice->update([
-            'title' => $data['title'] ?? $notice->title,
-            'content' => $data['content'] ?? $notice->content,
-            'enabled' => array_key_exists('enabled', $data) ? (bool) $data['enabled'] : $notice->enabled,
+            'title' => array_key_exists('title', $data) ? trim((string) $data['title']) : $notice->title,
+            'content' => array_key_exists('content', $data) ? trim((string) $data['content']) : $notice->content,
+            'popup_enabled' => $popupEnabled,
+            'display_enabled' => $displayEnabled,
+            'enabled' => $popupEnabled || $displayEnabled,
         ]);
 
-        return $notice->fresh()->toArray();
+        return $this->normalizeNotice($notice->fresh()->toArray());
     }
 
     public function delete(int $id): void
     {
         PopupNotice::query()->where('id', $id)->delete();
+    }
+
+    /** @return array{0: bool, 1: bool} */
+    private function resolveScopeFlags(array $data, bool $defaultPopup, bool $defaultDisplay = true): array
+    {
+        $hasPopup = array_key_exists('popup_enabled', $data);
+        $hasDisplay = array_key_exists('display_enabled', $data);
+        if (! $hasPopup && ! $hasDisplay && array_key_exists('enabled', $data)) {
+            $legacy = (bool) $data['enabled'];
+
+            return [$legacy, $legacy];
+        }
+
+        return [
+            $hasPopup ? (bool) $data['popup_enabled'] : $defaultPopup,
+            $hasDisplay ? (bool) $data['display_enabled'] : $defaultDisplay,
+        ];
+    }
+
+    private function normalizeNotice(array $row): array
+    {
+        $popup = (bool) ($row['popup_enabled'] ?? $row['enabled'] ?? false);
+        $display = (bool) ($row['display_enabled'] ?? $row['enabled'] ?? false);
+        $row['popup_enabled'] = $popup;
+        $row['display_enabled'] = $display;
+        $row['enabled'] = $popup || $display;
+
+        return $row;
     }
 }

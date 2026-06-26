@@ -1255,6 +1255,12 @@ a.product-card-link:focus-visible {
         width: 100%;
         padding: 0.5rem 0;
     }
+
+    /* 语言切换在 AppHeader 内单独排版，避免继承 nav-link 块级样式 */
+    .nav-menu li.lang-switcher {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
     
     .nav-link {
         display: block;

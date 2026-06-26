@@ -22,6 +22,8 @@ class AdminPopupNoticeController extends Controller
             'title' => ['required', 'string'],
             'content' => ['required', 'string'],
             'enabled' => ['nullable', 'boolean'],
+            'popup_enabled' => ['nullable', 'boolean'],
+            'display_enabled' => ['nullable', 'boolean'],
         ]);
 
         return response()->json(['notice' => $this->notices->create($data)]);

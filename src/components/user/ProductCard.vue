@@ -5,7 +5,7 @@
   >
     <div class="product-image">
       <img
-        :src="currentImage"
+        :src="coverImage"
         :alt="product.name"
         @error="handleImageError"
       />
@@ -18,8 +18,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { parseProductImages } from '@/utils/productImages'
+import { computed } from 'vue'
+import { primaryProductImage } from '@/utils/productImages'
 
 const props = defineProps({
   product: {
@@ -28,32 +28,11 @@ const props = defineProps({
   }
 })
 
-const imageIndex = ref(0)
-const imageTimer = ref(null)
-const imageList = computed(() => parseProductImages(props.product?.image, props.product?.images))
-const currentImage = computed(() => imageList.value[imageIndex.value] || '')
+const coverImage = computed(() => primaryProductImage(props.product))
 
 const truncatedDescription = computed(() => {
   const desc = props.product.description
   return desc && desc.length > 100 ? desc.substring(0, 100) + '...' : desc
-})
-
-function startImageRotation() {
-  if (imageTimer.value) {
-    clearInterval(imageTimer.value)
-    imageTimer.value = null
-  }
-  imageIndex.value = 0
-  if (imageList.value.length <= 1) return
-  imageTimer.value = setInterval(() => {
-    imageIndex.value = (imageIndex.value + 1) % imageList.value.length
-  }, 2500)
-}
-
-watch(imageList, startImageRotation, { immediate: true })
-onMounted(startImageRotation)
-onBeforeUnmount(() => {
-  if (imageTimer.value) clearInterval(imageTimer.value)
 })
 
 function handleImageError(e) {

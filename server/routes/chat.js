@@ -4,7 +4,6 @@ const { canSendTelegramForAdmin } = require('../../telegram');
 function registerChatRoutes(app, deps) {
   const {
     dbOperations,
-    telegram,
     broadcastToChat,
     adminTokens,
     requireAdmin
@@ -209,7 +208,10 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
     const payload = { type: 'message', message: { ...row, session_id: row.session_id || sid } };
     broadcastToChat(sid, payload);
 
-    if (useTelegram) {
+    res.json({ message: row });
+
+    const telegram = deps.telegram;
+    if (useTelegram && telegram) {
       console.log('[Telegram] Sending message to Telegram for session:', session.id, 'sender:', who);
       if (who === 'user') {
         telegram.notifyUserMessage(session, row, adminInfo).catch((err) => {
@@ -221,11 +223,9 @@ app.post('/api/chat/sessions/:id/messages', async (req, res) => {
           console.error('[Telegram] admin reply:', err.message || err);
         });
       }
-    } else {
-      console.log('[Telegram] Not sending to Telegram - useTelegram=false');
+    } else if (useTelegram && !telegram) {
+      console.warn('[Telegram] 集成未初始化，已跳过 Telegram 推送');
     }
-
-    res.json({ message: row });
   } catch (error) {
     console.error('[API Error] POST /api/chat/sessions/:id/messages:', error.message);
     res.status(503).json({ error: 'Database service unavailable' });

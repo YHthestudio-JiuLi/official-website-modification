@@ -91,6 +91,7 @@ if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
   IMG_ID="$(ls "$ROOT/laravel-api/storage/app/product-image-cache"/*.jpg 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null | cut -d. -f1 || echo 1)"
   time_url "商品图(首次路径)" "https://127.0.0.1/api/v2/product-images/${IMG_ID}" -k -H "Host: ${DOMAIN}"
   time_url "商品图(重复)" "https://127.0.0.1/api/v2/product-images/${IMG_ID}" -k -H "Host: ${DOMAIN}"
+  time_url "商品图(legacy→v2)" "https://127.0.0.1/api/product-images/${IMG_ID}" -k -H "Host: ${DOMAIN}"
 else
   time_url "Laravel health" "http://127.0.0.1:8000/api/v2/health"
   time_url "Laravel products" "http://127.0.0.1:8000/api/v2/products"

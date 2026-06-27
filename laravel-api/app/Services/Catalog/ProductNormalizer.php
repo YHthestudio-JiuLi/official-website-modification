@@ -39,7 +39,10 @@ class ProductNormalizer
             return [];
         }
         if (is_array($imageField)) {
-            return array_values(array_filter($imageField));
+            return array_values(array_filter(array_map(
+                fn ($u) => $this->normalizeImageUrl((string) $u),
+                $imageField
+            )));
         }
         if (! is_string($imageField)) {
             return [];
@@ -52,14 +55,31 @@ class ProductNormalizer
             try {
                 $parsed = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
                 if (is_array($parsed)) {
-                    return array_values(array_filter($parsed));
+                    return array_values(array_filter(array_map(
+                        fn ($u) => $this->normalizeImageUrl((string) $u),
+                        $parsed
+                    )));
                 }
             } catch (\Throwable) {
                 // ignore
             }
         }
 
-        return [$raw];
+        return [$this->normalizeImageUrl($raw)];
+    }
+
+    /** 历史库内 /api/product-images/{id} 统一为 V2 路径，供浏览器 img 直连 Nginx 磁盘缓存 */
+    public function normalizeImageUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (preg_match('#^/api/product-images/(\d+)$#', $url, $m)) {
+            return '/api/v2/product-images/'.$m[1];
+        }
+
+        return $url;
     }
 
     public function parseJsonArray(mixed $raw): array

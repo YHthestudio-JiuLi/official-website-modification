@@ -17,6 +17,11 @@ location ~ ^/api/v2/product-images/(?<imgid>\d+)$ {
     access_log off;
 }
 
+# 历史路径：浏览器 img 直连仍走 Laravel 磁盘缓存，勿再经 Node :3000
+location ~ ^/api/product-images/(?<imgid>\d+)$ {
+    rewrite ^/api/product-images/(?<imgid>\d+)$ /api/v2/product-images/$imgid last;
+}
+
 location @yh_v2_php_image {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME __APP_ROOT__/laravel-api/public/index.php;

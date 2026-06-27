@@ -17,6 +17,7 @@ class WarmCatalogCache extends Command
 
     public function handle(ProductCatalogService $catalog): int
     {
+        PublicApiCache::bump('catalog');
         $this->info('预热 catalog Redis 缓存…');
 
         foreach ([false, true] as $translateEn) {

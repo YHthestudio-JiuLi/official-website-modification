@@ -28,6 +28,7 @@ location @yh_v2_php_image {
     fastcgi_buffers 32 64k;
     fastcgi_buffer_size 128k;
     fastcgi_cache yh_v2_api;
+    fastcgi_cache_key "$scheme$request_method$host$request_uri";
     fastcgi_cache_valid 200 365d;
     fastcgi_cache_methods GET HEAD;
     add_header X-Cache-Status $upstream_cache_status always;
@@ -45,6 +46,10 @@ location ^~ /api/v2/ {
     fastcgi_buffers 32 32k;
     fastcgi_buffer_size 64k;
     fastcgi_cache yh_v2_api;
+    fastcgi_cache_key "$scheme$request_method$host$request_uri";
+    # 有登录 Cookie 时不缓存，避免 /auth/me 等接口串号
+    fastcgi_cache_bypass $cookie_laravel_session$http_authorization;
+    fastcgi_no_cache $cookie_laravel_session$http_authorization;
     fastcgi_cache_valid 200 5m;
     fastcgi_cache_methods GET HEAD;
     add_header X-Cache-Status $upstream_cache_status always;

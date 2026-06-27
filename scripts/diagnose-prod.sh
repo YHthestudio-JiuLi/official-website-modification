@@ -111,6 +111,15 @@ fi
 
 if [ -f /www/server/nginx/conf/yh-v2-fcgi-cache.conf ]; then
   ok "Nginx fastcgi_cache zone 已安装"
+  if command -v curl >/dev/null 2>&1; then
+    fcgi1="$(curl -sSI -H "Host: ${DOMAIN}" "https://127.0.0.1/api/v2/catalog/storefront" -k 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1)=="x-cache-status"{print $2; exit}')"
+    fcgi2="$(curl -sSI -H "Host: ${DOMAIN}" "https://127.0.0.1/api/v2/catalog/storefront" -k 2>/dev/null | tr -d '\r' | awk -F': ' 'tolower($1)=="x-cache-status"{print $2; exit}')"
+    if [ "$fcgi2" = "HIT" ]; then
+      ok "storefront fastcgi 缓存 HIT（第 2 次请求）"
+    elif [ "$fcgi1" = "MISS" ] && [ -n "$fcgi2" ]; then
+      warn "storefront 第 2 次仍为 ${fcgi2:-未知}，检查 extension 是否含 fastcgi_cache_key"
+    fi
+  fi
 else
   warn "未检测到 yh-v2-fcgi-cache.conf，请 sudo bash scripts/setup-laravel-fpm.sh"
 fi

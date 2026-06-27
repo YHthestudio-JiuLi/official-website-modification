@@ -1,21 +1,10 @@
-const { Agent } = require('undici');
-
 const PY_DB_URL = process.env.PY_DB_URL || 'http://127.0.0.1:5100';
-
-// 复用与 Python 后端的 HTTP 连接，降低高频 RPC 延迟
-const rpcAgent = new Agent({
-  connections: 10,
-  pipelining: 1,
-  keepAliveTimeout: 30_000,
-  keepAliveMaxTimeout: 60_000
-});
 
 async function rpc(op, args = {}) {
   const res = await fetch(`${PY_DB_URL}/rpc`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ op, args }),
-    dispatcher: rpcAgent
+    body: JSON.stringify({ op, args })
   });
 
   let payload = null;

@@ -62,21 +62,10 @@ if id www >/dev/null 2>&1; then
 fi
 
 # fastcgi_cache 全局 zone（须在 http{} 最前面 include，早于 vhost）
-FCGI_SNIP_SRC="$ROOT/scripts/nginx/yh-v2-fcgi-cache-http.snippet"
-FCGI_SNIP_DST="/www/server/nginx/conf/yh-v2-fcgi-cache.conf"
-FCGI_INCLUDE='    include /www/server/nginx/conf/yh-v2-fcgi-cache.conf;'
-NGINX_MAIN="/www/server/nginx/conf/nginx.conf"
-if [ -f "$FCGI_SNIP_SRC" ]; then
-  sed "s|__APP_ROOT__|${ROOT}|g" "$FCGI_SNIP_SRC" > "$FCGI_SNIP_DST"
-  if [ -f "$NGINX_MAIN" ]; then
-    # 去掉可能落在 http{} 末尾的错误 include，再插到 http { 下一行（必须早于 vhost include）
-    sed -i '\|include /www/server/nginx/conf/yh-v2-fcgi-cache.conf;|d' "$NGINX_MAIN" 2>/dev/null || true
-    if ! grep -q 'yh-v2-fcgi-cache.conf' "$NGINX_MAIN"; then
-      sed -i "/^[[:space:]]*http[[:space:]]*{/a\\${FCGI_INCLUDE}" "$NGINX_MAIN" 2>/dev/null || \
-        warn "请手动把下面一行放到 nginx.conf 的 http { 之后、所有 include vhost 之前:"
-      warn "  ${FCGI_INCLUDE}"
-    fi
-  fi
+if [ -f "$ROOT/scripts/ensure-nginx-fcgi-cache.sh" ]; then
+  bash "$ROOT/scripts/ensure-nginx-fcgi-cache.sh" || warn "fastcgi_cache include 未写入，请手动: sudo bash scripts/ensure-nginx-fcgi-cache.sh"
+else
+  warn "缺少 ensure-nginx-fcgi-cache.sh，请手动在 nginx.conf 的 http { 后添加 include yh-v2-fcgi-cache.conf"
 fi
 
 info "Laravel optimize（config/route 缓存）..."
@@ -104,8 +93,13 @@ if [ "$SKIP_NGINX_RELOAD" = false ]; then
     nginx -s reload
     ok "Nginx 已重载"
   else
-    warn "nginx -t 失败。请手动检查主配置是否仍含 proxy_pass :8000 的 /api/v2/ 与 /sanctum/（与 FPM 冲突）"
-    nginx -t || true
+    warn "nginx -t 失败，尝试修复 fastcgi_cache include..."
+    if [ -f "$ROOT/scripts/ensure-nginx-fcgi-cache.sh" ]; then
+      bash "$ROOT/scripts/ensure-nginx-fcgi-cache.sh" && ok "Nginx 已修复并重载" || nginx -t || true
+    else
+      warn "请手动: sudo bash scripts/ensure-nginx-fcgi-cache.sh"
+      nginx -t || true
+    fi
   fi
 fi
 

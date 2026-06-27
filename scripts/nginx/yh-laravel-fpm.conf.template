@@ -39,7 +39,8 @@ location @yh_v2_php_image {
     add_header X-Cache-Status $upstream_cache_status always;
 }
 
-location ^~ /api/v2/ {
+# 注意：这里不能用 ^~，否则会屏蔽上面的 product-images 正则 location
+location /api/v2/ {
     include fastcgi_params;
     fastcgi_param SCRIPT_FILENAME __APP_ROOT__/laravel-api/public/index.php;
     fastcgi_param DOCUMENT_ROOT __APP_ROOT__/laravel-api/public;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 生产环境 API 慢/502 快速诊断
-set -euo pipefail
+set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -12,11 +12,16 @@ fail()  { echo -e "\033[1;31m[FAIL]\033[0m $*"; }
 
 DOMAIN="$(cat "$ROOT/.laravel-fpm-domain" 2>/dev/null || echo yhthestudio.com)"
 LARAVEL_ENV="$ROOT/laravel-api/.env"
+GIT_SAFE=(git -c "safe.directory=$ROOT")
 
 echo ""
 info "=== YHthestudio 生产诊断 ==="
 info "项目: $ROOT"
 info "域名: $DOMAIN"
+
+if [ -d "$ROOT/.git" ]; then
+  info "Git: $("${GIT_SAFE[@]}" log -1 --oneline 2>/dev/null || echo '无法读取')"
+fi
 echo ""
 
 # PM2
@@ -26,7 +31,7 @@ if command -v pm2 >/dev/null 2>&1; then
   echo ""
 fi
 
-# Redis（最常见慢因：配置了 redis 但服务未启动）
+# Redis
 uses_redis=false
 if [ -f "$LARAVEL_ENV" ] && grep -qE '^(SESSION_DRIVER|CACHE_STORE)=redis' "$LARAVEL_ENV"; then
   uses_redis=true
@@ -35,41 +40,40 @@ if [ -f "$LARAVEL_ENV" ] && grep -qE '^(SESSION_DRIVER|CACHE_STORE)=redis' "$LAR
     if redis-cli ping >/dev/null 2>&1; then
       ok "redis-cli ping → PONG"
     else
-      fail "Redis 无响应！这会导致 /api/v2 每次请求卡顿 10~20 秒"
-      echo "  修复: 宝塔 → 软件商店 → Redis → 启动"
-      echo "  或编辑 laravel-api/.env:"
-      echo "    SESSION_DRIVER=file"
-      echo "    CACHE_STORE=file"
-      echo "  然后: cd laravel-api && php artisan config:cache"
+      fail "Redis 无响应！会导致 /api/v2 每次请求卡顿 10~20 秒"
     fi
   else
-    warn "未安装 redis-cli，无法检测 Redis"
+    warn "未找到 redis-cli"
   fi
 else
-  info "laravel-api/.env 未使用 Redis（SESSION/CACHE）"
+  info "laravel-api/.env 未使用 Redis"
 fi
 echo ""
 
-# MySQL
 if [ -f "$LARAVEL_ENV" ]; then
   DB_HOST="$(grep -E '^DB_HOST=' "$LARAVEL_ENV" | head -1 | cut -d= -f2- | tr -d "\"'")"
   info "MySQL host: ${DB_HOST:-127.0.0.1}"
 fi
 
-# 接口耗时（本机）
+# 接口耗时（不用 curl -f，避免 401/403 导致 set -e 中断）
 time_url() {
   local label="$1"
   local url="$2"
-  local code time_total
-  read -r code time_total < <(curl -sf -o /dev/null -w '%{http_code} %{time_total}' "$url" 2>/dev/null || echo "000 99")
+  local extra_args=("${@:3}")
+  local raw code time_total
+
+  raw="$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' "${extra_args[@]}" "$url" 2>/dev/null || echo '000 99')"
+  code="${raw%% *}"
+  time_total="${raw#* }"
+
   if [ "$code" = "200" ] || [ "$code" = "204" ] || [ "$code" = "401" ]; then
-    if awk -v t="$time_total" 'BEGIN { exit !(t > 2.0) }'; then
+    if awk -v t="$time_total" 'BEGIN { exit (t + 0 > 2.0) ? 0 : 1 }'; then
       warn "$label → HTTP $code, ${time_total}s（偏慢）"
     else
       ok "$label → HTTP $code, ${time_total}s"
     fi
   else
-    fail "$label → HTTP $code, ${time_total}s"
+    fail "$label → HTTP $code, ${time_total}s  url=$url"
   fi
 }
 
@@ -78,19 +82,27 @@ time_url "Node csrf" "http://127.0.0.1:3000/api/csrf-token"
 time_url "Python health" "http://127.0.0.1:5100/health"
 
 if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
-  time_url "Laravel health" "https://${DOMAIN}/api/v2/health"
-  time_url "Laravel products" "https://${DOMAIN}/api/v2/products"
-  time_url "Laravel categories" "https://${DOMAIN}/api/v2/product-categories"
+  # 本机 HTTPS 需 -k + Host，与 setup-laravel-fpm.sh 一致
+  time_url "Laravel health" "https://127.0.0.1/api/v2/health" -k -H "Host: ${DOMAIN}"
+  time_url "Laravel products" "https://127.0.0.1/api/v2/products" -k -H "Host: ${DOMAIN}"
+  time_url "Laravel categories" "https://127.0.0.1/api/v2/product-categories" -k -H "Host: ${DOMAIN}"
 else
   time_url "Laravel health" "http://127.0.0.1:8000/api/v2/health"
   time_url "Laravel products" "http://127.0.0.1:8000/api/v2/products"
 fi
 
 echo ""
+if [ -d "$ROOT/.git" ]; then
+  if ! "${GIT_SAFE[@]}" merge-base --is-ancestor e6a167f HEAD 2>/dev/null; then
+    warn "尚未包含性能优化提交 e6a167f，请执行:"
+    echo "  git -c safe.directory=$ROOT pull github vue_0.2.0"
+    echo "  cd laravel-api && php artisan config:cache && php artisan route:cache"
+  fi
+fi
+
 if [ "$uses_redis" = true ] && command -v redis-cli >/dev/null 2>&1 && ! redis-cli ping >/dev/null 2>&1; then
-  fail "优先处理 Redis，再执行: bash scripts/deploy.sh --pull"
+  fail "优先启动 Redis"
 else
-  info "若 products 仍 >2s，请确认已启用 PHP-FPM: bash scripts/setup-laravel-fpm.sh"
-  info "部署更新: bash scripts/deploy.sh --pull"
+  info "若 products 仍 >2s，检查 Nginx 是否仍 proxy :8000（应走 PHP-FPM extension）"
 fi
 echo ""

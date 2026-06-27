@@ -253,7 +253,7 @@ import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { useV2Api } from '@/utils/apiPath'
 import { redirectToAdminLogin } from '@/utils/adminSessionRedirect'
 import { finalizeAdminLogout } from '@/utils/adminLogout'
-import { setLanguage } from '@/i18n'
+import { setLanguage, resolveStoredLocale } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -297,8 +297,7 @@ const displayUsername = computed(() => {
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
-  const savedLang = localStorage.getItem('lang') || 'en'
-  locale.value = savedLang
+  locale.value = resolveStoredLocale()
 
   const savedState = localStorage.getItem('sidebar-collapsed')
   if (savedState === '1') {

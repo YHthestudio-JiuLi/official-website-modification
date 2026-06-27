@@ -1,6 +1,6 @@
 import * as catalogV2 from '@/services/v2/catalog'
 import api from '@/services/api'
-import i18n from '@/i18n'
+import i18n, { DEFAULT_LOCALE } from '@/i18n'
 import { useV2Api } from '@/utils/apiPath'
 import { cachedRequest, invalidateCache } from '@/utils/getCache'
 
@@ -9,12 +9,12 @@ const CATALOG_TTL = 60_000
 const PRODUCT_DETAIL_TTL = 30_000
 
 function langHeaders() {
-  const locale = i18n.global.locale.value || 'en'
+  const locale = i18n.global.locale.value || DEFAULT_LOCALE
   return { headers: { 'Accept-Language': locale } }
 }
 
 function catalogLocaleKey() {
-  return i18n.global.locale.value || 'en'
+  return i18n.global.locale.value || DEFAULT_LOCALE
 }
 
 export function getProducts(config = {}) {

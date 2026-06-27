@@ -106,7 +106,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { setLanguage } from '@/i18n'
+import { setLanguage, resolveStoredLocale } from '@/i18n'
 import { buildLoginRoute, buildRegisterRoute, resolveRedirectFromRoute } from '@/utils/authRedirect'
 
 const authStore = useAuthStore()
@@ -158,9 +158,7 @@ onBeforeUnmount(() => {
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
-  // 确保初始语言与 localStorage 一致
-  const savedLang = localStorage.getItem('lang') || 'en'
-  locale.value = savedLang
+  locale.value = resolveStoredLocale()
 })
 
 function toggleLanguage() {

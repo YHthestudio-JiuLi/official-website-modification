@@ -1,4 +1,4 @@
-import i18n from '@/i18n'
+import i18n, { DEFAULT_LOCALE } from '@/i18n'
 
 /** 后端 error_code → i18n 键 */
 const ERROR_CODE_KEYS = {
@@ -104,6 +104,6 @@ export function resolveAuthError(err, options = {}) {
 
 /** 供 axios 拦截器附带当前语言 */
 export function currentAcceptLanguage() {
-  const lang = i18n.global.locale.value
+  const lang = i18n.global.locale.value || DEFAULT_LOCALE
   return lang === 'zh' ? 'zh-CN,zh;q=0.9' : 'en-US,en;q=0.9'
 }

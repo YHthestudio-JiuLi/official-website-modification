@@ -23,6 +23,7 @@ class Product extends Model
         'featuresJson',
         'specsJson',
         'usageNoticeJson',
+        'configsJson',
         'categoryId',
         'subCategoryId',
         'createdByUserId',

@@ -323,6 +323,53 @@
             </div>
           </div>
 
+          <!-- 商品配置：详情页可选规格与独立 USDT 价 -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <i class="fas fa-sliders-h"></i> {{ $t('admin.productForm.configsTitle') }}
+            </h3>
+            <p class="form-hint feature-intro">
+              <i class="fas fa-info-circle"></i>
+              {{ $t('admin.productForm.configsIntro') }}
+            </p>
+            <div v-for="(row, idx) in configRows" :key="row.id" class="feature-row">
+              <div class="feature-row-head">
+                <span class="feature-row-label">{{ $t('admin.productForm.configRowLabel', { n: idx + 1 }) }}</span>
+                <button type="button" class="btn-icon-remove" @click="removeConfigRow(idx)" :title="$t('admin.productForm.removeTitle')">
+                  <i class="fas fa-times" />
+                </button>
+              </div>
+              <div class="form-row form-row-2">
+                <div class="form-group">
+                  <label>{{ $t('admin.productForm.configName') }}</label>
+                  <input v-model="row.name" type="text" class="form-input" :placeholder="$t('admin.productForm.configName')" />
+                </div>
+                <div class="form-group">
+                  <label>{{ $t('admin.productForm.configPrice') }}</label>
+                  <div class="price-input-wrapper">
+                    <input
+                      v-model.number="row.priceUsdt"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="form-input price-input"
+                      :placeholder="$t('admin.productForm.pricePlaceholder')"
+                    />
+                    <span class="currency-label">USDT</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-add-feature"
+              :disabled="configRows.length >= 20"
+              @click="addConfigRow"
+            >
+              <i class="fas fa-plus" /> {{ $t('admin.productForm.addConfig', { current: configRows.length }) }}
+            </button>
+          </div>
+
           <!-- Form Actions -->
           <div class="form-actions">
             <router-link to="/admin/products" class="btn btn-secondary">
@@ -400,6 +447,8 @@ const featureRows = ref([])
 const specCardRows = ref([])
 /** 详情页重要说明行，提交时序列化为 usageNoticeJson */
 const usageNoticeRows = ref([])
+/** 商品配置行，提交时作为 configs 数组 */
+const configRows = ref([])
 const uploadingImage = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
@@ -532,6 +581,32 @@ function removeUsageNoticeRow(index) {
   usageNoticeRows.value.splice(index, 1)
 }
 
+/** 生成配置行唯一 id */
+function generateConfigId() {
+  return `cfg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+}
+
+function loadConfigRowsFromProduct(data) {
+  if (data.configs && Array.isArray(data.configs)) {
+    configRows.value = data.configs.map((c) => ({
+      id: c.id || generateConfigId(),
+      name: c.name || '',
+      priceUsdt: c.priceUsdt != null ? Number(c.priceUsdt) : 0
+    }))
+    return
+  }
+  configRows.value = []
+}
+
+function addConfigRow() {
+  if (configRows.value.length >= 20) return
+  configRows.value.push({ id: generateConfigId(), name: '', priceUsdt: 0 })
+}
+
+function removeConfigRow(index) {
+  configRows.value.splice(index, 1)
+}
+
 // Form validation
 const isValid = computed(() => {
   if (!form.value.name || !form.value.description) return false
@@ -593,6 +668,7 @@ onMounted(async () => {
       loadFeatureRowsFromProduct(response.data)
       loadSpecCardRowsFromProduct(response.data)
       loadUsageNoticeRowsFromProduct(response.data)
+      loadConfigRowsFromProduct(response.data)
     }
   } catch (err) {
     error.value = t('admin.productForm.errors.load', {
@@ -696,13 +772,21 @@ async function handleSubmit() {
         mode: r.mode === 'ban' ? 'ban' : 'check'
       }))
       .filter((r) => r.text)
+    const configs = configRows.value
+      .map((r) => ({
+        id: r.id,
+        name: (r.name || '').trim(),
+        priceUsdt: parseFloat(r.priceUsdt) || 0
+      }))
+      .filter((r) => r.name)
     const submitData = {
       ...form.value,
       image: normalizedImages.length > 1 ? JSON.stringify(normalizedImages) : (normalizedImages[0] || ''),
       priceUsdt: parseFloat(form.value.priceUsdt) || 0,
       featureCards,
       specCards,
-      usageNoticeLines
+      usageNoticeLines,
+      configs
     }
     if (isScopedAgent.value) {
       submitData.categoryId = null

@@ -48,10 +48,10 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
-    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
+    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId }),
+    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId }),
     delete: (id) => rpc('products.delete', { id })
   },
   productCategories: {

@@ -42,6 +42,7 @@ class OrderController extends Controller
             'productId' => ['required', 'integer'],
             'quantity' => ['nullable', 'integer', 'min:1'],
             'shippingAddress' => ['nullable', 'string'],
+            'configId' => ['nullable', 'string', 'max:64'],
         ]);
         $user = $request->user();
         $orderId = $this->orders->createForUser($user->id, $user->username, $data);

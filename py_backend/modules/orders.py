@@ -67,6 +67,20 @@ class OrderManager:
         )
         self._ensure_tracking_number_column()
         self._ensure_order_no_column()
+        self._ensure_config_id_column()
+        self._ensure_config_name_column()
+
+    def _ensure_config_id_column(self) -> None:
+        """已有库升级：下单所选商品配置 id"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "configId", "VARCHAR(64)")
+
+    def _ensure_config_name_column(self) -> None:
+        """已有库升级：下单所选商品配置名称"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "configName", "VARCHAR(512)")
 
     def _ensure_order_no_column(self) -> None:
         """已有库升级：8 位业务订单号"""
@@ -150,8 +164,8 @@ class OrderManager:
             """
             INSERT INTO orders (
               orderNo, userId, username, productId, productName, quantity, price, totalAmount,
-              status, paymentMethod, usdtWallet, network, shippingAddress, createdAt
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              status, paymentMethod, usdtWallet, network, shippingAddress, configId, configName, createdAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 order_no,
@@ -167,6 +181,8 @@ class OrderManager:
                 order_data.get("usdtWallet"),
                 order_data.get("network", "TRC20"),
                 order_data.get("shippingAddress"),
+                order_data.get("configId"),
+                order_data.get("configName"),
                 created_at,
             ),
         )

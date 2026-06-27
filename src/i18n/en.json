@@ -228,7 +228,10 @@
       "listColon": ": ",
       "noticeMarqueeBoth": "[{title}] {body}",
       "checkoutErrorRetry": "Checkout failed. Please try again later.",
-      "checkoutErrorAuth": "Checkout failed. Please make sure you are logged in and your network is stable."
+      "checkoutErrorAuth": "Checkout failed. Please make sure you are logged in and your network is stable.",
+      "selectConfig": "Choose configuration",
+      "selectConfigHint": "Tap a configuration before checkout",
+      "selectConfigForPrice": "Select a configuration"
     }
   },
   "orders": {
@@ -857,6 +860,12 @@
       "priceUsdt": "Price (USDT)",
       "pricePlaceholder": "0.00",
       "priceHint": "Enter the product price in USDT (up to 2 decimal places).",
+      "configsTitle": "Product configurations",
+      "configsIntro": "Optional. When set, customers must pick a configuration on the product page before checkout. Each row can have its own USDT price (up to 20).",
+      "configName": "Configuration name",
+      "configPrice": "Configuration price",
+      "configRowLabel": "Config {n}",
+      "addConfig": "Add configuration ({current}/20)",
       "saving": "Saving...",
       "create": "Create product",
       "update": "Update product",

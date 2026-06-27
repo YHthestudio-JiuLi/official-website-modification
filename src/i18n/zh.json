@@ -226,7 +226,10 @@
       "listColon": "：",
       "noticeMarqueeBoth": "【{title}】{body}",
       "checkoutErrorRetry": "下单失败，请稍后重试",
-      "checkoutErrorAuth": "下单失败，请确认已登录且网络正常"
+      "checkoutErrorAuth": "下单失败，请确认已登录且网络正常",
+      "selectConfig": "选择配置",
+      "selectConfigHint": "请先点击选择一种配置后再购买",
+      "selectConfigForPrice": "请选择配置"
     }
   },
   "orders": {
@@ -855,6 +858,12 @@
       "priceUsdt": "价格（USDT）",
       "pricePlaceholder": "0.00",
       "priceHint": "请输入 USDT 价格，最多保留两位小数。",
+      "configsTitle": "商品配置",
+      "configsIntro": "可选。配置后用户在详情页须手动选择一种配置才能购买；每种配置可设独立 USDT 价格，最多 20 条。",
+      "configName": "配置名称",
+      "configPrice": "配置价格",
+      "configRowLabel": "配置 {n}",
+      "addConfig": "添加配置（{current}/20）",
       "saving": "保存中...",
       "create": "创建商品",
       "update": "更新商品",

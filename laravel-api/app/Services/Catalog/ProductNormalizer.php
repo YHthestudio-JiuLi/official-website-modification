@@ -18,6 +18,7 @@ class ProductNormalizer
             'featureCards' => $this->parseJsonArray($row['featureCards'] ?? $row['featuresJson'] ?? null),
             'specCards' => $this->parseJsonArray($row['specCards'] ?? $row['specsJson'] ?? null),
             'usageNoticeLines' => $this->parseJsonArray($row['usageNoticeLines'] ?? $row['usageNoticeJson'] ?? null),
+            'configs' => $this->parseConfigs($row['configs'] ?? $row['configsJson'] ?? null),
         ]);
     }
 
@@ -81,6 +82,28 @@ class ProductNormalizer
         }
     }
 
+    /** 解析商品可选配置 [{id, name, priceUsdt}] */
+    public function parseConfigs(mixed $raw): array
+    {
+        $out = [];
+        foreach ($this->parseJsonArray($raw) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $out[] = [
+                'id' => (string) ($item['id'] ?? ''),
+                'name' => $name,
+                'priceUsdt' => (float) ($item['priceUsdt'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
     /** 写入数据库用的 JSON 字段 */
     public function serializeDetailJson(array $body): array
     {
@@ -90,7 +113,34 @@ class ProductNormalizer
             'featuresJson' => $toJson($body['featureCards'] ?? null),
             'specsJson' => $toJson($body['specCards'] ?? null),
             'usageNoticeJson' => $toJson($body['usageNoticeLines'] ?? null),
+            'configsJson' => $this->serializeConfigsJson($body),
         ];
+    }
+
+    /** 商品配置存库 JSON */
+    public function serializeConfigsJson(array $body): ?string
+    {
+        $configs = $body['configs'] ?? null;
+        if (! is_array($configs)) {
+            return null;
+        }
+        $out = [];
+        foreach ($configs as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $out[] = [
+                'id' => (string) ($item['id'] ?? ''),
+                'name' => $name,
+                'priceUsdt' => (float) ($item['priceUsdt'] ?? 0),
+            ];
+        }
+
+        return $out === [] ? null : json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 
     /** 多图存库：JSON 字符串或单 URL */

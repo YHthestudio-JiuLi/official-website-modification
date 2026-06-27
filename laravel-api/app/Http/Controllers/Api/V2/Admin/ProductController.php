@@ -95,6 +95,7 @@ class ProductController extends Controller
             'featureCards' => ['nullable', 'array'],
             'specCards' => ['nullable', 'array'],
             'usageNoticeLines' => ['nullable', 'array'],
+            'configs' => ['nullable', 'array'],
         ]);
 
         $validated['categoryId'] = $this->nullableInt($request->input('categoryId'));

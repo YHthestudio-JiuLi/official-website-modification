@@ -202,6 +202,7 @@ class ProductCatalogService
             'featuresJson' => $detail['featuresJson'],
             'specsJson' => $detail['specsJson'],
             'usageNoticeJson' => $detail['usageNoticeJson'],
+            'configsJson' => $detail['configsJson'],
             'categoryId' => $data['categoryId'] ?? null,
             'subCategoryId' => $data['subCategoryId'] ?? null,
             'createdByUserId' => $createdByUserId,
@@ -223,6 +224,7 @@ class ProductCatalogService
             'featuresJson' => $detail['featuresJson'],
             'specsJson' => $detail['specsJson'],
             'usageNoticeJson' => $detail['usageNoticeJson'],
+            'configsJson' => $detail['configsJson'],
             'categoryId' => $data['categoryId'] ?? null,
             'subCategoryId' => $data['subCategoryId'] ?? null,
         ]);

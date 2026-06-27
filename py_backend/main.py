@@ -226,6 +226,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("featuresJson"),
             args.get("specsJson"),
             args.get("usageNoticeJson"),
+            args.get("configsJson"),
             args.get("categoryId"),
             args.get("subCategoryId"),
         )
@@ -241,6 +242,7 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("featuresJson"),
             args.get("specsJson"),
             args.get("usageNoticeJson"),
+            args.get("configsJson"),
             args.get("categoryId"),
             args.get("subCategoryId"),
         )

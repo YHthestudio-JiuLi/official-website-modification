@@ -38,6 +38,7 @@ class ProductManager:
         self._ensure_features_json_column()
         self._ensure_specs_json_column()
         self._ensure_usage_notice_json_column()
+        self._ensure_configs_json_column()
         self._ensure_category_id_column()
         self._ensure_sub_category_id_column()
         self._ensure_created_by_user_id_column()
@@ -91,6 +92,12 @@ class ProductManager:
 
         add_column_if_missing(self.conn, "products", "usageNoticeJson", "LONGTEXT")
 
+    def _ensure_configs_json_column(self) -> None:
+        """已有库升级：商品可选配置 JSON 存 configsJson [{id, name, priceUsdt}]"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "products", "configsJson", "LONGTEXT")
+
     def _validate_categories(
         self,
         category_id: Optional[int],
@@ -132,6 +139,7 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
+        configs_json: Optional[str] = None,
         category_id: Optional[int] = None,
         sub_category_id: Optional[int] = None,
     ) -> int:
@@ -140,8 +148,8 @@ class ProductManager:
             """
             INSERT INTO products (
               name, description, image, date, price, priceUsdt,
-              featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -153,6 +161,7 @@ class ProductManager:
                 features_json,
                 specs_json,
                 usage_notice_json,
+                configs_json,
                 category_id,
                 sub_category_id,
             ),
@@ -172,6 +181,7 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
+        configs_json: Optional[str] = None,
         category_id: Optional[int] = None,
         sub_category_id: Optional[int] = None,
     ) -> None:
@@ -181,7 +191,7 @@ class ProductManager:
             UPDATE products SET
               name = ?, description = ?, image = ?, date = ?,
               price = ?, priceUsdt = ?, featuresJson = ?, specsJson = ?,
-              usageNoticeJson = ?, categoryId = ?, subCategoryId = ?
+              usageNoticeJson = ?, configsJson = ?, categoryId = ?, subCategoryId = ?
             WHERE id = ?
             """,
             (
@@ -194,6 +204,7 @@ class ProductManager:
                 features_json,
                 specs_json,
                 usage_notice_json,
+                configs_json,
                 category_id,
                 sub_category_id,
                 product_id,

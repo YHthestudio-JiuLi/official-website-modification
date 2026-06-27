@@ -18,17 +18,24 @@ function isSafeInternalRedirect(path) {
  * 立即购买：已登录则创建订单并跳转支付；未登录则跳转登录，登录后由商品页 ?checkout=1 自动下单
  * @param {import('vue-router').Router} router
  * @param {string|number} productId
+ * @param {{ configId?: string|number }} [options]
  */
-export async function startProductCheckout(router, productId) {
+export async function startProductCheckout(router, productId, options = {}) {
   const authStore = useAuthStore()
   const id = parseInt(String(productId), 10)
   if (!Number.isFinite(id)) return
 
+  const configId = options.configId != null && options.configId !== ''
+    ? String(options.configId)
+    : null
+
   if (!authStore.isLoggedIn) {
+    const query = { checkout: '1' }
+    if (configId) query.configId = configId
     const { fullPath } = router.resolve({
       name: 'product-detail',
       params: { id: String(id) },
-      query: { checkout: '1' }
+      query
     })
     await router.push({
       name: 'login',
@@ -37,7 +44,9 @@ export async function startProductCheckout(router, productId) {
     return
   }
 
-  const res = await api.post('/api/orders', { productId: id, quantity: 1 })
+  const body = { productId: id, quantity: 1 }
+  if (configId) body.configId = configId
+  const res = await api.post('/api/orders', body)
   await router.push({
     name: 'payment',
     params: { id: String(res.data.orderId) }

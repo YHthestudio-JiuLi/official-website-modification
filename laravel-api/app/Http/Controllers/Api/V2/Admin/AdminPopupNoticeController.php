@@ -27,14 +27,23 @@ class AdminPopupNoticeController extends Controller
             'display_enabled' => ['nullable', 'boolean'],
         ]);
 
+        $notice = $this->notices->create($data);
         PublicApiCache::bump('popup');
 
-        return response()->json(['notice' => $this->notices->create($data)]);
+        return response()->json(['notice' => $notice]);
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
-        $notice = $this->notices->update($id, $request->all());
+        $data = $request->validate([
+            'title' => ['nullable', 'string'],
+            'content' => ['nullable', 'string'],
+            'enabled' => ['nullable', 'boolean'],
+            'popup_enabled' => ['nullable', 'boolean'],
+            'display_enabled' => ['nullable', 'boolean'],
+        ]);
+
+        $notice = $this->notices->update($id, $data);
         PublicApiCache::bump('popup');
 
         return response()->json(['notice' => $notice]);

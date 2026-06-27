@@ -93,15 +93,39 @@ class PopupNoticeService
         $hasPopup = array_key_exists('popup_enabled', $data);
         $hasDisplay = array_key_exists('display_enabled', $data);
         if (! $hasPopup && ! $hasDisplay && array_key_exists('enabled', $data)) {
-            $legacy = (bool) $data['enabled'];
+            $legacy = $this->parseBool($data['enabled'], $defaultPopup);
 
             return [$legacy, $legacy];
         }
 
         return [
-            $hasPopup ? (bool) $data['popup_enabled'] : $defaultPopup,
-            $hasDisplay ? (bool) $data['display_enabled'] : $defaultDisplay,
+            $hasPopup ? $this->parseBool($data['popup_enabled'], $defaultPopup) : $defaultPopup,
+            $hasDisplay ? $this->parseBool($data['display_enabled'], $defaultDisplay) : $defaultDisplay,
         ];
+    }
+
+    private function parseBool(mixed $value, bool $default): bool
+    {
+        if ($value === null) {
+            return $default;
+        }
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (int) $value !== 0;
+        }
+        if (is_string($value)) {
+            $v = strtolower(trim($value));
+            if (in_array($v, ['true', '1', 'yes', 'on'], true)) {
+                return true;
+            }
+            if (in_array($v, ['false', '0', 'no', 'off', ''], true)) {
+                return false;
+            }
+        }
+
+        return (bool) $value;
     }
 
     private function normalizeNotice(array $row): array

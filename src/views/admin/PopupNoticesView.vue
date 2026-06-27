@@ -196,6 +196,7 @@ import {
   updateNotice,
   deleteNotice as deleteNoticeApi
 } from '@/services/v2/admin/popupNotices'
+import { invalidateCache } from '@/utils/getCache'
 import { handleAdminApiFailure } from '@/utils/adminApiError'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
@@ -277,8 +278,16 @@ function closeModal() {
   showModal.value = false
 }
 
+function clearPopupPublicCache() {
+  invalidateCache('popup:')
+}
+
 async function saveNotice() {
   if (!form.value.title.trim() || !form.value.content.trim()) {
+    return
+  }
+  if (!form.value.popup_enabled && !form.value.display_enabled) {
+    alert(t('admin.popupNotices.needOneScope'))
     return
   }
   saving.value = true
@@ -288,6 +297,7 @@ async function saveNotice() {
     } else {
       await createNotice(form.value)
     }
+    clearPopupPublicCache()
     closeModal()
     await fetchNotices()
   } catch (err) {
@@ -305,6 +315,7 @@ async function togglePopup(notice) {
       popup_enabled: !isNoticeEnabled(notice.popup_enabled),
       display_enabled: isNoticeEnabled(notice.display_enabled)
     })
+    clearPopupPublicCache()
     await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to update status')
@@ -319,6 +330,7 @@ async function toggleDisplay(notice) {
       popup_enabled: isNoticeEnabled(notice.popup_enabled),
       display_enabled: !isNoticeEnabled(notice.display_enabled)
     })
+    clearPopupPublicCache()
     await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to update status')
@@ -328,6 +340,7 @@ async function toggleDisplay(notice) {
 async function deleteNotice(notice) {
   try {
     await deleteNoticeApi(notice.id)
+    clearPopupPublicCache()
     notices.value = notices.value.filter((n) => n.id !== notice.id)
     await fetchNotices()
   } catch (err) {

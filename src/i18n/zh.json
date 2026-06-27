@@ -1103,6 +1103,7 @@
       "noticeContent": "公告内容",
       "settings": "展示设置",
       "deleteConfirm": "确定要删除此公告吗？",
+      "needOneScope": "请至少开启「首页弹窗」或「页面展示」其中一项",
       "editDesc": "更新公告内容与展示方式",
       "createDesc": "创建新公告，可单独配置弹窗与页面展示",
       "contentHint": "使用换行符来格式化您的消息",

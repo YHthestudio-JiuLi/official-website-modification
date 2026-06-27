@@ -293,6 +293,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import * as catalogApi from '@/services/catalog'
 import api from '@/services/api'
+import { fetchDisplayNotice } from '@/services/popup'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import { parseProductImages } from '@/utils/productImages'
@@ -516,7 +517,7 @@ const showSpecsSection = computed(
 
 async function fetchPopupNotice() {
   try {
-    const res = await api.get('/api/popup-notice')
+    const res = await fetchDisplayNotice()
     popupNotice.value = res.data?.notice || null
   } catch (_e) {
     popupNotice.value = null

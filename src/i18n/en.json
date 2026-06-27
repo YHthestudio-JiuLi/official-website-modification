@@ -1105,6 +1105,7 @@
       "noticeContent": "Notice Content",
       "settings": "Display settings",
       "deleteConfirm": "Are you sure you want to delete this notice?",
+      "needOneScope": "Enable at least one of Homepage popup or In-page display",
       "editDesc": "Update content and display options",
       "createDesc": "Create a notice with separate popup and display toggles",
       "contentHint": "Use line breaks to format your message",

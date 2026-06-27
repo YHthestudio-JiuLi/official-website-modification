@@ -1382,7 +1382,10 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
 
 app.get('/api/popup-notice', async (req, res) => {
   try {
-    const notice = await dbOperations.popupNotices.findActive();
+    const scope = String(req.query.scope || 'popup').toLowerCase();
+    const notice = scope === 'display'
+      ? await dbOperations.popupNotices.findActiveDisplay()
+      : await dbOperations.popupNotices.findActive();
     res.json({ notice });
   } catch (error) {
     console.error('[API Error] /api/popup-notice:', error.message);
@@ -1401,9 +1404,12 @@ app.get('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
-  const { title, content, enabled } = req.body || {};
+  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
   try {
-    const notice = await dbOperations.popupNotices.create(title, content, enabled !== false);
+    const hasScope = popup_enabled !== undefined || display_enabled !== undefined;
+    const popup = hasScope ? popup_enabled !== false : enabled !== false;
+    const display = hasScope ? display_enabled !== false : enabled !== false;
+    const notice = await dbOperations.popupNotices.create(title, content, popup, display);
     if (!notice) return res.status(400).json({ error: 'Invalid input' });
     res.json({ notice });
   } catch (error) {
@@ -1413,9 +1419,24 @@ app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
-  const { title, content, enabled } = req.body || {};
+  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
   try {
-    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled);
+    const existing = await dbOperations.popupNotices.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const hasScope = popup_enabled !== undefined || display_enabled !== undefined;
+    const popup = hasScope
+      ? popup_enabled !== false
+      : (enabled !== undefined ? enabled !== false : !!existing.popup_enabled);
+    const display = hasScope
+      ? display_enabled !== false
+      : (enabled !== undefined ? enabled !== false : !!existing.display_enabled);
+    const notice = await dbOperations.popupNotices.update(
+      req.params.id,
+      title ?? existing.title,
+      content ?? existing.content,
+      popup,
+      display
+    );
     if (!notice) return res.status(404).json({ error: 'Not found or invalid input' });
     res.json({ notice });
   } catch (error) {

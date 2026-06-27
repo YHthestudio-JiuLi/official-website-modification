@@ -13,43 +13,52 @@
     </div>
     <div class="reply-content">
       <span v-if="reply.parentReplyId && parentReplyAuthor" class="reply-to">
-        <i class="fas fa-reply"></i> <strong>{{ parentReplyAuthor }}</strong>
+        <i class="fas fa-reply" aria-hidden="true" />
+        {{ $t('forum.replyTo') }} <strong>{{ parentReplyAuthor }}</strong>
       </span>
       {{ reply.content }}
     </div>
     <div v-if="authStore.isLoggedIn" class="reply-actions">
-      <button @click="toggleReplyForm" class="btn-action btn-reply">
-        <i class="fas fa-reply"></i> Reply
+      <button type="button" class="btn-action btn-reply" @click="toggleReplyForm">
+        <i class="fas fa-reply" aria-hidden="true" />
+        {{ $t('forum.reply') }}
       </button>
       <button
         v-if="canDelete"
-        @click="handleDelete"
+        type="button"
         class="btn-action btn-delete"
+        @click="handleDelete"
       >
-        <i class="fas fa-trash"></i> Delete
+        <i class="fas fa-trash" aria-hidden="true" />
+        {{ $t('forum.deleteReply') }}
       </button>
     </div>
 
     <div v-if="showReplyForm" class="nested-reply-form">
       <form @submit.prevent="handleReplyToReply" class="reply-form-inline">
         <div class="form-group">
-          <textarea v-model="replyContent" required rows="3" placeholder="Write your reply..."></textarea>
+          <textarea v-model="replyContent" required rows="3" :placeholder="$t('forum.writeReply')" />
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary btn-sm" :disabled="submitting">
-            <i class="fas fa-paper-plane"></i> {{ submitting ? 'Posting...' : 'Submit' }}
+            <i class="fas fa-paper-plane" aria-hidden="true" />
+            {{ submitting ? $t('forum.posting') : $t('forum.submitReply') }}
           </button>
           <button type="button" class="btn btn-secondary btn-sm" @click="cancelReply">
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
         </div>
       </form>
     </div>
 
     <div v-if="hasChildReplies" class="child-replies-section">
-      <button @click="toggleExpand" class="toggle-expand-btn">
-        <i class="fas" :class="isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-        {{ isExpanded ? 'Collapse Replies' : `${childReplies[reply.id]?.length || 0} Replies` }}
+      <button type="button" class="toggle-expand-btn" @click="toggleExpand">
+        <i class="fas" :class="isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true" />
+        {{
+          isExpanded
+            ? $t('forum.collapseReplies')
+            : $t('forum.expandReplies', { n: childReplies[reply.id]?.length || 0 })
+        }}
       </button>
       <div v-show="isExpanded" class="child-replies">
         <ReplyItem
@@ -71,7 +80,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
+import { createForumReply, deleteForumReply } from '@/services/forum'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps({
@@ -103,7 +112,7 @@ const props = defineProps({
 
 const emit = defineEmits(['reply-deleted'])
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const showReplyForm = ref(false)
 const replyContent = ref('')
@@ -150,7 +159,7 @@ function toggleExpand() {
 async function handleReplyToReply() {
   submitting.value = true
   try {
-    await api.post(`/api/forum/posts/${props.postId}/replies`, {
+    await createForumReply(props.postId, {
       content: replyContent.value,
       parentReplyId: props.reply.id
     })
@@ -165,10 +174,10 @@ async function handleReplyToReply() {
 }
 
 async function handleDelete() {
-  if (!confirm('Delete this reply?')) return
+  if (!confirm(t('forum.deleteReplyConfirm'))) return
 
   try {
-    await api.delete(`/api/forum/replies/${props.reply.id}`)
+    await deleteForumReply(props.reply.id)
     emit('reply-deleted')
   } catch (error) {
     console.error('Failed to delete reply:', error)
@@ -178,10 +187,14 @@ async function handleDelete() {
 function formatDate(dateStr) {
   if (!dateStr) return ''
   const date = new Date(dateStr)
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return months[date.getMonth()] + ' ' + date.getDate() + ', ' +
-    date.getHours().toString().padStart(2, '0') + ':' +
-    date.getMinutes().toString().padStart(2, '0')
+  if (Number.isNaN(date.getTime())) return dateStr
+  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
+  return date.toLocaleString(fmtLocale, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 </script>
 

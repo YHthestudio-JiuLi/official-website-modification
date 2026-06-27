@@ -75,7 +75,7 @@
                         :aria-label="$t('products.detail.galleryAlt', { name: product.name, n: idx + 1 })"
                         @click="selectedHeroImageIndex = idx"
                       >
-                        <img :src="src" alt="" @error="handleImageError" />
+                        <img :src="src" alt="" loading="lazy" decoding="async" @error="handleImageError" />
                       </button>
                     </div>
                   </div>

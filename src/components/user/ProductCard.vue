@@ -7,6 +7,8 @@
       <img
         :src="coverImage"
         :alt="product.name"
+        loading="lazy"
+        decoding="async"
         @error="handleImageError"
       />
     </div>

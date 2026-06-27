@@ -240,6 +240,22 @@ const router = createRouter({
 /** 路由守卫鉴权期间显示全局加载态，避免长时间白屏 */
 export const isRouterPending = ref(false)
 
+let routerPendingTimer = null
+
+function setRouterPending(active) {
+  if (active) {
+    if (routerPendingTimer) return
+    // 仅当鉴权超过 180ms 才显示遮罩，避免快请求闪屏
+    routerPendingTimer = setTimeout(() => {
+      isRouterPending.value = true
+    }, 180)
+    return
+  }
+  clearTimeout(routerPendingTimer)
+  routerPendingTimer = null
+  isRouterPending.value = false
+}
+
 // Navigation guards
 router.beforeEach(async (to, from, next) => {
   setDocumentTitle(to, i18n.global.t)
@@ -279,11 +295,11 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (bootstrapTasks.length > 0) {
-    isRouterPending.value = true
+    setRouterPending(true)
     try {
       await Promise.all(bootstrapTasks)
     } finally {
-      isRouterPending.value = false
+      setRouterPending(false)
     }
   }
 
@@ -336,11 +352,11 @@ router.beforeEach(async (to, from, next) => {
 })
 
 router.afterEach(() => {
-  isRouterPending.value = false
+  setRouterPending(false)
 })
 
 router.onError(() => {
-  isRouterPending.value = false
+  setRouterPending(false)
 })
 
 export default router

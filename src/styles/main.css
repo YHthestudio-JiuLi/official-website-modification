@@ -198,6 +198,7 @@ img {
     display: flex;
     align-items: center;
     gap: 1rem;
+    list-style: none;
 }
 
 .user-avatar-display {
@@ -1000,8 +1001,10 @@ a.product-card-link:focus-visible {
 .post-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    gap: 1rem;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
 }
 
 .post-header h3 {
@@ -1256,8 +1259,9 @@ a.product-card-link:focus-visible {
         padding: 0.5rem 0;
     }
 
-    /* 语言切换在 AppHeader 内单独排版，避免继承 nav-link 块级样式 */
-    .nav-menu li.lang-switcher {
+    /* 语言切换、用户区在 AppHeader 内单独排版 */
+    .nav-menu li.lang-switcher,
+    .nav-menu li.nav-user {
         padding-top: 0;
         padding-bottom: 0;
     }
@@ -1269,19 +1273,17 @@ a.product-card-link:focus-visible {
     }
     
     .nav-user {
-        flex-direction: row;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem 0;
-        border-top: 1px solid var(--border-color);
-        margin-top: 1rem;
-        justify-content: center;
+        width: 100%;
+        padding: 0.85rem 1.25rem 1rem;
+        margin-top: 0.35rem;
+        border-top: 1px solid rgba(42, 47, 74, 0.55);
+        box-sizing: border-box;
     }
 
     .user-avatar-display {
-        width: 32px;
-        height: 32px;
-        font-size: 0.9rem;
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
     }
 }
 

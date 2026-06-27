@@ -51,15 +51,18 @@
             </router-link>
           </li>
           <li class="nav-user">
-            <div class="user-avatar-display">
-              <span class="avatar-letter">{{ getUserAvatarLetter(authStore.username) }}</span>
+            <div class="nav-user-inner">
+              <div class="nav-user-profile">
+                <div class="user-avatar-display">
+                  <span class="avatar-letter">{{ getUserAvatarLetter(authStore.username) }}</span>
+                </div>
+                <span class="user-name" :title="authStore.username">{{ authStore.username }}</span>
+              </div>
+              <button type="button" class="nav-user-logout" @click="handleLogout">
+                <i class="fas fa-sign-out-alt" aria-hidden="true" />
+                {{ $t('nav.logout') }}
+              </button>
             </div>
-            <span class="user-name">
-              {{ authStore.username }}
-            </span>
-            <a href="#" @click.prevent="handleLogout" class="nav-link logout">
-              {{ $t('nav.logout') }}
-            </a>
           </li>
         </template>
 
@@ -172,6 +175,7 @@ function getUserAvatarLetter(username) {
 }
 
 async function handleLogout() {
+  menuOpen.value = false
   try {
     await authStore.logout()
   } catch (_e) {
@@ -336,5 +340,99 @@ async function handleLogout() {
 
 .nav-products-search input::placeholder {
   color: #6b7289;
+}
+
+/* 登录用户区：桌面横排，移动端抽屉内卡片式布局 */
+.nav-user-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.nav-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.nav-user-profile .user-name {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-user-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid #233554;
+  background: rgba(26, 31, 58, 0.55);
+  color: #c4c8d4;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.nav-user-logout:hover {
+  border-color: #00d4ff;
+  color: #e6f1ff;
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.nav-user-logout:focus-visible {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.22);
+}
+
+@media (min-width: 993px) and (max-width: 1280px) {
+  .nav-user-profile .user-name {
+    max-width: 5.5rem;
+  }
+
+  .nav-user-logout {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.55rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .nav-user-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: min(320px, 100%);
+    margin: 0 auto;
+  }
+
+  .nav-user-profile {
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.15rem 0;
+  }
+
+  .nav-user-profile .user-name {
+    max-width: min(220px, 70vw);
+    font-size: 1rem;
+    font-weight: 500;
+    color: #e6f1ff;
+  }
+
+  .nav-user-logout {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.65rem 1rem;
+    font-size: 0.9375rem;
+  }
 }
 </style>

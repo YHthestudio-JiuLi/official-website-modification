@@ -65,12 +65,15 @@ export default defineConfig(({ mode }) => {
     // 宝塔会在网站目录下自动生成 dist/.user.ini（常带不可变属性），Vite 默认会先清空 outDir，rm 该文件会 EPERM
     emptyOutDir: false,
     sourcemap: false,
+    target: 'es2020',
+    cssMinify: true,
     rollupOptions: {
       output: {
         manualChunks: {
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
           'i18n': ['vue-i18n'],
-          'element-plus': ['element-plus']
+          'element-plus': ['element-plus'],
+          'axios': ['axios']
         }
       }
     }

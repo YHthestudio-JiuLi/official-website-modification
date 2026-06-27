@@ -8,6 +8,9 @@ namespace App\Support;
 class ProductImageDiskCache
 {
     private const EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    private const MAX_RENDER_WIDTH = 1280;
+    private const WEBP_QUALITY = 82;
+    private const OPTIMIZE_THRESHOLD_BYTES = 350000;
 
     public static function directory(): string
     {
@@ -48,9 +51,10 @@ class ProductImageDiskCache
     public static function write(int $id, string $binary, string $mime): string
     {
         self::forget($id);
+        [$optimized, $mime] = self::optimizeBinary($binary, $mime);
         $ext = self::extensionForMime($mime);
         $path = self::directory().DIRECTORY_SEPARATOR.$id.'.'.$ext;
-        file_put_contents($path, $binary);
+        file_put_contents($path, $optimized);
         file_put_contents($path.'.meta', $mime);
 
         return $path;
@@ -89,5 +93,63 @@ class ProductImageDiskCache
             'gif' => 'image/gif',
             default => 'image/jpeg',
         };
+    }
+
+    /**
+     * 将超大图片压缩到 WebP（优先）并限制宽度，显著降低公网下载耗时。
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function optimizeBinary(string $binary, string $mime): array
+    {
+        if (strlen($binary) < self::OPTIMIZE_THRESHOLD_BYTES) {
+            return [$binary, $mime];
+        }
+        if (! function_exists('imagecreatefromstring')) {
+            return [$binary, $mime];
+        }
+
+        $src = @imagecreatefromstring($binary);
+        if (! $src) {
+            return [$binary, $mime];
+        }
+
+        try {
+            $width = imagesx($src);
+            $height = imagesy($src);
+            if ($width <= 0 || $height <= 0) {
+                return [$binary, $mime];
+            }
+
+            $targetWidth = min($width, self::MAX_RENDER_WIDTH);
+            $targetHeight = (int) round(($height * $targetWidth) / $width);
+            $dst = imagecreatetruecolor($targetWidth, $targetHeight);
+            if (! $dst) {
+                return [$binary, $mime];
+            }
+
+            try {
+                imagealphablending($dst, false);
+                imagesavealpha($dst, true);
+                $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+                imagefilledrectangle($dst, 0, 0, $targetWidth, $targetHeight, $transparent);
+                imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+                ob_start();
+                $ok = function_exists('imagewebp')
+                    ? imagewebp($dst, null, self::WEBP_QUALITY)
+                    : false;
+                $out = ob_get_clean();
+                if ($ok && is_string($out) && $out !== '' && strlen($out) < strlen($binary)) {
+                    return [$out, 'image/webp'];
+                }
+
+                return [$binary, $mime];
+            } finally {
+                imagedestroy($dst);
+            }
+        } finally {
+            imagedestroy($src);
+        }
     }
 }

@@ -328,6 +328,13 @@ async function handleSubmit() {
   padding: 1.5rem;
 }
 
+.settings-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
 .form-section {
   margin: 1.5rem 0;
   padding: 1.25rem;

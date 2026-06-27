@@ -71,6 +71,7 @@
                 <p v-else-if="!trackingLoading && !tracking.routes?.length && tracking.apiEnabled" class="tracking-empty">
                   {{ $t('orders.tracking.noRoutes') }}
                 </p>
+                <p v-if="tracking.message" class="tracking-error-msg">{{ tracking.message }}</p>
 
                 <button
                   v-if="tracking.externalUrl"
@@ -278,6 +279,12 @@ async function openSfTracking() {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+.tracking-error-msg {
+  margin: 0.6rem 0 0.9rem;
+  font-size: 0.8rem;
+  color: #f3b45d;
 }
 
 .tracking-meta {

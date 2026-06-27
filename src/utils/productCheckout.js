@@ -1,4 +1,3 @@
-import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
 /**
@@ -15,7 +14,8 @@ function isSafeInternalRedirect(path) {
 }
 
 /**
- * 立即购买：已登录则创建订单并跳转支付；未登录则跳转登录，登录后由商品页 ?checkout=1 自动下单
+ * 立即购买：已登录则进入支付页填写收货信息+TxHash 后验单并创建订单；
+ * 未登录则跳转登录，登录后由商品页 ?checkout=1 自动跳转支付页
  * @param {import('vue-router').Router} router
  * @param {string|number} productId
  * @param {{ configId?: string|null }} [options]
@@ -43,14 +43,14 @@ export async function startProductCheckout(router, productId, options = {}) {
     return
   }
 
-  const body = { productId: id, quantity: 1 }
+  const paymentQuery = { productId: String(id), quantity: '1' }
   if (options.configId) {
-    body.configId = String(options.configId)
+    paymentQuery.configId = String(options.configId)
   }
-  const res = await api.post('/api/orders', body)
   await router.push({
     name: 'payment',
-    params: { id: String(res.data.orderId) }
+    params: { id: 'new' },
+    query: paymentQuery,
   })
 }
 

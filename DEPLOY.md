@@ -1,8 +1,8 @@
-# YHthestudio 生产部署说明（V2.1.0）
+# YHthestudio 生产部署说明（V2.1.1）
 
 > 面向 **宝塔面板 + OpenCloudOS/CentOS** 的新手逐步部署指南。  
 > 按章节顺序执行，不要跳步。  
-> **版本**：V2.1.0 · 分支 `vue_0.2.0`
+> **版本**：V2.1.1 · 分支 `vue_0.2.0`
 
 **示例路径（全文统一替换为你的实际路径）：**
 
@@ -14,6 +14,7 @@
 
 ## 目录
 
+0. [V2.1.1 快速部署（推荐）](#0-v211-快速部署推荐)
 1. [部署前需要了解什么](#1-部署前需要了解什么)
 2. [服务器环境准备](#2-服务器环境准备)
 3. [上传代码](#3-上传代码)
@@ -26,6 +27,155 @@
 10. [部署验证](#10-部署验证)
 11. [日常更新代码](#11-日常更新代码)
 12. [常见问题](#12-常见问题)
+
+---
+
+## 0. V2.1.1 快速部署（推荐）
+
+> 适用于已完成基础环境安装（Nginx / MySQL / Redis / Node / PM2 / PHP 8.5）的服务器。  
+> 项目目录以下文为准：
+>
+> ```text
+> /www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2
+> ```
+
+### 0.1 一键部署（推荐）
+
+#### 0.1.1 日常更新（最常用）
+
+```bash
+ROOT=/www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2
+cd "$ROOT"
+
+# 固定拉取生产分支（避免误拉旧 tag / 其他分支）
+git -c safe.directory="$ROOT" pull github refs/heads/V2.1.1
+
+# 一键部署：依赖、构建、Laravel 缓存/迁移、PM2、并启用 PHP-FPM
+bash scripts/deploy.sh --laravel-fpm
+```
+
+#### 0.1.2 首次部署
+
+```bash
+ROOT=/www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2
+cd "$ROOT"
+git -c safe.directory="$ROOT" pull github refs/heads/V2.1.1
+bash scripts/deploy.sh --first-time --laravel-fpm
+```
+
+首次部署完成后建议执行：
+
+```bash
+pm2 startup
+pm2 save
+```
+
+#### 0.1.3 常用参数速查
+
+- `--laravel-fpm`：启用/刷新 Nginx+PHP-FPM（生产推荐）
+- `--skip-build`：跳过前端构建
+- `--skip-migrate`：跳过 Laravel migrate
+- `--skip-npm`：跳过 `npm install`
+- `--skip-python`：跳过 Python 虚拟环境
+- `--no-pm2`：不重启 PM2（仅构建与 Laravel 步骤）
+- `--pull`：脚本内执行 `git pull`（生产仍建议显式 `pull github refs/heads/V2.1.1`）
+
+---
+
+### 0.2 手动部署（详细版）
+
+> 当你需要精细控制每一步，或排查线上问题时，使用手动流程。
+
+#### 步骤 A：拉取代码
+
+```bash
+ROOT=/www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2
+cd "$ROOT"
+git -c safe.directory="$ROOT" pull github refs/heads/V2.1.1
+```
+
+#### 步骤 B：前端构建
+
+```bash
+cd "$ROOT"
+npm install
+npm run build
+```
+
+#### 步骤 C：Laravel 依赖与数据库
+
+```bash
+cd "$ROOT/laravel-api"
+composer install --no-interaction --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan db:seed --class=RolePermissionSeeder --force
+php artisan permission:cache
+php artisan config:cache
+php artisan route:cache
+```
+
+#### 步骤 D：启用 PHP-FPM（关键）
+
+```bash
+cd "$ROOT"
+sudo bash scripts/setup-laravel-fpm.sh --domain yhthestudio.com
+nginx -t && nginx -s reload
+```
+
+#### 步骤 E：预热 Redis 与商品图缓存
+
+```bash
+cd "$ROOT/laravel-api"
+php artisan catalog:warm --images
+```
+
+#### 步骤 F：重启运行进程
+
+```bash
+cd "$ROOT"
+pm2 restart yh-api --update-env
+pm2 restart yh-py --update-env
+pm2 save
+```
+
+#### 步骤 G：验收（必须）
+
+```bash
+cd "$ROOT"
+bash scripts/diagnose-prod.sh
+```
+
+再做两条关键检查：
+
+```bash
+# 1) 商品图是否已压缩为 webp（不是几 MB 的 png）
+curl -sSI -H 'Host: yhthestudio.com' 'https://127.0.0.1/api/v2/product-images/9' -k | grep -Ei 'content-type|content-length'
+
+# 2) 首页 JS 是否命中真实文件（不是 html fallback）
+LIVE_ASSET=$(curl -s https://yhthestudio.com/ | grep -oE '/assets/index-[^"]+\.js' | head -n1)
+echo "LIVE_ASSET=$LIVE_ASSET"
+curl -sSI "https://yhthestudio.com$LIVE_ASSET" | grep -Ei 'HTTP/|content-type|cache-control|content-length'
+```
+
+期望：
+
+- 商品图 `content-type` 为 `image/webp`，`content-length` 显著降低
+- 资产文件返回 `application/javascript`
+- `cache-control` 包含 `public, max-age=31536000, immutable`
+
+---
+
+### 0.3 日常上新（大图）建议
+
+- 单条商品更新：直接发布即可（会自动触发 catalog 缓存失效）
+- 批量上新/批量改图：建议手动执行一次预热
+
+```bash
+cd /www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2/laravel-api
+php artisan catalog:warm --images
+```
+
+若外网仍显示旧图，刷新 CDN 路径：`/api/v2/product-images/*`。
 
 ---
 

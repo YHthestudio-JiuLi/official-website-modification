@@ -48,50 +48,105 @@ class OrderService
 
     public function createForUser(int $userId, string $username, array $data): int
     {
-        $productId = (int) ($data['productId'] ?? 0);
-        $product = $this->catalog->findProductForApi($productId, false);
-        if (! $product) {
-            throw ValidationException::withMessages(['productId' => ['Product not found']]);
-        }
-
-        $qty = max(1, (int) ($data['quantity'] ?? 1));
-        try {
-            $checkoutConfig = $this->productNormalizer->resolveCheckoutConfig(
-                $product,
-                isset($data['configId']) ? (string) $data['configId'] : null
-            );
-        } catch (\InvalidArgumentException $e) {
-            throw ValidationException::withMessages(['configId' => [$e->getMessage()]]);
-        }
-        $price = $checkoutConfig['price'];
-        $settings = $this->paymentSettings();
-        $translated = $this->translator->translateProduct($product, true);
-        $orderNo = $this->orderNumbers->generateUniqueForProduct($productId);
-        $productName = $translated['name'] ?? $product['name'];
-        if (! empty($checkoutConfig['configName'])) {
-            $productName .= ' - '.$checkoutConfig['configName'];
-        }
+        $checkout = $this->resolveCheckoutData($data);
+        $orderNo = $this->orderNumbers->generateUniqueForProduct($checkout['productId']);
 
         $order = Order::query()->create([
             'orderNo' => $orderNo,
             'userId' => $userId,
             'username' => $username,
-            'productId' => $productId,
-            'productName' => $productName,
-            'quantity' => $qty,
-            'price' => $price,
-            'totalAmount' => $price * $qty,
+            'productId' => $checkout['productId'],
+            'productName' => $checkout['productName'],
+            'quantity' => $checkout['quantity'],
+            'price' => $checkout['price'],
+            'totalAmount' => $checkout['totalAmount'],
             'status' => 'pending',
             'paymentMethod' => 'USDT',
-            'usdtWallet' => $settings['wallet_address'] ?? '',
-            'network' => $settings['network'] ?? 'TRC20',
+            'usdtWallet' => $checkout['walletAddress'],
+            'network' => $checkout['network'],
             'shippingAddress' => $data['shippingAddress'] ?? null,
             'createdAt' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
-            'configId' => $checkoutConfig['configId'],
-            'configName' => $checkoutConfig['configName'],
+            'configId' => $checkout['configId'],
+            'configName' => $checkout['configName'],
         ]);
 
         return (int) $order->id;
+    }
+
+    /**
+     * 下单新流程：仅在链上验单成功后创建订单（创建即 paid）
+     *
+     * @return array{orderId:int, order:array}
+     */
+    public function createPaidForUser(int $userId, string $username, array $data): array
+    {
+        $shippingAddress = trim((string) ($data['shippingAddress'] ?? ''));
+        $txHash = trim((string) ($data['txHash'] ?? ''));
+        if ($shippingAddress === '') {
+            throw ValidationException::withMessages(['shippingAddress' => ['Shipping address required']]);
+        }
+        if ($txHash === '') {
+            throw ValidationException::withMessages(['txHash' => ['Transaction hash required']]);
+        }
+        $this->assertTxHashUnused($txHash);
+
+        $checkout = $this->resolveCheckoutData($data);
+        $verifyRules = $this->paymentSettings->txVerifyRules();
+        $verification = $this->txVerify->verify(
+            $checkout['network'],
+            $txHash,
+            $checkout['totalAmount'],
+            $verifyRules['maxUnderpayUsdt'],
+            $verifyRules['maxAgeHours'],
+            $checkout['walletAddress']
+        );
+        if (! $verification['valid']) {
+            throw ValidationException::withMessages([
+                'txHash' => [
+                    $this->txVerify->messageForReasonZh(
+                        $verification['reason'],
+                        $checkout['totalAmount'],
+                        $verification['paid_amount'],
+                        $verifyRules['maxUnderpayUsdt'],
+                        $verifyRules['maxAgeHours']
+                    ),
+                ],
+            ]);
+        }
+
+        $orderNo = $this->orderNumbers->generateUniqueForProduct($checkout['productId']);
+        $now = now()->utc()->format('Y-m-d\TH:i:s\Z');
+        $order = Order::query()->create([
+            'orderNo' => $orderNo,
+            'userId' => $userId,
+            'username' => $username,
+            'productId' => $checkout['productId'],
+            'productName' => $checkout['productName'],
+            'quantity' => $checkout['quantity'],
+            'price' => $checkout['price'],
+            'totalAmount' => $checkout['totalAmount'],
+            'status' => 'paid',
+            'paymentMethod' => 'USDT',
+            'usdtWallet' => $checkout['walletAddress'],
+            'network' => $checkout['network'],
+            'shippingAddress' => $shippingAddress,
+            'txHash' => $txHash,
+            'createdAt' => $now,
+            'paidAt' => $now,
+            'configId' => $checkout['configId'],
+            'configName' => $checkout['configName'],
+        ]);
+
+        $orderId = (int) $order->id;
+        $orderPayload = $this->findByIdEnriched($orderId) ?? $this->enrichNetwork($order->toArray());
+        if ($verifyRules['maxUnderpayUsdt'] <= 0 && $verifyRules['maxAgeHours'] <= 0) {
+            $orderPayload['txVerifyDisabled'] = true;
+        }
+
+        return [
+            'orderId' => $orderId,
+            'order' => $orderPayload,
+        ];
     }
 
     /**
@@ -114,6 +169,7 @@ class OrderService
         if ($txHash === '') {
             throw ValidationException::withMessages(['txHash' => ['Transaction hash required']]);
         }
+        $this->assertTxHashUnused($txHash, $orderId);
 
         $verifyRules = $this->paymentSettings->txVerifyRules();
         $paymentSettings = $this->paymentSettings->get();
@@ -366,5 +422,72 @@ class OrderService
         $row = PaymentSetting::query()->orderByDesc('id')->first();
 
         return $row ? $row->toArray() : ['wallet_address' => '', 'network' => 'TRC20'];
+    }
+
+    private function assertTxHashUnused(string $txHash, ?int $ignoreOrderId = null): void
+    {
+        $q = Order::query()
+            ->where('txHash', $txHash)
+            ->whereNotIn('status', ['cancelled']);
+        if ($ignoreOrderId !== null) {
+            $q->where('id', '!=', $ignoreOrderId);
+        }
+        if ($q->exists()) {
+            throw ValidationException::withMessages([
+                'txHash' => ['该交易哈希已被使用，请勿重复提交'],
+            ]);
+        }
+    }
+
+    /**
+     * @return array{
+     *   productId:int,
+     *   quantity:int,
+     *   price:float,
+     *   totalAmount:float,
+     *   productName:string,
+     *   walletAddress:string,
+     *   network:string,
+     *   configId:?string,
+     *   configName:?string
+     * }
+     */
+    private function resolveCheckoutData(array $data): array
+    {
+        $productId = (int) ($data['productId'] ?? 0);
+        $product = $this->catalog->findProductForApi($productId, false);
+        if (! $product) {
+            throw ValidationException::withMessages(['productId' => ['Product not found']]);
+        }
+
+        $qty = max(1, (int) ($data['quantity'] ?? 1));
+        try {
+            $checkoutConfig = $this->productNormalizer->resolveCheckoutConfig(
+                $product,
+                isset($data['configId']) ? (string) $data['configId'] : null
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['configId' => [$e->getMessage()]]);
+        }
+
+        $translated = $this->translator->translateProduct($product, true);
+        $productName = (string) ($translated['name'] ?? $product['name'] ?? '');
+        if (! empty($checkoutConfig['configName'])) {
+            $productName .= ' - '.$checkoutConfig['configName'];
+        }
+        $settings = $this->paymentSettings();
+        $price = (float) $checkoutConfig['price'];
+
+        return [
+            'productId' => $productId,
+            'quantity' => $qty,
+            'price' => $price,
+            'totalAmount' => $price * $qty,
+            'productName' => $productName,
+            'walletAddress' => (string) ($settings['wallet_address'] ?? ''),
+            'network' => (string) ($settings['network'] ?? 'TRC20'),
+            'configId' => $checkoutConfig['configId'],
+            'configName' => $checkoutConfig['configName'],
+        ];
     }
 }

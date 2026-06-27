@@ -21,7 +21,7 @@
                 <h3><i class="fas fa-receipt"></i> {{ $t('payment.orderInfo') }}</h3>
                 <div class="info-item">
                   <span>{{ $t('payment.orderNumber') }}: </span>
-                  <span>{{ displayOrderNo(order) }}</span>
+                  <span>{{ displayOrderNo(order) || '--' }}</span>
                 </div>
                 <div class="info-item">
                   <span>{{ $t('payment.productName') }}: </span>
@@ -163,10 +163,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import * as catalogApi from '@/services/catalog'
+import { fetchPaymentSettings as fetchPublicPaymentSettings } from '@/services/v2/payment'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import { displayOrderNo } from '@/utils/orderNo'
@@ -185,8 +187,17 @@ const loadError = ref(false)
 const notFound = ref(false)
 const submitting = ref(false)
 const copied = ref(false)
+const checkoutMode = computed(() => String(route.params.id || '') === 'new')
 
 onMounted(async () => {
+  if (checkoutMode.value) {
+    await loadCheckoutPreview()
+    return
+  }
+  await loadExistingOrder()
+})
+
+async function loadExistingOrder() {
   try {
     const response = await api.get(`/api/orders/${route.params.id}`)
     order.value = response.data
@@ -202,7 +213,95 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+async function loadCheckoutPreview() {
+  try {
+    const productId = parsePositiveInt(route.query.productId)
+    if (!productId) {
+      throw new Error('productId missing')
+    }
+    const quantity = parsePositiveInt(route.query.quantity) || 1
+    const configId = String(route.query.configId || '').trim()
+    const [productRes, settingRes] = await Promise.all([
+      catalogApi.getProduct(productId),
+      fetchPublicPaymentSettings(),
+    ])
+    order.value = buildPreviewOrder(
+      productRes.data,
+      settingRes.data || {},
+      quantity,
+      configId
+    )
+  } catch (error) {
+    console.error('Failed to load checkout preview:', error)
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+function parsePositiveInt(raw) {
+  const n = Number.parseInt(String(raw || ''), 10)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function normalizeProductConfigs(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((c) => ({
+      id: String(c.id || '').trim(),
+      name: String(c.name || '').trim(),
+      priceUsdt: Number(c.priceUsdt ?? c.price ?? 0),
+    }))
+    .filter((c) => c.id && c.name)
+}
+
+function resolveCheckoutConfig(product, configId) {
+  const configs = normalizeProductConfigs(product?.configs)
+  if (!configs.length) {
+    return {
+      configId: null,
+      configName: null,
+      price: Number(product?.priceUsdt ?? product?.price ?? 0),
+    }
+  }
+  const matched = configs.find((c) => c.id === configId)
+  if (!matched) {
+    throw new Error('config_required')
+  }
+  return {
+    configId: matched.id,
+    configName: matched.name,
+    price: Number(matched.priceUsdt || 0),
+  }
+}
+
+function buildPreviewOrder(product, settings, quantity, configId) {
+  const checkoutConfig = resolveCheckoutConfig(product, configId)
+  const unitPrice = Number(checkoutConfig.price || 0)
+  const qty = Math.max(1, quantity)
+  const productName = checkoutConfig.configName
+    ? `${product?.name || ''} - ${checkoutConfig.configName}`
+    : (product?.name || '')
+  return {
+    id: null,
+    orderNo: null,
+    status: 'pending',
+    productId: Number(product?.id || 0),
+    productName,
+    quantity: qty,
+    price: unitPrice,
+    totalAmount: unitPrice * qty,
+    paymentMethod: 'USDT',
+    usdtWallet: settings?.wallet_address || '',
+    network: settings?.network || 'TRC20',
+    configId: checkoutConfig.configId,
+    configName: checkoutConfig.configName,
+    shippingAddress: '',
+    txHash: '',
+  }
+}
 
 function getStatusText(status) {
   const key = `orders.status.${status}`
@@ -317,6 +416,31 @@ async function handleConfirmPayment() {
   })
   submitting.value = true
   try {
+    if (checkoutMode.value) {
+      const payload = {
+        productId: Number(order.value.productId),
+        quantity: Number(order.value.quantity || 1),
+        txHash: txHash.value.trim(),
+        shippingAddress,
+      }
+      if (order.value.configId) {
+        payload.configId = String(order.value.configId)
+      }
+      const createRes = await api.post('/api/orders', payload)
+      const createdOrderId = Number(createRes.data?.orderId)
+      if (Number.isFinite(createdOrderId) && createdOrderId > 0) {
+        await router.replace({
+          name: 'payment',
+          params: { id: String(createdOrderId) },
+        })
+        const response = await api.get(`/api/orders/${createdOrderId}`)
+        order.value = response.data
+      } else if (createRes.data?.order) {
+        order.value = createRes.data.order
+      }
+      txHash.value = ''
+      return
+    }
     await api.post(`/api/orders/${route.params.id}/confirm`, {
       txHash: txHash.value.trim(),
       shippingAddress

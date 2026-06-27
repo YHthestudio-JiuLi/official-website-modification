@@ -44,16 +44,28 @@ class SfExpressTrackingService
         }
 
         try {
+            // 优先携带手机号后四位查询；若无轨迹再回退到不带手机号，兼容不同面单场景
             $routes = $this->callSfApi($trackingNumber, $phoneLast4);
+            if ($routes === [] && $phoneLast4 !== '') {
+                $routes = $this->callSfApi($trackingNumber, '');
+            }
+
+            $message = null;
+            if ($routes === []) {
+                $message = $phoneLast4 === ''
+                    ? 'No routes returned (phone tail missing?)'
+                    : 'No routes returned';
+            }
 
             return [
                 'routes' => $routes,
                 'source' => 'sf_api',
-                'message' => $routes === [] ? 'No routes returned' : null,
+                'message' => $message,
             ];
         } catch (\Throwable $e) {
             Log::warning('SF express tracking failed', [
                 'tracking' => $trackingNumber,
+                'phoneLast4' => $phoneLast4,
                 'error' => $e->getMessage(),
             ]);
 
@@ -175,10 +187,15 @@ class SfExpressTrackingService
         if (! $shippingAddress) {
             return '';
         }
-        if (preg_match('/(?:phone|电话|手机号?)\s*[:：]\s*([^\|]+)/iu', $shippingAddress, $m)) {
+        if (preg_match('/(?:phone|电话|手机号?)\s*[:：]\s*([^\|\n\r]+)/iu', $shippingAddress, $m)) {
             $digits = preg_replace('/\D+/', '', $m[1]);
 
             return strlen($digits) >= 4 ? substr($digits, -4) : $digits;
+        }
+
+        // 兼容历史订单：地址串中直接含手机号（无 key）
+        if (preg_match('/(1[3-9]\d{9})/', $shippingAddress, $m)) {
+            return substr($m[1], -4);
         }
 
         return '';

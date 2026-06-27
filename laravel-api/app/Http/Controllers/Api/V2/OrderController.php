@@ -41,13 +41,21 @@ class OrderController extends Controller
         $data = $request->validate([
             'productId' => ['required', 'integer'],
             'quantity' => ['nullable', 'integer', 'min:1'],
-            'shippingAddress' => ['nullable', 'string'],
+            'shippingAddress' => ['required', 'string'],
+            'txHash' => ['required', 'string', 'max:255'],
             'configId' => ['nullable', 'string', 'max:64'],
         ]);
         $user = $request->user();
-        $orderId = $this->orders->createForUser($user->id, $user->username, $data);
+        $result = $this->orders->createPaidForUser($user->id, $user->username, $data);
+        if (! empty($result['order'])) {
+            $this->telegram->notifyOrderPaid($result['order']);
+        }
 
-        return response()->json(['orderId' => $orderId]);
+        return response()->json([
+            'success' => true,
+            'orderId' => $result['orderId'],
+            'order' => $result['order'],
+        ]);
     }
 
     public function confirm(Request $request, int $id): JsonResponse

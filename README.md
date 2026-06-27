@@ -198,14 +198,17 @@ python -m py_backend.migrate_sqlite_to_mysql
 
 ## 生产部署
 
-**新手请直接阅读 [DEPLOY.md](./DEPLOY.md)**：12 步宝塔部署教程，含 PHP 扩展、PM2、`ecosystem.config.js`、**完整 Nginx 配置文件**与故障排查。
+**请优先阅读 [DEPLOY.md](./DEPLOY.md)**（已更新到 V2.1.1），包含两种方式：
 
-快速要点：
+- **一键部署**：`bash scripts/deploy.sh --laravel-fpm`
+- **手动部署**：拉代码 → 构建 → Laravel 迁移/缓存 → `setup-laravel-fpm.sh` → 预热 → PM2 重启
 
-- PM2 三进程：`yh-laravel`(8000)、`yh-api`(3000)、`yh-py`(5100)
-- Laravel 在宝塔上用 `php -S ... server.php` 启动（见 `ecosystem.config.js`）
-- Nginx：`/api/v2/`、`/sanctum/` → 8000；反代 `Host` 必须为 `$host`
-- 部署后必须 `npm run build`（`VITE_USE_V2_API=true`）
+当前生产推荐架构：
+
+- Nginx + **PHP-FPM 8.5** 承接 `/api/v2/*`、`/sanctum/*`
+- PM2 保持 `yh-api`(3000) + `yh-py`(5100)；`yh-laravel` 在 FPM 模式下会自动停用
+- 商品图走 `/api/v2/product-images/*`（磁盘缓存 + 自动压缩）
+- 静态 `/assets/*` 强缓存（`immutable`），提升移动端加载速度
 
 ---
 

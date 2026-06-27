@@ -275,7 +275,6 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import * as catalogApi from '@/services/catalog'
-import api from '@/services/api'
 import { fetchDisplayNotice } from '@/services/popup'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
@@ -546,7 +545,7 @@ watch(
   { immediate: true }
 )
 
-/** 登录后回到带 ?checkout=1 的商品页：自动创建订单并进入支付 */
+/** 登录后回到带 ?checkout=1 的商品页：自动跳转支付页（验单成功后才创建订单） */
 watch(
   () => [route.query.checkout, loading.value, product.value?.id, route.params.id, authStore.isLoggedIn],
   async () => {
@@ -571,7 +570,6 @@ watch(
     if (checkoutSubmitLock.value) return
     checkoutSubmitLock.value = true
     try {
-      const payload = { productId: product.value.id, quantity: 1 }
       const configId = String(route.query.configId || selectedConfigId.value || '').trim()
       if (productConfigs.value.length) {
         if (!configId || !configExplicitlySelected.value) {
@@ -580,17 +578,15 @@ watch(
           alert(t('products.detail.selectConfigRequired'))
           return
         }
-        payload.configId = configId
       }
-      const res = await api.post('/api/orders', payload)
       await router.replace({
-        name: 'product-detail',
-        params: { id: String(route.params.id) },
-        query: {}
-      })
-      await router.push({
         name: 'payment',
-        params: { id: String(res.data.orderId) }
+        params: { id: 'new' },
+        query: {
+          productId: String(product.value.id),
+          quantity: '1',
+          ...(configId ? { configId } : {})
+        }
       })
     } catch (e) {
       console.error(e)

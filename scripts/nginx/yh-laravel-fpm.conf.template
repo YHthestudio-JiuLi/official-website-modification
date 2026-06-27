@@ -8,6 +8,13 @@
 # fastcgi_cache 需在 nginx http{} 中定义一次（setup-laravel-fpm.sh 会写入 yh-v2-fcgi-cache.conf）：
 #   fastcgi_cache_path __APP_ROOT__/laravel-api/storage/nginx-fcgi-cache levels=1:2 keys_zone=yh_v2_api:128m inactive=7d max_size=2g;
 
+# 前端哈希静态资源：强缓存一年（文件名带 hash，更新会换文件名）
+location ^~ /assets/ {
+    expires 365d;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    access_log off;
+}
+
 # 商品图：磁盘命中则 Nginx 直接返回，不占 PHP-FPM worker
 location ~ ^/api/v2/product-images/(?<imgid>\d+)$ {
     root __APP_ROOT__/laravel-api/storage/app/product-image-cache;

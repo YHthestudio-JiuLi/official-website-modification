@@ -10,6 +10,9 @@
 
 # 前端哈希静态资源：强缓存一年（文件名带 hash，更新会换文件名）
 location ^~ /assets/ {
+    # 宝塔站点 root 往往不是当前项目目录，这里显式指向 dist，避免 /assets/*.js 误走 SPA 回退
+    root __APP_ROOT__/dist;
+    try_files $uri =404;
     expires 365d;
     add_header Cache-Control "public, max-age=31536000, immutable";
     access_log off;

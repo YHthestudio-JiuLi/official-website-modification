@@ -80,7 +80,28 @@
                 <div class="pdc-hero-visual">
                   <div class="pdc-float-wrap">
                     <div class="pdc-img-frame pdc-img-frame-cyan">
-                      <img :src="heroCoverImage" :alt="product.name" @error="handleImageError" />
+                      <img :src="heroDisplayImage" :alt="product.name" @error="handleImageError" />
+                    </div>
+                  </div>
+                  <!-- 多图：主图下方横向缩略图，点击切换原图 -->
+                  <div v-if="galleryImages.length > 1" class="pdc-thumb-strip-wrap">
+                    <div class="pdc-thumb-strip" role="listbox" :aria-label="$t('products.detail.galleryThumbLabel')">
+                      <button
+                        v-for="(src, idx) in galleryImages"
+                        :key="'thumb-' + idx"
+                        type="button"
+                        class="pdc-thumb"
+                        :class="{ active: selectedGalleryIndex === idx }"
+                        role="option"
+                        :aria-selected="selectedGalleryIndex === idx"
+                        @click="selectGalleryImage(idx)"
+                      >
+                        <img
+                          :src="src"
+                          :alt="$t('products.detail.galleryAlt', { name: product.name, n: idx + 1 })"
+                          @error="handleImageError"
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -107,34 +128,6 @@
                   </div>
                   <h3 class="pdc-feature-title">{{ item.title }}</h3>
                   <p class="pdc-feature-desc">{{ item.description }}</p>
-                </div>
-              </div>
-            </section>
-
-            <!-- 产品展示：仅当有多张图时显示（首张已在英雄区）；其余图自上而下铺开，无副标题文案 -->
-            <section v-if="galleryExtraImages.length > 0" class="pdc-section">
-              <div class="pdc-section-head">
-                <h2 class="pdc-h2">
-                  <span class="pdc-pink">{{ $t('products.detail.galleryTitlePink') }}</span>
-                  <span class="pdc-cyan">{{ $t('products.detail.galleryTitleCyan') }}</span>
-                </h2>
-              </div>
-              <div class="pdc-gallery-stack">
-                <div
-                  v-for="(src, idx) in galleryExtraImages"
-                  :key="'gal' + idx"
-                  class="pdc-gallery-stack-item"
-                >
-                  <div
-                    class="pdc-img-frame"
-                    :class="idx % 2 === 0 ? 'pdc-img-frame-cyan' : 'pdc-img-frame-pink'"
-                  >
-                    <img
-                      :src="src"
-                      :alt="$t('products.detail.galleryAlt', { name: product.name, n: idx + 2 })"
-                      @error="handleImageError"
-                    />
-                  </div>
                 </div>
               </div>
             </section>
@@ -208,18 +201,8 @@
               </div>
             </section>
 
-            <!-- 价格与 USDT 说明 -->
+            <!-- 价格区 -->
             <section class="pdc-section pdc-section-last">
-              <div class="pdc-section-head">
-                <h2 class="pdc-h2">
-                  <span class="pdc-pink">{{ $t('products.detail.planTitlePink') }}</span>
-                  <span class="pdc-cyan">{{ $t('products.detail.planTitleCyan') }}</span>
-                </h2>
-                <div class="pdc-usdt-pill">
-                  <i class="fas fa-coins" />
-                  <span>{{ $t('products.detail.usdtOnly') }}</span>
-                </div>
-              </div>
               <div class="pdc-pricing-wrap">
                 <div class="pdc-price-card">
                   <div class="pdc-price-ribbon">{{ $t('products.detail.currentProductRibbon') }}</div>
@@ -317,20 +300,24 @@ const checkoutLoginRedirectLock = ref(false)
 const checkoutSubmitLock = ref(false)
 /** 与弹窗公告接口同源，用于顶部滚动条 */
 const popupNotice = ref(null)
+/** 英雄区当前展示的图片索引 */
+const selectedGalleryIndex = ref(0)
 
 const galleryImages = computed(() =>
   parseProductImages(product.value?.image, product.value?.images)
 )
 
-/** 主图固定为封面（首张），不轮播 */
-const heroCoverImage = computed(() => galleryImages.value[0] || '')
-
-/** 除首张外的图片：用于「产品展示」纵向列表（仅一张图时不渲染该区块） */
-const galleryExtraImages = computed(() => {
+const heroDisplayImage = computed(() => {
   const arr = galleryImages.value
-  if (!arr.length || arr.length <= 1) return []
-  return arr.slice(1)
+  if (!arr.length) return ''
+  return arr[selectedGalleryIndex.value] ?? arr[0]
 })
+
+function selectGalleryImage(index) {
+  if (index >= 0 && index < galleryImages.value.length) {
+    selectedGalleryIndex.value = index
+  }
+}
 
 /** 弹窗公告正文去标签后拼标题，供跑马灯使用 */
 function stripHtmlForMarquee(html) {
@@ -527,6 +514,7 @@ async function fetchPopupNotice() {
 async function loadProduct() {
   loading.value = true
   product.value = null
+  selectedGalleryIndex.value = 0
   selectedConfigId.value = null
   configExplicitlySelected.value = false
   configPickerHighlight.value = false
@@ -786,6 +774,60 @@ function handleImageError(e) {
   gap: 1rem;
 }
 
+/* 多图缩略图：主图下方横向居中 */
+.pdc-thumb-strip-wrap {
+  margin-top: 1rem;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.pdc-thumb-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem 0.35rem;
+  max-width: 100%;
+  width: max-content;
+  margin: 0 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.35) transparent;
+}
+.pdc-thumb-strip::-webkit-scrollbar {
+  height: 4px;
+}
+.pdc-thumb-strip::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.35);
+  border-radius: 999px;
+}
+.pdc-thumb {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+  background: rgba(10, 14, 28, 0.85);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.pdc-thumb:hover {
+  border-color: rgba(0, 229, 255, 0.55);
+  transform: translateY(-1px);
+}
+.pdc-thumb.active {
+  border-color: #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
+}
+.pdc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .pdc-btn {
   display: inline-flex;
   align-items: center;
@@ -863,6 +905,18 @@ button.pdc-btn {
 .pdc-float-wrap {
   position: relative;
 }
+
+.pdc-hero-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.pdc-hero-visual .pdc-float-wrap {
+  width: 100%;
+}
+
 .pdc-img-frame {
   border-radius: 1rem;
   overflow: hidden;
@@ -1154,25 +1208,6 @@ button.pdc-btn {
   word-break: break-word;
 }
 
-/* 多图时：首张在英雄区；此处大屏两列自动换行，小屏单列自上而下 */
-.pdc-gallery-stack {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  width: 100%;
-  max-width: min(72rem, 100%);
-  margin: 0 auto;
-}
-@media (min-width: 900px) {
-  .pdc-gallery-stack {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.75rem 1.5rem;
-  }
-}
-.pdc-gallery-stack-item {
-  min-width: 0;
-}
-
 /* 仅有重要说明、无「技术规格」霓虹外框时的容器宽度 */
 .pdc-spec-notice-only {
   max-width: min(72rem, 100%);
@@ -1277,19 +1312,6 @@ button.pdc-btn {
 .pdc-spec-notice-warn {
   color: #ff00ff;
   font-weight: 700;
-}
-
-.pdc-usdt-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: linear-gradient(135deg, #26a17b, #1a8a6a);
-  color: #fff;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  font-family: Orbitron, sans-serif;
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
 }
 
 .pdc-pricing-wrap {

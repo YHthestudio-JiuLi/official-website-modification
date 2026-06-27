@@ -21,11 +21,11 @@ class ProductController extends Controller
         $lang = $translateEn ? 'en' : 'zh';
         $part = 'products:list:'.$lang.':'.($limit ?? 'all');
 
-        $data = PublicApiCache::remember('catalog', $part, fn () => $this->catalog->listProductsForApi($translateEn, null, $limit));
+        $data = PublicApiCache::remember('catalog', $part, fn () => $this->catalog->listProductsForApiLite($translateEn, null, $limit), PublicApiCache::TTL_CATALOG_SECONDS);
 
         return response()
             ->json($data)
-            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_SECONDS);
+            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_CATALOG_SECONDS);
     }
 
     public function show(Request $request, int $id): JsonResponse

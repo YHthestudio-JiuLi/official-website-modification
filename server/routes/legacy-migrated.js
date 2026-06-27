@@ -11,7 +11,6 @@ const { deleteQuestionUploadFilesLocally } = require('../lib/questionUploadClean
 const { comparePassword } = require('../lib/password');
 const { saveSession } = require('../lib/session');
 const { verifyLegacyNodeBridgeToken } = require('../lib/bridge-token');
-const { sendAuthError } = require('../lib/auth-messages');
 
 function registerLegacyMigratedRoutes(app, deps) {
   const {
@@ -63,7 +62,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     req.session.user = { id: user.id, username: user.username, email: user.email };
     res.json({ user: req.session.user });
   } else {
-    return sendAuthError(res, req, { code: 'invalid_credentials', status: 401 });
+    res.status(401).json({ message: 'Invalid username or password' });
   }
 });
 
@@ -72,12 +71,12 @@ app.post('/api/auth/register', async (req, res) => {
 
   const existingUser = await dbOperations.users.findByUsername(username);
   if (existingUser) {
-    return sendAuthError(res, req, { code: 'username_taken', status: 400, field: 'username' });
+    return res.status(400).json({ message: 'Username already exists' });
   }
 
   const existingEmail = await dbOperations.users.findByEmail(email);
   if (existingEmail) {
-    return sendAuthError(res, req, { code: 'email_taken', status: 400, field: 'email' });
+    return res.status(400).json({ message: 'Email already in use' });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -158,10 +157,35 @@ app.get('/api/payment-settings', async (req, res) => {
 });
 
 app.post('/api/orders', requireUser, async (req, res) => {
-  const { productId, quantity = 1, shippingAddress } = req.body;
+  const { productId, quantity = 1, shippingAddress, configId } = req.body;
   const product = await dbOperations.products.findById(parseInt(productId));
   if (!product) {
     return res.status(404).json({ error: 'Product not found' });
+  }
+
+  let configs = [];
+  try {
+    const raw = product.configsJson;
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) configs = parsed;
+    }
+  } catch (_e) {
+    configs = [];
+  }
+
+  let price = product.priceUsdt || product.price || 0;
+  let resolvedConfigId = null;
+  let resolvedConfigName = null;
+
+  if (configs.length > 0) {
+    const selected = configs.find((c) => c && String(c.id) === String(configId || ''));
+    if (!selected) {
+      return res.status(400).json({ error: 'Configuration required' });
+    }
+    price = Number(selected.priceUsdt ?? selected.price ?? 0);
+    resolvedConfigId = String(selected.id);
+    resolvedConfigName = String(selected.name || '');
   }
 
   const walletAddress = await getUsdtWalletAddress();
@@ -169,19 +193,25 @@ app.post('/api/orders', requireUser, async (req, res) => {
   const network = paymentSettings ? paymentSettings.network : 'TRC20';
 
   const translatedProduct = translateProduct(product);
+  let productName = translatedProduct.name;
+  if (resolvedConfigName) {
+    productName = `${productName} - ${resolvedConfigName}`;
+  }
   const orderData = {
     userId: req.session.user.id,
     username: req.session.user.username,
     productId: product.id,
-    productName: translatedProduct.name,
+    productName,
     quantity: parseInt(quantity),
-    price: product.priceUsdt || product.price || 0,
-    totalAmount: (product.priceUsdt || product.price || 0) * parseInt(quantity),
+    price,
+    totalAmount: price * parseInt(quantity),
     status: 'pending',
     paymentMethod: 'USDT',
     usdtWallet: walletAddress,
     network: network,
-    shippingAddress: shippingAddress
+    shippingAddress: shippingAddress,
+    configId: resolvedConfigId,
+    configName: resolvedConfigName,
   };
 
   const orderId = await dbOperations.orders.create(orderData);
@@ -516,7 +546,7 @@ app.post('/api/admin/auth/login', loginLimiter, async (req, res) => {
       await saveSession(req);
       res.json({ admin: req.session.admin });
     } else {
-      return sendAuthError(res, req, { code: 'invalid_credentials', status: 401 });
+      res.status(401).json({ message: 'Invalid username or password' });
     }
   } catch (error) {
     console.error('[admin/auth/login] 失败:', error.message);
@@ -1352,10 +1382,7 @@ app.put('/api/admin/payment-settings', requireAdmin, async (req, res) => {
 
 app.get('/api/popup-notice', async (req, res) => {
   try {
-    const scope = String(req.query.scope || 'popup').toLowerCase();
-    const notice = scope === 'display'
-      ? await dbOperations.popupNotices.findActiveDisplay()
-      : await dbOperations.popupNotices.findActive();
+    const notice = await dbOperations.popupNotices.findActive();
     res.json({ notice });
   } catch (error) {
     console.error('[API Error] /api/popup-notice:', error.message);
@@ -1374,11 +1401,9 @@ app.get('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
-  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
-  const popupEnabled = popup_enabled !== undefined ? popup_enabled !== false : enabled !== false;
-  const displayEnabled = display_enabled !== undefined ? display_enabled !== false : enabled !== false;
+  const { title, content, enabled } = req.body || {};
   try {
-    const notice = await dbOperations.popupNotices.create(title, content, popupEnabled, displayEnabled);
+    const notice = await dbOperations.popupNotices.create(title, content, enabled !== false);
     if (!notice) return res.status(400).json({ error: 'Invalid input' });
     res.json({ notice });
   } catch (error) {
@@ -1388,17 +1413,9 @@ app.post('/api/admin/popup-notices', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/admin/popup-notices/:id', requireAdmin, async (req, res) => {
-  const { title, content, enabled, popup_enabled, display_enabled } = req.body || {};
-  const popupEnabled = popup_enabled !== undefined ? !!popup_enabled : !!enabled;
-  const displayEnabled = display_enabled !== undefined ? !!display_enabled : !!enabled;
+  const { title, content, enabled } = req.body || {};
   try {
-    const notice = await dbOperations.popupNotices.update(
-      req.params.id,
-      title,
-      content,
-      popupEnabled,
-      displayEnabled
-    );
+    const notice = await dbOperations.popupNotices.update(req.params.id, title, content, enabled);
     if (!notice) return res.status(404).json({ error: 'Not found or invalid input' });
     res.json({ notice });
   } catch (error) {

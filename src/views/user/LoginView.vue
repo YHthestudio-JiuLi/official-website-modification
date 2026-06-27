@@ -62,7 +62,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { resolveAuthError } from '@/utils/authErrorMessage'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminStore } from '@/stores/admin'
 import { useV2Api } from '@/utils/apiPath'
@@ -72,6 +72,7 @@ import AppFooter from '@/components/common/AppFooter.vue'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const authStore = useAuthStore()
 const adminStore = useAdminStore()
 
@@ -98,7 +99,14 @@ async function handleLogin() {
     }
     await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
-    error.value = resolveAuthError(err, { context: 'login' })
+    const status = err.response?.status
+    if (status === 429) {
+      error.value = t('auth.login.error.tooManyRequests')
+    } else if (status >= 500) {
+      error.value = t('auth.login.error.serverUnavailable')
+    } else {
+      error.value = err.response?.data?.message || err.response?.data?.error || t('auth.login.error.invalidCredentials')
+    }
   } finally {
     loading.value = false
   }

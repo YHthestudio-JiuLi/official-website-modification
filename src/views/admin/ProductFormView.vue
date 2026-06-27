@@ -292,6 +292,57 @@
             </div>
           </div>
 
+          <!-- 产品配置（可选，多配置时用户购买需选择） -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <i class="fas fa-layer-group"></i> {{ $t('admin.productForm.configSection') }}
+            </h3>
+            <p class="section-intro">{{ $t('admin.productForm.configIntro') }}</p>
+
+            <div v-for="(row, idx) in configRows" :key="'cfg' + idx" class="config-row">
+              <div class="config-row-head">
+                <span>{{ $t('admin.productForm.configRowLabel', { n: idx + 1 }) }}</span>
+                <button type="button" class="btn-icon-remove" :title="$t('admin.productForm.removeTitle')" @click="removeConfigRow(idx)">
+                  <i class="fas fa-trash" />
+                </button>
+              </div>
+              <div class="config-row-fields">
+                <div class="form-group config-name">
+                  <label>{{ $t('admin.productForm.configName') }}</label>
+                  <input
+                    v-model="row.name"
+                    type="text"
+                    class="form-input"
+                    :placeholder="$t('admin.productForm.configNamePh')"
+                  />
+                </div>
+                <div class="form-group config-price">
+                  <label>{{ $t('admin.productForm.configPrice') }}</label>
+                  <div class="price-input-wrapper">
+                    <input
+                      v-model.number="row.priceUsdt"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="form-input price-input"
+                      :placeholder="$t('admin.productForm.pricePlaceholder')"
+                    />
+                    <span class="currency-label">USDT</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-secondary btn-add-row"
+              :disabled="configRows.length >= 20"
+              @click="addConfigRow"
+            >
+              <i class="fas fa-plus" /> {{ $t('admin.productForm.addConfig', { current: configRows.length }) }}
+            </button>
+          </div>
+
           <!-- Pricing -->
           <div class="form-section">
             <h3 class="section-title">
@@ -301,7 +352,7 @@
             <div class="form-group">
               <label for="priceUsdt">
                 <i class="fab fa-bitcoin"></i> {{ $t('admin.productForm.priceUsdt') }}
-                <span class="required">*</span>
+                <span v-if="!hasValidConfigs" class="required">*</span>
               </label>
               <div class="price-input-wrapper">
                 <input
@@ -318,56 +369,9 @@
               </div>
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                {{ $t('admin.productForm.priceHint') }}
+                {{ hasValidConfigs ? $t('admin.productForm.priceHintWithConfigs') : $t('admin.productForm.priceHint') }}
               </p>
             </div>
-          </div>
-
-          <!-- 商品配置：详情页可选规格与独立 USDT 价 -->
-          <div class="form-section">
-            <h3 class="section-title">
-              <i class="fas fa-sliders-h"></i> {{ $t('admin.productForm.configsTitle') }}
-            </h3>
-            <p class="form-hint feature-intro">
-              <i class="fas fa-info-circle"></i>
-              {{ $t('admin.productForm.configsIntro') }}
-            </p>
-            <div v-for="(row, idx) in configRows" :key="row.id" class="feature-row">
-              <div class="feature-row-head">
-                <span class="feature-row-label">{{ $t('admin.productForm.configRowLabel', { n: idx + 1 }) }}</span>
-                <button type="button" class="btn-icon-remove" @click="removeConfigRow(idx)" :title="$t('admin.productForm.removeTitle')">
-                  <i class="fas fa-times" />
-                </button>
-              </div>
-              <div class="form-row form-row-2">
-                <div class="form-group">
-                  <label>{{ $t('admin.productForm.configName') }}</label>
-                  <input v-model="row.name" type="text" class="form-input" :placeholder="$t('admin.productForm.configName')" />
-                </div>
-                <div class="form-group">
-                  <label>{{ $t('admin.productForm.configPrice') }}</label>
-                  <div class="price-input-wrapper">
-                    <input
-                      v-model.number="row.priceUsdt"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      class="form-input price-input"
-                      :placeholder="$t('admin.productForm.pricePlaceholder')"
-                    />
-                    <span class="currency-label">USDT</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="btn btn-secondary btn-add-feature"
-              :disabled="configRows.length >= 20"
-              @click="addConfigRow"
-            >
-              <i class="fas fa-plus" /> {{ $t('admin.productForm.addConfig', { current: configRows.length }) }}
-            </button>
           </div>
 
           <!-- Form Actions -->
@@ -447,7 +451,7 @@ const featureRows = ref([])
 const specCardRows = ref([])
 /** 详情页重要说明行，提交时序列化为 usageNoticeJson */
 const usageNoticeRows = ref([])
-/** 商品配置行，提交时作为 configs 数组 */
+/** 商品配置行，提交时序列化为 configsJson */
 const configRows = ref([])
 const uploadingImage = ref(false)
 const loading = ref(false)
@@ -581,37 +585,67 @@ function removeUsageNoticeRow(index) {
   usageNoticeRows.value.splice(index, 1)
 }
 
-/** 生成配置行唯一 id */
-function generateConfigId() {
-  return `cfg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+function newConfigId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `cfg-${crypto.randomUUID()}`
+  }
+  return `cfg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function loadConfigRowsFromProduct(data) {
   if (data.configs && Array.isArray(data.configs)) {
-    configRows.value = data.configs.map((c) => ({
-      id: c.id || generateConfigId(),
-      name: c.name || '',
-      priceUsdt: c.priceUsdt != null ? Number(c.priceUsdt) : 0
+    configRows.value = data.configs.map((r) => ({
+      id: r.id || newConfigId(),
+      name: r.name || '',
+      priceUsdt: Number(r.priceUsdt ?? r.price ?? 0)
     }))
     return
+  }
+  if (data.configsJson && typeof data.configsJson === 'string') {
+    try {
+      const v = JSON.parse(data.configsJson)
+      if (Array.isArray(v)) {
+        configRows.value = v.map((r) => ({
+          id: r.id || newConfigId(),
+          name: r.name || '',
+          priceUsdt: Number(r.priceUsdt ?? r.price ?? 0)
+        }))
+        return
+      }
+    } catch (_e) {}
   }
   configRows.value = []
 }
 
 function addConfigRow() {
   if (configRows.value.length >= 20) return
-  configRows.value.push({ id: generateConfigId(), name: '', priceUsdt: 0 })
+  configRows.value.push({ id: newConfigId(), name: '', priceUsdt: 0 })
 }
 
 function removeConfigRow(index) {
   configRows.value.splice(index, 1)
 }
 
+const normalizedConfigs = computed(() =>
+  configRows.value
+    .map((r) => ({
+      id: r.id || newConfigId(),
+      name: (r.name || '').trim(),
+      priceUsdt: parseFloat(r.priceUsdt) || 0
+    }))
+    .filter((r) => r.name)
+)
+
+const hasValidConfigs = computed(() => normalizedConfigs.value.length > 0)
+
 // Form validation
 const isValid = computed(() => {
   if (!form.value.name || !form.value.description) return false
   if (!imageList.value.length) return false
   if (!form.value.date) return false
+  if (hasValidConfigs.value) {
+    return normalizedConfigs.value.every((c) => c.priceUsdt >= 0)
+  }
   if (form.value.priceUsdt < 0) return false
   return true
 })
@@ -772,17 +806,14 @@ async function handleSubmit() {
         mode: r.mode === 'ban' ? 'ban' : 'check'
       }))
       .filter((r) => r.text)
-    const configs = configRows.value
-      .map((r) => ({
-        id: r.id,
-        name: (r.name || '').trim(),
-        priceUsdt: parseFloat(r.priceUsdt) || 0
-      }))
-      .filter((r) => r.name)
+    const configs = normalizedConfigs.value
+    const basePriceUsdt = configs.length
+      ? Math.min(...configs.map((c) => c.priceUsdt))
+      : parseFloat(form.value.priceUsdt) || 0
     const submitData = {
       ...form.value,
       image: normalizedImages.length > 1 ? JSON.stringify(normalizedImages) : (normalizedImages[0] || ''),
-      priceUsdt: parseFloat(form.value.priceUsdt) || 0,
+      priceUsdt: basePriceUsdt,
       featureCards,
       specCards,
       usageNoticeLines,
@@ -1026,6 +1057,51 @@ function showToast(message, type = 'success') {
 
 .btn-add-feature {
   margin-top: 0.25rem;
+}
+
+.config-row {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.config-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.config-row-fields {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 1rem;
+}
+
+.config-row-fields .form-group {
+  margin-bottom: 0;
+}
+
+.section-intro {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.btn-add-row {
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .config-row-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-group {

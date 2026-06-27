@@ -5,8 +5,8 @@
       <div class="auth-container">
         <div class="auth-card">
           <div class="auth-header">
-            <h1><i class="fas fa-user-plus"></i> {{ $t('auth.register.title') }}</h1>
-            <p>{{ $t('auth.register.subtitle') }}</p>
+            <h1><i class="fas fa-user-plus"></i> Register</h1>
+            <p>Join YHthestudio and start your tech journey</p>
           </div>
 
           <div v-if="error" class="alert alert-error">
@@ -16,7 +16,7 @@
           <form @submit.prevent="handleRegister" class="auth-form">
             <div class="form-group">
               <label for="username">
-                <i class="fas fa-user"></i> {{ $t('auth.register.username') }}
+                <i class="fas fa-user"></i> Username
               </label>
               <input
                 type="text"
@@ -30,7 +30,7 @@
 
             <div class="form-group">
               <label for="email">
-                <i class="fas fa-envelope"></i> {{ $t('auth.register.email') }}
+                <i class="fas fa-envelope"></i> Email
               </label>
               <input
                 type="email"
@@ -43,7 +43,7 @@
 
             <div class="form-group">
               <label for="password">
-                <i class="fas fa-lock"></i> {{ $t('auth.register.password') }}
+                <i class="fas fa-lock"></i> Password
               </label>
               <input
                 type="password"
@@ -56,16 +56,12 @@
             </div>
 
             <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-              <i class="fas fa-user-plus"></i>
-              {{ loading ? $t('common.loading') : $t('auth.register.submit') }}
+              <i class="fas fa-user-plus"></i> {{ loading ? $t('common.loading') : 'Register' }}
             </button>
           </form>
 
           <div class="auth-footer">
-            <p>
-              {{ $t('auth.register.hasAccount') }}
-              <router-link :to="loginRoute">{{ $t('auth.register.loginNow') }}</router-link>
-            </p>
+            <p>Already have an account? <router-link :to="loginRoute">Login Now</router-link></p>
           </div>
         </div>
       </div>
@@ -78,13 +74,14 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { buildLoginRoute, navigateAfterAuth } from '@/utils/authRedirect'
-import { resolveAuthError } from '@/utils/authErrorMessage'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 const form = ref({
@@ -107,7 +104,7 @@ async function handleRegister() {
     await authStore.register(form.value)
     await navigateAfterAuth(router, route.query.redirect)
   } catch (err) {
-    error.value = resolveAuthError(err, { context: 'register' })
+    error.value = err.response?.data?.message || t('auth.register.error.usernameExists')
   } finally {
     loading.value = false
   }

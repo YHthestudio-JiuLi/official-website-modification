@@ -11,7 +11,7 @@
           </div>
 
           <div v-else class="product-detail-cyber">
-            <!-- 公告横幅：开启「页面展示」的公告，横向滚动展示 -->
+            <!-- 公告横幅：与弹窗公告同源，横向滚动展示 -->
             <div v-if="marqueePlainText" class="pdc-alert">
               <div class="pdc-alert-inner">
                 <i class="fas fa-bullhorn pdc-alert-icon" aria-hidden="true" />
@@ -38,9 +38,10 @@
                     </template>
                   </h2>
                   <p class="pdc-hero-desc">{{ product.description || $t('products.detail.noDescription') }}</p>
+
                   <!-- 多配置：首屏即展示，须用户手动选择后才能购买 -->
                   <div
-                    v-if="hasProductConfigs"
+                    v-if="productConfigs.length"
                     id="pdc-config-picker"
                     class="pdc-config-picker pdc-config-picker-hero"
                     :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
@@ -51,7 +52,7 @@
                         :key="'hero-' + cfg.id"
                         type="button"
                         class="pdc-config-option"
-                        :class="{ active: configExplicitlySelected && selectedConfigId === cfg.id }"
+                        :class="{ active: selectedConfigId === cfg.id }"
                         @click="selectConfig(cfg.id)"
                       >
                         <span class="pdc-config-name">{{ cfg.name }}</span>
@@ -59,45 +60,27 @@
                       </button>
                     </div>
                   </div>
+
                   <div class="pdc-hero-actions">
                     <button
                       type="button"
                       class="pdc-btn pdc-btn-usdt"
                       :disabled="buySubmitting"
-                      @click="onBuyNowClick"
+                      @click="onBuyNowClick('hero')"
                     >
                       <i class="fas fa-shopping-cart" />
-                      {{ buySubmitting ? $t('products.detail.buyProcessing') : $t('products.detail.buyNow') }}
+                      {{ buyNowLabel }}
                     </button>
                     <router-link to="/products" class="pdc-btn pdc-btn-outline">
                       <i class="fas fa-list" /> {{ $t('products.detail.moreProducts') }}
                     </router-link>
                   </div>
                 </div>
-                <!-- 主图 + 多图时下方横向缩略图，点击切换主图 -->
+                <!-- 单图时主图只在英雄区展示；无图时仍保留占位框 -->
                 <div class="pdc-hero-visual">
                   <div class="pdc-float-wrap">
-                    <div class="pdc-img-frame pdc-img-frame-cyan pdc-hero-main-frame">
-                      <img
-                        :src="heroDisplayImage"
-                        :alt="product.name"
-                        @error="handleImageError"
-                      />
-                    </div>
-                    <div v-if="galleryImages.length > 1" class="pdc-hero-thumbs" role="listbox">
-                      <button
-                        v-for="(src, idx) in galleryImages"
-                        :key="'thumb-' + idx"
-                        type="button"
-                        class="pdc-hero-thumb"
-                        :class="{ 'pdc-hero-thumb--active': idx === selectedHeroImageIndex }"
-                        role="option"
-                        :aria-selected="idx === selectedHeroImageIndex"
-                        :aria-label="$t('products.detail.galleryAlt', { name: product.name, n: idx + 1 })"
-                        @click="selectedHeroImageIndex = idx"
-                      >
-                        <img :src="src" alt="" loading="lazy" decoding="async" @error="handleImageError" />
-                      </button>
+                    <div class="pdc-img-frame pdc-img-frame-cyan">
+                      <img :src="heroCoverImage" :alt="product.name" @error="handleImageError" />
                     </div>
                   </div>
                 </div>
@@ -124,6 +107,34 @@
                   </div>
                   <h3 class="pdc-feature-title">{{ item.title }}</h3>
                   <p class="pdc-feature-desc">{{ item.description }}</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- 产品展示：仅当有多张图时显示（首张已在英雄区）；其余图自上而下铺开，无副标题文案 -->
+            <section v-if="galleryExtraImages.length > 0" class="pdc-section">
+              <div class="pdc-section-head">
+                <h2 class="pdc-h2">
+                  <span class="pdc-pink">{{ $t('products.detail.galleryTitlePink') }}</span>
+                  <span class="pdc-cyan">{{ $t('products.detail.galleryTitleCyan') }}</span>
+                </h2>
+              </div>
+              <div class="pdc-gallery-stack">
+                <div
+                  v-for="(src, idx) in galleryExtraImages"
+                  :key="'gal' + idx"
+                  class="pdc-gallery-stack-item"
+                >
+                  <div
+                    class="pdc-img-frame"
+                    :class="idx % 2 === 0 ? 'pdc-img-frame-cyan' : 'pdc-img-frame-pink'"
+                  >
+                    <img
+                      :src="src"
+                      :alt="$t('products.detail.galleryAlt', { name: product.name, n: idx + 2 })"
+                      @error="handleImageError"
+                    />
+                  </div>
                 </div>
               </div>
             </section>
@@ -213,19 +224,20 @@
                 <div class="pdc-price-card">
                   <div class="pdc-price-ribbon">{{ $t('products.detail.currentProductRibbon') }}</div>
                   <h3 class="pdc-price-name">{{ product.name }}</h3>
+
                   <!-- 多配置选择（底部套餐区同步展示） -->
                   <div
-                    v-if="hasProductConfigs"
+                    v-if="productConfigs.length"
                     class="pdc-config-picker"
                     :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
                   >
                     <div class="pdc-config-options">
                       <button
                         v-for="cfg in productConfigs"
-                        :key="'price-' + cfg.id"
+                        :key="cfg.id"
                         type="button"
                         class="pdc-config-option"
-                        :class="{ active: configExplicitlySelected && selectedConfigId === cfg.id }"
+                        :class="{ active: selectedConfigId === cfg.id }"
                         @click="selectConfig(cfg.id)"
                       >
                         <span class="pdc-config-name">{{ cfg.name }}</span>
@@ -233,11 +245,10 @@
                       </button>
                     </div>
                   </div>
-                  <!-- 仅展示一个主价格：有配置时须先选中；否则有 USDT 价则优先 USDT -->
+
                   <div
-                    v-if="showPrimaryPrice"
                     class="pdc-price-single"
-                    :class="{ 'pdc-price-single-cny': primaryPriceKind === 'cny', 'pdc-price-single-hint': hasProductConfigs && !configExplicitlySelected }"
+                    :class="{ 'pdc-price-single-cny': primaryPriceKind === 'cny' }"
                   >
                     {{ primaryPriceText }}
                   </div>
@@ -260,10 +271,10 @@
                     type="button"
                     class="pdc-btn pdc-btn-buy"
                     :disabled="buySubmitting"
-                    @click="onBuyNowClick"
+                    @click="onBuyNowClick('pricing')"
                   >
                     <i class="fas fa-shopping-cart" />
-                    {{ buySubmitting ? $t('products.detail.buyProcessing') : $t('products.detail.buyNow') }}
+                    {{ buyNowLabel }}
                   </button>
                 </div>
               </div>
@@ -287,7 +298,6 @@ import AppFooter from '@/components/common/AppFooter.vue'
 import { parseProductImages } from '@/utils/productImages'
 import { useAuthStore } from '@/stores/auth'
 import { startProductCheckout } from '@/utils/productCheckout'
-import { fetchDisplayNotice } from '@/services/popup'
 
 const route = useRoute()
 const router = useRouter()
@@ -296,31 +306,29 @@ const authStore = useAuthStore()
 const product = ref(null)
 const loading = ref(true)
 const buySubmitting = ref(false)
+const selectedConfigId = ref(null)
+/** 用户是否已手动点选配置（有多个配置时须为 true 才能下单） */
+const configExplicitlySelected = ref(false)
+const configPickerHighlight = ref(false)
 /** 未登录时由 ?checkout=1 触发过一次跳转登录，避免 watch 重复 replace */
 const checkoutLoginRedirectLock = ref(false)
 /** 登录回来自动下单只执行一次（成功后会清 query 并离开页面） */
 const checkoutSubmitLock = ref(false)
-/** 开启「页面展示」的公告，用于顶部滚动条 */
+/** 与弹窗公告接口同源，用于顶部滚动条 */
 const popupNotice = ref(null)
-/** 用户选中的配置 id（须手动点击后才有效） */
-const selectedConfigId = ref(null)
-/** 是否已手动选择配置（不自动选中首项） */
-const configExplicitlySelected = ref(false)
-/** 未选配置就点购买时高亮配置区 */
-const configPickerHighlight = ref(false)
 
 const galleryImages = computed(() =>
   parseProductImages(product.value?.image, product.value?.images)
 )
 
-/** 英雄区当前展示的图片索引（缩略图点击切换） */
-const selectedHeroImageIndex = ref(0)
-const heroDisplayImage = computed(
-  () => galleryImages.value[selectedHeroImageIndex.value] || galleryImages.value[0] || ''
-)
+/** 主图固定为封面（首张），不轮播 */
+const heroCoverImage = computed(() => galleryImages.value[0] || '')
 
-watch(galleryImages, () => {
-  selectedHeroImageIndex.value = 0
+/** 除首张外的图片：用于「产品展示」纵向列表（仅一张图时不渲染该区块） */
+const galleryExtraImages = computed(() => {
+  const arr = galleryImages.value
+  if (!arr.length || arr.length <= 1) return []
+  return arr.slice(1)
 })
 
 /** 弹窗公告正文去标签后拼标题，供跑马灯使用 */
@@ -362,47 +370,64 @@ const heroParts = computed(() => {
   return null
 })
 
-/** 接口返回的可选配置列表 */
+/** 商品配置列表（后台 configsJson） */
 const productConfigs = computed(() => {
   const raw = product.value?.configs
-  if (!Array.isArray(raw) || !raw.length) return []
+  if (!Array.isArray(raw)) return []
   return raw
     .map((c) => ({
-      id: String(c.id || ''),
+      id: String(c.id || '').trim(),
       name: String(c.name || '').trim(),
-      priceUsdt: c.priceUsdt != null ? Number(c.priceUsdt) : 0
+      priceUsdt: Number(c.priceUsdt ?? c.price ?? 0)
     }))
     .filter((c) => c.id && c.name)
 })
 
-const hasProductConfigs = computed(() => productConfigs.value.length > 0)
+const selectedConfig = computed(() =>
+  productConfigs.value.find((c) => c.id === selectedConfigId.value) || null
+)
 
-const selectedConfig = computed(() => {
-  if (!selectedConfigId.value) return null
-  return productConfigs.value.find((c) => c.id === selectedConfigId.value) || null
+const canCheckout = computed(() => {
+  if (productConfigs.value.length === 0) return true
+  return configExplicitlySelected.value && !!selectedConfigId.value
 })
 
-/** 是否展示主价格区（有配置未选中时也展示提示文案） */
-const showPrimaryPrice = computed(() => {
-  if (hasProductConfigs.value) return true
-  const p = product.value
-  if (!p) return false
-  const usdtNum = p.priceUsdt != null && p.priceUsdt !== '' ? Number(p.priceUsdt) : NaN
-  if (Number.isFinite(usdtNum) && usdtNum > 0) return true
-  const cny = p.price
-  if (cny != null && cny !== '' && Number(cny) > 0) return true
-  return true
-})
-
-/** 卡片内主价格：有配置且已选中则用配置价；无配置则 USDT 优先，否则人民币 */
-const primaryPriceKind = computed(() => {
-  if (hasProductConfigs.value && configExplicitlySelected.value && selectedConfig.value) {
-    const price = selectedConfig.value.priceUsdt
-    if (Number.isFinite(price) && price > 0) return 'usdt'
-    return 'none'
+const buyNowLabel = computed(() => {
+  if (buySubmitting.value) return t('products.detail.buyProcessing')
+  if (productConfigs.value.length && !configExplicitlySelected.value) {
+    return t('products.detail.selectConfigToBuy')
   }
+  return t('products.detail.buyNow')
+})
+
+function selectConfig(id) {
+  selectedConfigId.value = id
+  configExplicitlySelected.value = true
+  configPickerHighlight.value = false
+}
+
+function promptConfigSelection() {
+  configPickerHighlight.value = true
+  window.setTimeout(() => {
+    configPickerHighlight.value = false
+  }, 2200)
+}
+
+function formatConfigPrice(cfg) {
+  const n = Number(cfg.priceUsdt)
+  if (Number.isFinite(n) && n > 0) return `${n} USDT`
+  return t('products.detail.priceTbd')
+}
+
+/** 卡片内主价格：有配置用所选配置价，否则用商品基础价 */
+const primaryPriceKind = computed(() => {
   const p = product.value
   if (!p) return 'none'
+  if (selectedConfig.value) {
+    const n = Number(selectedConfig.value.priceUsdt)
+    if (Number.isFinite(n) && n > 0) return 'usdt'
+    return 'none'
+  }
   const usdtRaw = p.priceUsdt
   const usdtNum = usdtRaw != null && usdtRaw !== '' ? Number(usdtRaw) : NaN
   if (Number.isFinite(usdtNum) && usdtNum > 0) return 'usdt'
@@ -412,62 +437,21 @@ const primaryPriceKind = computed(() => {
 })
 
 const primaryPriceText = computed(() => {
-  if (hasProductConfigs.value) {
-    if (!configExplicitlySelected.value || !selectedConfig.value) {
-      return t('products.detail.selectConfigForPrice')
-    }
-    const price = selectedConfig.value.priceUsdt
-    if (Number.isFinite(price) && price > 0) return `${Number(price)} USDT`
-    return t('products.detail.priceTbd')
-  }
   const p = product.value
   if (!p) return t('products.detail.dash')
+  if (productConfigs.value.length && !configExplicitlySelected.value) {
+    return t('products.detail.selectConfigForPrice')
+  }
+  if (selectedConfig.value) {
+    const n = Number(selectedConfig.value.priceUsdt)
+    if (Number.isFinite(n) && n > 0) return `${n} USDT`
+    return t('products.detail.priceTbd')
+  }
   const k = primaryPriceKind.value
   if (k === 'usdt') return `${Number(p.priceUsdt)} USDT`
   if (k === 'cny') return `¥${p.price}`
   return t('products.detail.priceTbd')
 })
-
-/** 有配置时须手动选中才能下单 */
-const canCheckout = computed(() => {
-  if (!hasProductConfigs.value) return true
-  return configExplicitlySelected.value && !!selectedConfigId.value
-})
-
-/** 配置行右侧价格文案 */
-function formatConfigPrice(cfg) {
-  const n = Number(cfg?.priceUsdt)
-  if (!Number.isFinite(n) || n <= 0) return t('products.detail.priceTbd')
-  return `${Number(n)} USDT`
-}
-
-/** 手动选择配置并同步 URL query，便于登录回跳恢复 */
-function selectConfig(configId) {
-  const id = String(configId)
-  const found = productConfigs.value.some((c) => c.id === id)
-  if (!found) return
-  selectedConfigId.value = id
-  configExplicitlySelected.value = true
-  configPickerHighlight.value = false
-  const nextQuery = { ...route.query, configId: id }
-  if (String(route.query.configId || '') !== id) {
-    router.replace({ query: nextQuery })
-  }
-}
-
-/** 从 route.query.configId 恢复已选配置（须为有效 id） */
-function restoreConfigFromQuery() {
-  configExplicitlySelected.value = false
-  selectedConfigId.value = null
-  configPickerHighlight.value = false
-  const qid = route.query.configId
-  if (!qid || !hasProductConfigs.value) return
-  const found = productConfigs.value.find((c) => c.id === String(qid))
-  if (found) {
-    selectedConfigId.value = found.id
-    configExplicitlySelected.value = true
-  }
-}
 
 /** 仅使用接口返回的 featureCards（后台 featuresJson） */
 const displayFeatureCards = computed(() => {
@@ -532,7 +516,7 @@ const showSpecsSection = computed(
 
 async function fetchPopupNotice() {
   try {
-    const res = await fetchDisplayNotice()
+    const res = await api.get('/api/popup-notice')
     popupNotice.value = res.data?.notice || null
   } catch (_e) {
     popupNotice.value = null
@@ -548,7 +532,13 @@ async function loadProduct() {
   try {
     const response = await catalogApi.getProduct(route.params.id)
     product.value = response.data
-    restoreConfigFromQuery()
+    const cfgs = Array.isArray(response.data?.configs) ? response.data.configs : []
+    const queryConfigId = String(route.query.configId || '').trim()
+    // 仅登录回跳时恢复已选配置，不默认选中第一项
+    if (queryConfigId && cfgs.some((c) => String(c.id) === queryConfigId)) {
+      selectedConfigId.value = queryConfigId
+      configExplicitlySelected.value = true
+    }
   } catch (error) {
     console.error('Failed to fetch product:', error)
   } finally {
@@ -565,13 +555,6 @@ watch(
     fetchPopupNotice()
   },
   { immediate: true }
-)
-
-watch(
-  () => route.query.configId,
-  () => {
-    if (!loading.value && product.value?.id) restoreConfigFromQuery()
-  }
 )
 
 /** 登录后回到带 ?checkout=1 的商品页：自动创建订单并进入支付 */
@@ -596,28 +579,21 @@ watch(
       return
     }
 
-    if (hasProductConfigs.value && !canCheckout.value) {
-      configPickerHighlight.value = true
-      checkoutSubmitLock.value = false
-      await router.replace({
-        name: 'product-detail',
-        params: { id: String(route.params.id) },
-        query: { ...route.query, checkout: undefined }
-      })
-      return
-    }
-
     if (checkoutSubmitLock.value) return
     checkoutSubmitLock.value = true
     try {
-      const orderBody = {
-        productId: product.value.id,
-        quantity: 1
+      const payload = { productId: product.value.id, quantity: 1 }
+      const configId = String(route.query.configId || selectedConfigId.value || '').trim()
+      if (productConfigs.value.length) {
+        if (!configId || !configExplicitlySelected.value) {
+          checkoutSubmitLock.value = false
+          promptConfigSelection()
+          alert(t('products.detail.selectConfigRequired'))
+          return
+        }
+        payload.configId = configId
       }
-      if (hasProductConfigs.value && selectedConfigId.value) {
-        orderBody.configId = selectedConfigId.value
-      }
-      const res = await api.post('/api/orders', orderBody)
+      const res = await api.post('/api/orders', payload)
       await router.replace({
         name: 'product-detail',
         params: { id: String(route.params.id) },
@@ -641,22 +617,17 @@ watch(
   { flush: 'post' }
 )
 
-/** 立即购买：已登录直接下单进支付；未登录先进登录再回来自动下单 */
-async function onBuyNowClick() {
+/** 立即购买：有配置时须先手动选择；未选则高亮配置区（底部按钮不滚动到页顶） */
+async function onBuyNowClick(_source = 'hero') {
   if (!product.value?.id || buySubmitting.value) return
-  if (hasProductConfigs.value && !canCheckout.value) {
-    configPickerHighlight.value = true
-    window.setTimeout(() => {
-      configPickerHighlight.value = false
-    }, 2200)
+  if (productConfigs.value.length && !canCheckout.value) {
+    promptConfigSelection()
     return
   }
   buySubmitting.value = true
   try {
-    const opts = hasProductConfigs.value && selectedConfigId.value
-      ? { configId: selectedConfigId.value }
-      : {}
-    await startProductCheckout(router, product.value.id, opts)
+    const configId = productConfigs.value.length ? selectedConfigId.value : null
+    await startProductCheckout(router, product.value.id, { configId })
   } catch (e) {
     console.error(e)
     alert(t('products.detail.checkoutErrorAuth'))
@@ -808,68 +779,6 @@ function handleImageError(e) {
   margin-bottom: 1.5rem;
 }
 
-/* 商品配置选择器：纵向全宽行，左名称右价格 */
-.pdc-config-picker {
-  margin: 0.75rem 0 0.5rem;
-  text-align: left;
-}
-.pdc-config-picker-hero {
-  margin: 1rem 0 0.25rem;
-  max-width: 420px;
-}
-.pdc-config-picker-highlight {
-  border-radius: 12px;
-  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
-  animation: pdc-config-pulse 1.1s ease-in-out 2;
-}
-@keyframes pdc-config-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(255, 0, 255, 0.55), 0 0 24px rgba(255, 0, 255, 0.2);
-  }
-}
-.pdc-config-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.pdc-config-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  background: rgba(0, 0, 0, 0.25);
-  color: #fff;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  font-family: 'Roboto Mono', ui-monospace, monospace;
-}
-.pdc-config-option:hover {
-  border-color: rgba(0, 229, 255, 0.55);
-}
-.pdc-config-option.active {
-  border-color: var(--pdc-cyan);
-  background: rgba(0, 229, 255, 0.12);
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
-}
-.pdc-config-name {
-  font-weight: 600;
-  text-align: left;
-}
-.pdc-config-price {
-  font-family: Orbitron, sans-serif;
-  font-size: 0.9rem;
-  color: var(--pdc-usdt);
-  flex-shrink: 0;
-}
-
 .pdc-hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -952,13 +861,10 @@ button.pdc-btn {
 
 .pdc-float-wrap {
   position: relative;
-  width: 100%;
 }
 .pdc-img-frame {
   border-radius: 1rem;
   overflow: hidden;
-}
-.pdc-hero-main-frame {
   animation: pdc-float 6s ease-in-out infinite;
 }
 .pdc-img-frame-cyan {
@@ -975,49 +881,6 @@ button.pdc-btn {
   vertical-align: middle;
   background: var(--pdc-dark);
 }
-
-.pdc-hero-thumbs {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.15rem 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.pdc-hero-thumb {
-  flex: 0 0 auto;
-  width: 4.5rem;
-  height: 4.5rem;
-  padding: 0;
-  border: 2px solid var(--pdc-border);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  background: var(--pdc-dark);
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.pdc-hero-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.pdc-hero-thumb:hover {
-  border-color: rgba(0, 243, 255, 0.55);
-}
-
-.pdc-hero-thumb--active {
-  border-color: var(--pdc-cyan);
-  box-shadow: 0 0 10px rgba(0, 243, 255, 0.35);
-}
-
 @keyframes pdc-float {
   0%,
   100% {
@@ -1290,6 +1153,25 @@ button.pdc-btn {
   word-break: break-word;
 }
 
+/* 多图时：首张在英雄区；此处大屏两列自动换行，小屏单列自上而下 */
+.pdc-gallery-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: min(72rem, 100%);
+  margin: 0 auto;
+}
+@media (min-width: 900px) {
+  .pdc-gallery-stack {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.75rem 1.5rem;
+  }
+}
+.pdc-gallery-stack-item {
+  min-width: 0;
+}
+
 /* 仅有重要说明、无「技术规格」霓虹外框时的容器宽度 */
 .pdc-spec-notice-only {
   max-width: min(72rem, 100%);
@@ -1440,6 +1322,82 @@ button.pdc-btn {
   color: #fff;
   margin-bottom: 0.35rem;
 }
+
+.pdc-config-picker-hero {
+  margin: 1rem 0 0.25rem;
+  max-width: 420px;
+}
+
+.pdc-config-picker-highlight {
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
+  animation: pdc-config-pulse 1.1s ease-in-out 2;
+}
+
+@keyframes pdc-config-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(255, 0, 255, 0.55), 0 0 24px rgba(255, 0, 255, 0.2);
+  }
+}
+
+.pdc-config-picker {
+  margin: 0.75rem 0 0.5rem;
+  text-align: left;
+}
+
+.pdc-config-label {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0 0 0.5rem;
+}
+
+.pdc-config-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pdc-config-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.pdc-config-option:hover {
+  border-color: rgba(0, 229, 255, 0.55);
+}
+
+.pdc-config-option.active {
+  border-color: var(--pdc-cyan);
+  background: rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+}
+
+.pdc-config-name {
+  font-weight: 600;
+  text-align: left;
+}
+
+.pdc-config-price {
+  font-family: Orbitron, sans-serif;
+  font-size: 0.9rem;
+  color: var(--pdc-usdt);
+  flex-shrink: 0;
+}
+
 .pdc-price-single {
   font-family: Orbitron, sans-serif;
   font-size: 1.65rem;
@@ -1450,11 +1408,6 @@ button.pdc-btn {
 }
 .pdc-price-single-cny {
   color: #fff;
-}
-.pdc-price-single-hint {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--pdc-cyan);
 }
 .pdc-price-core {
   margin-bottom: 1rem;

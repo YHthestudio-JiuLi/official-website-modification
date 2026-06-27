@@ -269,13 +269,8 @@ setup_laravel() {
   fi
 
   if grep -qE '^(SESSION_DRIVER|CACHE_STORE)=redis' "$ROOT/laravel-api/.env" 2>/dev/null; then
-    if command -v redis-cli >/dev/null 2>&1; then
-      if ! redis-cli ping >/dev/null 2>&1; then
-        fail "Redis 未响应但 laravel-api/.env 使用 redis 会话/缓存，会导致 API 每次请求超时 10~20 秒。请宝塔启动 Redis，或临时改 SESSION_DRIVER=file、CACHE_STORE=file 后 php artisan config:cache"
-      fi
-      ok "Redis 可用"
-    else
-      warn "未找到 redis-cli，无法检测 Redis；若 API 很慢请确认 Redis 已启动"
+    if command -v redis-cli >/dev/null 2>&1 && ! redis-cli ping >/dev/null 2>&1; then
+      warn "laravel-api/.env 使用 Redis，但本机 redis-cli ping 失败，会话/缓存可能间歇超时变慢"
     fi
   fi
 

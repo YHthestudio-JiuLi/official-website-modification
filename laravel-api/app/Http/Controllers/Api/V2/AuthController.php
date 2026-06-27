@@ -7,11 +7,11 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\Auth\AdminBootService;
 use App\Services\Bridge\LegacyNodeBridgeTokenService;
-use App\Support\AuthApiMessages;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
 
 class AuthController extends Controller
@@ -51,7 +51,9 @@ class AuthController extends Controller
         $guard = Auth::guard('admin');
 
         if (! $guard->attempt(['username' => $credentials['username'], 'password' => $credentials['password']])) {
-            AuthApiMessages::throwError($request, 'username', 'invalid_credentials', 422);
+            throw ValidationException::withMessages([
+                'username' => ['Invalid credentials'],
+            ]);
         }
 
         /** @var User $user */
@@ -59,12 +61,12 @@ class AuthController extends Controller
 
         if (($user->status ?? 'active') !== 'active') {
             $guard->logout();
-            AuthApiMessages::throwError($request, 'username', 'account_suspended', 422);
+            throw ValidationException::withMessages(['username' => ['Account suspended']]);
         }
 
         if (! $user->canAccessAdmin()) {
             $guard->logout();
-            AuthApiMessages::throwError($request, 'username', 'no_admin_access', 422);
+            throw ValidationException::withMessages(['username' => ['No admin access']]);
         }
 
         $this->finalizeLoginSession($request, 'admin');
@@ -83,7 +85,7 @@ class AuthController extends Controller
     /** 前台用户注册 */
     public function register(Request $request): JsonResponse
     {
-        $data = AuthApiMessages::validateOrFail($request, $request->all(), [
+        $data = $request->validate([
             'username' => ['required', 'string', 'max:255', 'unique:users,username'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6', 'max:255'],
@@ -110,7 +112,7 @@ class AuthController extends Controller
     {
         $user = Auth::guard('admin')->user();
         if (! $user || ! $user->canAccessAdmin()) {
-            return AuthApiMessages::jsonError($request, 'username', 'unauthorized', 401);
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         $user->load(['roles', 'agent']);
@@ -136,7 +138,9 @@ class AuthController extends Controller
         $guard = Auth::guard('web');
 
         if (! $guard->attempt(['username' => $credentials['username'], 'password' => $credentials['password']])) {
-            AuthApiMessages::throwError($request, 'username', 'invalid_credentials', 422);
+            throw ValidationException::withMessages([
+                'username' => ['Invalid credentials'],
+            ]);
         }
 
         /** @var User $user */
@@ -144,7 +148,7 @@ class AuthController extends Controller
 
         if (($user->status ?? 'active') !== 'active') {
             $guard->logout();
-            AuthApiMessages::throwError($request, 'username', 'account_suspended', 422);
+            throw ValidationException::withMessages(['username' => ['Account suspended']]);
         }
 
         $this->finalizeLoginSession($request, 'web');
@@ -159,7 +163,7 @@ class AuthController extends Controller
     {
         $user = Auth::guard('web')->user();
         if (! $user) {
-            return AuthApiMessages::jsonError($request, 'username', 'unauthorized', 401);
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         return response()->json([
@@ -190,7 +194,7 @@ class AuthController extends Controller
     {
         $user = Auth::guard('web')->user();
         if (! $user) {
-            return AuthApiMessages::jsonError($request, 'username', 'unauthorized', 401);
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         $secret = config('services.legacy_node.internal_secret');
@@ -211,7 +215,7 @@ class AuthController extends Controller
     {
         $user = Auth::guard('admin')->user();
         if (! $user || ! $user->canAccessAdmin()) {
-            return AuthApiMessages::jsonError($request, 'username', 'unauthorized', 401);
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         $secret = config('services.legacy_node.internal_secret');
@@ -251,7 +255,7 @@ class AuthController extends Controller
 
         $ip = $request->ip();
         if (! in_array($ip, $whitelist, true)) {
-            AuthApiMessages::throwError($request, 'username', 'admin_ip_denied', 403);
+            abort(403, 'Admin access denied from this IP');
         }
     }
 }

@@ -18,7 +18,7 @@ class ProductNormalizer
             'featureCards' => $this->parseJsonArray($row['featureCards'] ?? $row['featuresJson'] ?? null),
             'specCards' => $this->parseJsonArray($row['specCards'] ?? $row['specsJson'] ?? null),
             'usageNoticeLines' => $this->parseJsonArray($row['usageNoticeLines'] ?? $row['usageNoticeJson'] ?? null),
-            'configs' => $this->parseConfigs($row['configs'] ?? $row['configsJson'] ?? null),
+            'configs' => $this->normalizeConfigs($row['configs'] ?? $row['configsJson'] ?? null),
         ]);
     }
 
@@ -82,28 +82,6 @@ class ProductNormalizer
         }
     }
 
-    /** 解析商品可选配置 [{id, name, priceUsdt}] */
-    public function parseConfigs(mixed $raw): array
-    {
-        $out = [];
-        foreach ($this->parseJsonArray($raw) as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-            $name = trim((string) ($item['name'] ?? ''));
-            if ($name === '') {
-                continue;
-            }
-            $out[] = [
-                'id' => (string) ($item['id'] ?? ''),
-                'name' => $name,
-                'priceUsdt' => (float) ($item['priceUsdt'] ?? 0),
-            ];
-        }
-
-        return $out;
-    }
-
     /** 写入数据库用的 JSON 字段 */
     public function serializeDetailJson(array $body): array
     {
@@ -113,34 +91,71 @@ class ProductNormalizer
             'featuresJson' => $toJson($body['featureCards'] ?? null),
             'specsJson' => $toJson($body['specCards'] ?? null),
             'usageNoticeJson' => $toJson($body['usageNoticeLines'] ?? null),
-            'configsJson' => $this->serializeConfigsJson($body),
+            'configsJson' => $toJson($this->normalizeConfigs($body['configs'] ?? null)),
         ];
     }
 
-    /** 商品配置存库 JSON */
-    public function serializeConfigsJson(array $body): ?string
+    /**
+     * 规范化商品配置项：id、名称、USDT 价格
+     *
+     * @return list<array{id: string, name: string, priceUsdt: float}>
+     */
+    public function normalizeConfigs(mixed $raw): array
     {
-        $configs = $body['configs'] ?? null;
-        if (! is_array($configs)) {
-            return null;
-        }
+        $items = $this->parseJsonArray($raw);
         $out = [];
-        foreach ($configs as $item) {
-            if (! is_array($item)) {
+        foreach ($items as $cfg) {
+            if (! is_array($cfg)) {
                 continue;
             }
-            $name = trim((string) ($item['name'] ?? ''));
+            $name = trim((string) ($cfg['name'] ?? ''));
             if ($name === '') {
                 continue;
             }
+            $id = trim((string) ($cfg['id'] ?? ''));
+            if ($id === '') {
+                $id = 'cfg-'.bin2hex(random_bytes(8));
+            }
             $out[] = [
-                'id' => (string) ($item['id'] ?? ''),
+                'id' => $id,
                 'name' => $name,
-                'priceUsdt' => (float) ($item['priceUsdt'] ?? 0),
+                'priceUsdt' => (float) ($cfg['priceUsdt'] ?? $cfg['price'] ?? 0),
             ];
         }
 
-        return $out === [] ? null : json_encode($out, JSON_UNESCAPED_UNICODE);
+        return $out;
+    }
+
+    /**
+     * 下单时解析所选配置；无配置则使用商品基础价
+     *
+     * @return array{price: float, configId: ?string, configName: ?string}
+     */
+    public function resolveCheckoutConfig(array $product, ?string $configId): array
+    {
+        $configs = $this->normalizeConfigs($product['configs'] ?? $product['configsJson'] ?? null);
+        if ($configs === []) {
+            return [
+                'price' => (float) ($product['priceUsdt'] ?? $product['price'] ?? 0),
+                'configId' => null,
+                'configName' => null,
+            ];
+        }
+        $configId = trim((string) ($configId ?? ''));
+        if ($configId === '') {
+            throw new \InvalidArgumentException('Configuration required');
+        }
+        foreach ($configs as $cfg) {
+            if ($cfg['id'] === $configId) {
+                return [
+                    'price' => (float) $cfg['priceUsdt'],
+                    'configId' => $configId,
+                    'configName' => $cfg['name'],
+                ];
+            }
+        }
+
+        throw new \InvalidArgumentException('Invalid configuration');
     }
 
     /** 多图存库：JSON 字符串或单 URL */

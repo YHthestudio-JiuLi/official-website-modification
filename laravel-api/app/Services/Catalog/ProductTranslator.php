@@ -16,34 +16,6 @@ class ProductTranslator
         '强大的数据分析和可视化平台' => 'Powerful data analysis and visualization platform',
     ];
 
-    /** 列表页仅翻译标题/描述/分类，跳过大 JSON 字段 */
-    public function translateListItem(array $product, bool $toEnglish = true): array
-    {
-        if (! $toEnglish) {
-            return $product;
-        }
-
-        $out = $product;
-        if (! empty($product['name'])) {
-            $out['name'] = $this->translateText((string) $product['name']);
-        }
-        if (! empty($product['description'])) {
-            $out['description'] = $this->translateText((string) $product['description']);
-        }
-        if (! empty($product['categoryNameEn'])) {
-            $out['categoryName'] = $product['categoryNameEn'];
-        } elseif (! empty($product['categoryName'])) {
-            $out['categoryName'] = $this->translateText((string) $product['categoryName']);
-        }
-        if (! empty($product['subCategoryNameEn'])) {
-            $out['subCategoryName'] = $product['subCategoryNameEn'];
-        } elseif (! empty($product['subCategoryName'])) {
-            $out['subCategoryName'] = $this->translateText((string) $product['subCategoryName']);
-        }
-
-        return $out;
-    }
-
     public function translateProduct(array $product, bool $toEnglish = true): array
     {
         if (! $toEnglish) {

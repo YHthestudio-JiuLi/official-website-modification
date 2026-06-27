@@ -31,23 +31,12 @@
       </div>
 
       <div v-else class="notices-grid">
-        <div v-for="notice in notices" :key="notice.id" class="notice-card" :class="{ active: notice.popup_enabled || notice.display_enabled }">
+        <div v-for="notice in notices" :key="notice.id" class="notice-card" :class="{ active: notice.enabled }">
           <div class="notice-card-header">
             <h3 class="notice-card-title">{{ notice.title }}</h3>
-            <div class="status-badges">
-              <span
-                class="status-badge"
-                :class="notice.popup_enabled ? 'status-active' : 'status-inactive'"
-              >
-                {{ notice.popup_enabled ? $t('admin.popupNotices.popupOn') : $t('admin.popupNotices.popupOff') }}
-              </span>
-              <span
-                class="status-badge"
-                :class="notice.display_enabled ? 'status-active' : 'status-inactive'"
-              >
-                {{ notice.display_enabled ? $t('admin.popupNotices.displayOn') : $t('admin.popupNotices.displayOff') }}
-              </span>
-            </div>
+            <span class="status-badge" :class="{ 'status-active': notice.enabled, 'status-inactive': !notice.enabled }">
+              {{ notice.enabled ? $t('admin.popupNotices.active') : $t('admin.popupNotices.inactive') }}
+            </span>
           </div>
           <div class="notice-card-content">
             <p>{{ truncateContent(notice.content) }}</p>
@@ -57,19 +46,8 @@
               <i class="fas fa-clock"></i> {{ formatDate(notice.updated_at) }}
             </span>
             <div v-if="canManage" class="notice-actions">
-              <button
-                class="btn-icon"
-                @click.stop="togglePopup(notice)"
-                :title="$t('admin.popupNotices.togglePopup')"
-              >
-                <i :class="notice.popup_enabled ? 'fas fa-window-restore' : 'fas fa-window-minimize'" />
-              </button>
-              <button
-                class="btn-icon"
-                @click.stop="toggleDisplay(notice)"
-                :title="$t('admin.popupNotices.toggleDisplay')"
-              >
-                <i :class="notice.display_enabled ? 'fas fa-bullhorn' : 'fas fa-volume-mute'" />
+              <button class="btn-icon" @click.stop="toggleStatus(notice)" :title="$t('admin.popupNotices.toggleVisibility') || 'Toggle visibility'">
+                <i :class="notice.enabled ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
               </button>
               <button class="btn-icon" @click.stop="editNotice(notice)" :title="$t('common.edit')">
                 <i class="fas fa-edit"></i>
@@ -147,26 +125,13 @@
                 <div class="form-group form-checkbox-group">
                   <label class="checkbox-label">
                     <div class="checkbox-box">
-                      <input type="checkbox" v-model="form.popup_enabled" />
+                      <input type="checkbox" v-model="form.enabled" />
                       <i class="fas fa-check checkbox-icon"></i>
                     </div>
-                    <span>{{ $t('admin.popupNotices.popupEnabled') }}</span>
+                    <span>{{ $t('admin.popupNotices.enabled') }}</span>
                   </label>
                   <p class="form-hint">
-                    <i class="fas fa-info-circle"></i> {{ $t('admin.popupNotices.popupEnabledHint') }}
-                  </p>
-                </div>
-
-                <div class="form-group form-checkbox-group">
-                  <label class="checkbox-label">
-                    <div class="checkbox-box">
-                      <input type="checkbox" v-model="form.display_enabled" />
-                      <i class="fas fa-check checkbox-icon"></i>
-                    </div>
-                    <span>{{ $t('admin.popupNotices.displayEnabled') }}</span>
-                  </label>
-                  <p class="form-hint">
-                    <i class="fas fa-info-circle"></i> {{ $t('admin.popupNotices.displayEnabledHint') }}
+                    <i class="fas fa-info-circle"></i> {{ $t('admin.popupNotices.enabledHint') || 'Only one enabled notice will be shown on homepage' }}
                   </p>
                 </div>
               </div>
@@ -218,23 +183,11 @@ const form = ref({
   id: null,
   title: '',
   content: '',
-  popup_enabled: true,
-  display_enabled: false
+  enabled: true
 })
 
 function isNoticeEnabled(value) {
   return value === true || value === 1 || value === '1' || value === 'true'
-}
-
-function normalizeNoticeRow(notice) {
-  const popup = isNoticeEnabled(notice.popup_enabled ?? notice.enabled)
-  const display = isNoticeEnabled(notice.display_enabled ?? notice.enabled)
-  return {
-    ...notice,
-    popup_enabled: popup,
-    display_enabled: display,
-    enabled: popup || display
-  }
 }
 
 async function fetchNotices() {
@@ -246,7 +199,10 @@ async function fetchNotices() {
   error.value = ''
   try {
     const res = await fetchNoticesApi()
-    notices.value = (res.data.notices || []).map(normalizeNoticeRow)
+    notices.value = (res.data.notices || []).map((n) => ({
+      ...n,
+      enabled: isNoticeEnabled(n.enabled)
+    }))
   } catch (err) {
     if (await handleAdminApiFailure(err)) return
     error.value = err.response?.data?.error || 'Failed to load notices'
@@ -256,7 +212,7 @@ async function fetchNotices() {
 }
 
 function showCreateForm() {
-  form.value = { id: null, title: '', content: '', popup_enabled: true, display_enabled: false }
+  form.value = { id: null, title: '', content: '', enabled: true }
   isEditing.value = false
   showModal.value = true
 }
@@ -266,8 +222,7 @@ function editNotice(notice) {
     id: notice.id,
     title: notice.title,
     content: notice.content,
-    popup_enabled: isNoticeEnabled(notice.popup_enabled),
-    display_enabled: isNoticeEnabled(notice.display_enabled)
+    enabled: isNoticeEnabled(notice.enabled)
   }
   isEditing.value = true
   showModal.value = true
@@ -297,27 +252,12 @@ async function saveNotice() {
   }
 }
 
-async function togglePopup(notice) {
+async function toggleStatus(notice) {
   try {
     await updateNotice(notice.id, {
       title: notice.title,
       content: notice.content,
-      popup_enabled: !isNoticeEnabled(notice.popup_enabled),
-      display_enabled: isNoticeEnabled(notice.display_enabled)
-    })
-    await fetchNotices()
-  } catch (err) {
-    alert(err.response?.data?.error || 'Failed to update status')
-  }
-}
-
-async function toggleDisplay(notice) {
-  try {
-    await updateNotice(notice.id, {
-      title: notice.title,
-      content: notice.content,
-      popup_enabled: isNoticeEnabled(notice.popup_enabled),
-      display_enabled: !isNoticeEnabled(notice.display_enabled)
+      enabled: !isNoticeEnabled(notice.enabled)
     })
     await fetchNotices()
   } catch (err) {
@@ -487,8 +427,7 @@ onMounted(() => {
 .notice-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
   padding: 1rem 1.25rem;
   background: rgba(10, 14, 39, 0.3);
   border-bottom: 1px solid var(--border-color);
@@ -499,14 +438,6 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-}
-
-.status-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: flex-end;
-  flex-shrink: 0;
 }
 
 .status-badge {

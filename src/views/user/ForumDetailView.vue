@@ -2,43 +2,30 @@
   <div>
     <AppHeader />
     <main>
-      <section class="forum-detail-hero">
-        <div class="container forum-detail-hero__inner">
-          <router-link to="/forum" class="forum-breadcrumb">
-            <i class="fas fa-arrow-left" aria-hidden="true" />
-            {{ $t('forum.backToForum') }}
-          </router-link>
-          <h1 v-if="post" class="forum-detail-hero__title">
-            <span v-if="post.isPinned" class="pinned-badge">
-              <i class="fas fa-thumbtack" aria-hidden="true" />
-              {{ $t('forum.pinned') }}
-            </span>
-            {{ post.title }}
-          </h1>
-          <h1 v-else class="forum-detail-hero__title">{{ $t('forum.postDetail') }}</h1>
+      <div class="page-header">
+        <div class="container">
+          <div class="forum-breadcrumb">
+            <router-link to="/forum"><i class="fas fa-arrow-left"></i> Back to Forum</router-link>
+          </div>
+          <h1><i class="fas fa-comments"></i> {{ post?.title || 'Post Detail' }}</h1>
         </div>
-      </section>
+      </div>
 
       <div class="forum-detail-page">
-        <div class="container forum-detail-page__container">
-          <div v-if="loading" class="forum-state">
-            <i class="fas fa-spinner fa-spin" aria-hidden="true" />
-            {{ $t('common.loading') }}
-          </div>
+        <div class="container">
+          <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
 
-          <div v-else-if="loadError" class="forum-state forum-state--error">
-            <i class="fas fa-exclamation-triangle" aria-hidden="true" />
+          <div v-else-if="loadError" class="load-error">
+            <i class="fas fa-exclamation-triangle"></i>
             <p>{{ $t('forum.loadFailed') }}</p>
           </div>
 
-          <div v-else-if="!post" class="forum-state forum-state--empty">
-            <i class="fas fa-file-circle-xmark" aria-hidden="true" />
-            <p>{{ $t('forum.postNotFound') }}</p>
-            <router-link to="/forum" class="btn btn-secondary">{{ $t('forum.backToForum') }}</router-link>
+          <div v-else-if="!post" class="empty-state">
+            {{ $t('forum.postNotFound') }}
           </div>
 
           <div v-else class="forum-detail">
-            <article class="post-main">
+            <div class="post-main">
               <div class="post-main-header">
                 <div class="post-author-info">
                   <div class="author-avatar">
@@ -46,10 +33,9 @@
                   </div>
                   <div class="author-details">
                     <span class="author-name">{{ post.author }}</span>
-                    <time class="post-date" :datetime="post.date">
-                      <i class="fas fa-calendar" aria-hidden="true" />
-                      {{ formatDate(post.date) }}
-                    </time>
+                    <span class="post-date">
+                      <i class="fas fa-calendar"></i> {{ post.date }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -58,21 +44,17 @@
               </div>
               <div class="post-main-footer">
                 <span class="replies-count">
-                  <i class="fas fa-comments" aria-hidden="true" />
-                  {{ $t('forum.repliesCount', { n: replies.length }) }}
+                  <i class="fas fa-comments"></i> {{ replies.length }} replies
                 </span>
               </div>
-            </article>
+            </div>
 
-            <section class="forum-replies-section">
-              <h2>
-                <i class="fas fa-reply" aria-hidden="true" />
-                {{ $t('forum.replySectionCount', { n: replies.length }) }}
-              </h2>
+            <div class="forum-replies-section">
+              <h2><i class="fas fa-reply"></i> Replies ({{ replies.length }})</h2>
 
               <div v-if="replies.length === 0" class="no-replies">
-                <i class="fas fa-comment-slash" aria-hidden="true" />
-                <p>{{ $t('forum.noReplies') }}</p>
+                <i class="fas fa-comment-slash"></i>
+                <p>No replies yet, be the first to reply!</p>
               </div>
 
               <div v-else class="replies-list">
@@ -87,46 +69,36 @@
                   @reply-deleted="fetchData"
                 />
               </div>
-            </section>
+            </div>
 
-            <section v-if="authStore.isLoggedIn" class="reply-form-section" id="reply">
-              <h3>
-                <i class="fas fa-edit" aria-hidden="true" />
-                {{ $t('forum.postReply') }}
-              </h3>
+            <div v-if="authStore.isLoggedIn" class="reply-form-section" id="reply">
+              <h3><i class="fas fa-edit"></i> Post Reply</h3>
               <div v-if="error" class="alert alert-error">
-                <i class="fas fa-exclamation-circle" aria-hidden="true" />
-                {{ error }}
+                <i class="fas fa-exclamation-circle"></i> {{ error }}
               </div>
-              <form class="reply-form" @submit.prevent="handleReply">
+              <form @submit.prevent="handleReply" class="reply-form">
                 <div class="form-group">
                   <label for="reply-content">
-                    <i class="fas fa-comment" aria-hidden="true" />
-                    {{ $t('forum.replyContent') }}
+                    <i class="fas fa-comment"></i> Reply Content
                   </label>
                   <textarea
                     id="reply-content"
                     v-model="replyContent"
                     rows="5"
                     required
-                    :placeholder="$t('forum.replyPlaceholder')"
-                  />
+                    placeholder="Enter your reply content..."
+                  ></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
-                  <i class="fas fa-paper-plane" aria-hidden="true" />
-                  {{ submitting ? $t('forum.posting') : $t('forum.submitReply') }}
+                  <i class="fas fa-paper-plane"></i> {{ submitting ? $t('common.loading') : 'Submit Reply' }}
                 </button>
               </form>
-            </section>
+            </div>
 
             <div v-else class="reply-login-prompt">
               <p>
-                <i class="fas fa-info-circle" aria-hidden="true" />
-                <i18n-t keypath="forum.loginPrompt" tag="span">
-                  <template #link>
-                    <router-link :to="loginRoute">{{ $t('nav.login') }}</router-link>
-                  </template>
-                </i18n-t>
+                <i class="fas fa-info-circle"></i>
+                Please <router-link :to="loginRoute">login</router-link> to reply
               </p>
             </div>
           </div>
@@ -140,8 +112,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { getForumPost, getForumReplies, createForumReply } from '@/services/forum'
+import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { buildLoginRoute } from '@/utils/authRedirect'
 import AppHeader from '@/components/common/AppHeader.vue'
@@ -149,7 +120,6 @@ import AppFooter from '@/components/common/AppFooter.vue'
 import ReplyItem from '@/components/user/ReplyItem.vue'
 
 const route = useRoute()
-const { t, locale } = useI18n()
 const authStore = useAuthStore()
 
 const loginRoute = computed(() => {
@@ -166,32 +136,22 @@ const loading = ref(true)
 const loadError = ref(false)
 const submitting = ref(false)
 
-const topLevelReplies = computed(() => replies.value.filter((r) => !r.parentReplyId))
+const topLevelReplies = computed(() => {
+  return replies.value.filter(r => !r.parentReplyId)
+})
 
 const childRepliesMap = computed(() => {
   const map = {}
-  replies.value.forEach((reply) => {
+  replies.value.forEach(reply => {
     if (reply.parentReplyId) {
-      if (!map[reply.parentReplyId]) map[reply.parentReplyId] = []
+      if (!map[reply.parentReplyId]) {
+        map[reply.parentReplyId] = []
+      }
       map[reply.parentReplyId].push(reply)
     }
   })
   return map
 })
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) return dateStr
-  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
-  return date.toLocaleString(fmtLocale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 
 onMounted(fetchData)
 
@@ -200,16 +160,18 @@ async function fetchData() {
   loadError.value = false
   try {
     const [postRes, repliesRes] = await Promise.all([
-      getForumPost(route.params.id),
-      getForumReplies(route.params.id)
+      api.get(`/api/forum/posts/${route.params.id}`),
+      api.get(`/api/forum/posts/${route.params.id}/replies`)
     ])
     post.value = postRes.data
     replies.value = repliesRes.data
-  } catch (err) {
-    console.error('Failed to fetch data:', err)
-    const status = err.response?.status
+  } catch (error) {
+    console.error('Failed to fetch data:', error)
+    const status = error.response?.status
     if (status === 401) return
-    if (status !== 404) loadError.value = true
+    if (status !== 404) {
+      loadError.value = true
+    }
     post.value = null
     replies.value = []
   } finally {
@@ -221,14 +183,13 @@ async function handleReply() {
   submitting.value = true
   error.value = ''
   try {
-    await createForumReply(route.params.id, { content: replyContent.value })
+    await api.post(`/api/forum/posts/${route.params.id}/replies`, {
+      content: replyContent.value
+    })
     replyContent.value = ''
     await fetchData()
   } catch (err) {
-    error.value =
-      err.response?.data?.message ||
-      err.response?.data?.error ||
-      t('forum.replyFailed')
+    error.value = err.response?.data?.message || err.response?.data?.error || 'Failed to post reply'
   } finally {
     submitting.value = false
   }
@@ -236,72 +197,74 @@ async function handleReply() {
 </script>
 
 <style scoped>
-.forum-detail-hero {
-  padding: 1.75rem 0 1.25rem;
-  background: linear-gradient(135deg, rgba(11, 15, 21, 0.98) 0%, rgba(26, 31, 58, 0.95) 100%);
-  border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+.page-header {
+  background: linear-gradient(135deg, #0f1222 0%, #1a1f3a 100%);
+  padding: 2rem 0;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
 }
 
-.forum-detail-hero__title {
-  margin: 0.85rem 0 0;
-  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
-  line-height: 1.4;
+.page-header h1 {
   color: #e6f1ff;
-  word-break: break-word;
+  font-size: 1.75rem;
+  margin: 1rem 0 0 0;
 }
 
-.forum-breadcrumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
+.page-header i {
+  color: #00d4ff;
+  margin-right: 0.5rem;
+}
+
+.forum-breadcrumb a {
   color: #8892b0;
   text-decoration: none;
   font-size: 0.9rem;
   transition: color 0.2s;
 }
 
-.forum-breadcrumb:hover {
+.forum-breadcrumb a:hover {
   color: #00d4ff;
 }
 
-.pinned-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-right: 0.45rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #00d4ff;
-  background: rgba(0, 212, 255, 0.12);
-  border: 1px solid rgba(0, 212, 255, 0.28);
-  vertical-align: middle;
+.forum-breadcrumb i {
+  margin-right: 0.5rem;
 }
 
-.forum-detail-page__container {
+.forum-detail-page {
+  min-height: 60vh;
+  padding: 2rem 0;
+}
+
+.container {
   max-width: 900px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
-.forum-state {
+.loading {
   text-align: center;
-  padding: 3rem 1rem;
   color: #8892b0;
+  padding: 3rem;
 }
 
-.forum-state i {
-  font-size: 2rem;
-  display: block;
-  margin-bottom: 0.75rem;
-  color: #00d4ff;
+.load-error {
+  text-align: center;
+  color: #8892b0;
+  padding: 3rem;
 }
 
-.forum-state--error i {
+.load-error i {
+  font-size: 48px;
+  margin-bottom: 16px;
   color: #f87171;
+  display: block;
 }
 
-.forum-state--empty i {
-  color: #5a6478;
+.empty-state {
+  text-align: center;
+  color: #8892b0;
+  padding: 3rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
 }
 
 .post-main {
@@ -310,6 +273,10 @@ async function handleReply() {
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 2rem;
+}
+
+.post-main-header {
+  margin-bottom: 1rem;
 }
 
 .post-author-info {
@@ -336,12 +303,12 @@ async function handleReply() {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  min-width: 0;
 }
 
 .author-name {
   font-weight: 600;
   color: #ccd6f6;
+  font-size: 1rem;
 }
 
 .post-date {
@@ -350,7 +317,7 @@ async function handleReply() {
 }
 
 .post-date i {
-  margin-right: 0.35rem;
+  margin-right: 0.5rem;
   color: #00d4ff;
 }
 
@@ -364,6 +331,10 @@ async function handleReply() {
   word-break: break-word;
 }
 
+.post-main-footer {
+  padding-top: 1rem;
+}
+
 .replies-count {
   color: #8892b0;
   font-size: 0.9rem;
@@ -371,26 +342,28 @@ async function handleReply() {
 
 .replies-count i {
   color: #00d4ff;
-  margin-right: 0.35rem;
+  margin-right: 0.5rem;
+}
+
+.forum-replies-section {
+  margin-bottom: 2rem;
 }
 
 .forum-replies-section h2 {
   color: #ccd6f6;
-  font-size: 1.2rem;
-  margin-bottom: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .forum-replies-section h2 i {
   color: #00d4ff;
+  margin-right: 0.5rem;
 }
 
 .no-replies {
   text-align: center;
   color: #8892b0;
-  padding: 2.5rem 1rem;
+  padding: 3rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.1);
@@ -399,7 +372,7 @@ async function handleReply() {
 .no-replies i {
   font-size: 2rem;
   display: block;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
   color: #5a6478;
 }
 
@@ -412,48 +385,56 @@ async function handleReply() {
 .reply-form-section h3 {
   color: #ccd6f6;
   font-size: 1.1rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
+  margin-bottom: 1.5rem;
 }
 
 .reply-form-section h3 i {
   color: #00d4ff;
+  margin-right: 0.5rem;
+}
+
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
 }
 
 .alert-error {
-  padding: 0.85rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
   background: rgba(255, 71, 87, 0.1);
   border: 1px solid rgba(255, 71, 87, 0.3);
-  color: #ff6b7a;
+  color: #ff4757;
+}
+
+.alert-error i {
+  margin-right: 0.5rem;
 }
 
 .reply-form {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(0, 212, 255, 0.15);
   border-radius: 12px;
-  padding: 1.25rem;
+  padding: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
 }
 
 .form-group label {
   display: block;
   color: #ccd6f6;
   font-weight: 500;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-group label i {
   color: #00d4ff;
-  margin-right: 0.35rem;
+  margin-right: 0.5rem;
 }
 
 .form-group textarea {
   width: 100%;
-  box-sizing: border-box;
-  padding: 0.85rem 1rem;
+  padding: 1rem;
   border: 1px solid rgba(0, 212, 255, 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
@@ -461,7 +442,7 @@ async function handleReply() {
   font-family: inherit;
   font-size: 0.95rem;
   resize: vertical;
-  min-height: 120px;
+  transition: border-color 0.2s;
 }
 
 .form-group textarea:focus {
@@ -469,10 +450,15 @@ async function handleReply() {
   border-color: #00d4ff;
 }
 
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .reply-login-prompt {
   text-align: center;
   color: #8892b0;
-  padding: 1.75rem 1rem;
+  padding: 2rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.1);
@@ -490,12 +476,20 @@ async function handleReply() {
 
 .reply-login-prompt i {
   color: #00d4ff;
-  margin-right: 0.35rem;
+  margin-right: 0.5rem;
 }
 
 @media (max-width: 640px) {
-  .forum-detail-hero {
-    padding: 1.25rem 0 1rem;
+  .page-header {
+    padding: 1.5rem 0;
+  }
+
+  .page-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .container {
+    padding: 0 1rem;
   }
 
   .post-main {

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\Agent\AgentDataScope;
 use App\Services\Catalog\ProductCatalogService;
+use App\Services\Catalog\ProductNormalizer;
 use App\Services\Catalog\ProductTranslator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +19,7 @@ class OrderService
     public function __construct(
         private readonly ProductCatalogService $catalog,
         private readonly ProductTranslator $translator,
+        private readonly ProductNormalizer $productNormalizer,
         private readonly AgentDataScope $agentScope,
         private readonly UsdtTxVerificationService $txVerify,
         private readonly PaymentSettingsService $paymentSettings,
@@ -53,32 +55,22 @@ class OrderService
         }
 
         $qty = max(1, (int) ($data['quantity'] ?? 1));
-        $configId = trim((string) ($data['configId'] ?? ''));
-        $configName = null;
-        $configs = $product['configs'] ?? [];
-
-        if ($configId !== '') {
-            $matched = null;
-            foreach ($configs as $cfg) {
-                if ((string) ($cfg['id'] ?? '') === $configId) {
-                    $matched = $cfg;
-                    break;
-                }
-            }
-            if (! $matched) {
-                throw ValidationException::withMessages(['configId' => ['Invalid product configuration']]);
-            }
-            $configName = $matched['name'];
-            $price = (float) ($matched['priceUsdt'] ?? 0);
-        } else {
-            $price = (float) ($product['priceUsdt'] ?? $product['price'] ?? 0);
+        try {
+            $checkoutConfig = $this->productNormalizer->resolveCheckoutConfig(
+                $product,
+                isset($data['configId']) ? (string) $data['configId'] : null
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['configId' => [$e->getMessage()]]);
         }
-
+        $price = $checkoutConfig['price'];
         $settings = $this->paymentSettings();
         $translated = $this->translator->translateProduct($product, true);
-        $baseName = $translated['name'] ?? $product['name'];
-        $productName = $configName ? "{$baseName} - {$configName}" : $baseName;
         $orderNo = $this->orderNumbers->generateUniqueForProduct($productId);
+        $productName = $translated['name'] ?? $product['name'];
+        if (! empty($checkoutConfig['configName'])) {
+            $productName .= ' - '.$checkoutConfig['configName'];
+        }
 
         $order = Order::query()->create([
             'orderNo' => $orderNo,
@@ -94,9 +86,9 @@ class OrderService
             'usdtWallet' => $settings['wallet_address'] ?? '',
             'network' => $settings['network'] ?? 'TRC20',
             'shippingAddress' => $data['shippingAddress'] ?? null,
-            'configId' => $configId !== '' ? $configId : null,
-            'configName' => $configName,
             'createdAt' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'configId' => $checkoutConfig['configId'],
+            'configName' => $checkoutConfig['configName'],
         ]);
 
         return (int) $order->id;

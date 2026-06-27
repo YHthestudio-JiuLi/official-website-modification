@@ -1,3 +1,6 @@
+/** 商品图自动轮播间隔（毫秒），约 5 秒便于看清每张图 */
+export const PRODUCT_IMAGE_ROTATION_MS = 5000
+
 export function parseProductImages(imageField, fallbackImages) {
   if (Array.isArray(fallbackImages) && fallbackImages.length) {
     return fallbackImages.filter(Boolean)

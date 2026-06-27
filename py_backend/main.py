@@ -144,16 +144,6 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
                 return False
         return default
 
-    def parse_popup_scope_args(scope_args: Dict[str, Any], default: bool = True) -> tuple[bool, bool]:
-        """解析弹窗/展示双开关；兼容旧版仅传 enabled"""
-        legacy = scope_args.get("enabled")
-        popup_raw = scope_args.get("popup_enabled")
-        display_raw = scope_args.get("display_enabled")
-        if popup_raw is None and display_raw is None and legacy is not None:
-            legacy_bool = parse_bool(legacy, default)
-            return legacy_bool, legacy_bool
-        return parse_bool(popup_raw, default), parse_bool(display_raw, default)
-
     if op == "meta.listTables":
         from .db import list_table_names
         return sorted(list_table_names(conn))
@@ -226,9 +216,9 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("featuresJson"),
             args.get("specsJson"),
             args.get("usageNoticeJson"),
-            args.get("configsJson"),
             args.get("categoryId"),
             args.get("subCategoryId"),
+            args.get("configsJson"),
         )
     if op == "products.update":
         return db_manager.products.update(
@@ -242,9 +232,9 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
             args.get("featuresJson"),
             args.get("specsJson"),
             args.get("usageNoticeJson"),
-            args.get("configsJson"),
             args.get("categoryId"),
             args.get("subCategoryId"),
+            args.get("configsJson"),
         )
     if op == "products.delete":
         return db_manager.products.delete(args["id"])
@@ -442,24 +432,18 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return db_manager.popup_notices.find_by_id(args["id"])
     if op == "popupNotices.findActive":
         return db_manager.popup_notices.find_active()
-    if op == "popupNotices.findActiveDisplay":
-        return db_manager.popup_notices.find_active_display()
     if op == "popupNotices.create":
-        popup_enabled, display_enabled = parse_popup_scope_args(args, default=True)
         return db_manager.popup_notices.create(
             args["title"],
             args["content"],
-            popup_enabled,
-            display_enabled,
+            parse_bool(args.get("enabled", True), True),
         )
     if op == "popupNotices.update":
-        popup_enabled, display_enabled = parse_popup_scope_args(args, default=False)
         return db_manager.popup_notices.update(
             args["id"],
             args["title"],
             args["content"],
-            popup_enabled,
-            display_enabled,
+            parse_bool(args.get("enabled", True), True),
         )
     if op == "popupNotices.delete":
         return db_manager.popup_notices.delete(args["id"])

@@ -7,7 +7,6 @@ use App\Models\Product;
 use App\Models\StoredImage;
 use App\Services\Agent\AgentDataScope;
 use App\Services\Catalog\ProductCatalogService;
-use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,7 +56,6 @@ class ProductController extends Controller
         $user = $request->user();
         $ownerId = $this->agentScope->isScopedAgent($user) ? $user->id : null;
         $this->catalog->createProduct($data, $ownerId);
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true]);
     }
@@ -67,7 +65,6 @@ class ProductController extends Controller
         $this->agentScope->assertCanManageProduct($request->user(), $product);
         $data = $this->validatedProduct($request);
         $this->catalog->updateProduct($product, $data);
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true]);
     }
@@ -76,7 +73,6 @@ class ProductController extends Controller
     {
         $this->agentScope->assertCanManageProduct($request->user(), $product);
         $product->delete();
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true]);
     }
@@ -96,6 +92,9 @@ class ProductController extends Controller
             'specCards' => ['nullable', 'array'],
             'usageNoticeLines' => ['nullable', 'array'],
             'configs' => ['nullable', 'array'],
+            'configs.*.id' => ['nullable', 'string', 'max:64'],
+            'configs.*.name' => ['nullable', 'string', 'max:255'],
+            'configs.*.priceUsdt' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $validated['categoryId'] = $this->nullableInt($request->input('categoryId'));

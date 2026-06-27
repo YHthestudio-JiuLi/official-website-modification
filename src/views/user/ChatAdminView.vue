@@ -37,27 +37,28 @@
 
     <!-- 工作区 -->
     <div v-else class="admin-workspace">
-      <header class="admin-bar">
-        <div class="admin-bar-left">
-          <span class="admin-bar-title">{{ $t('adminChat.workspace.title') }}</span>
-          <span class="admin-ws-pill" :class="{ connected: wsConnected }">
-            <span class="status-dot" :class="{ on: wsConnected }"></span>
-            {{ wsConnected ? $t('adminChat.workspace.connected') : $t('adminChat.workspace.connecting') }}
-          </span>
-        </div>
-        <button type="button" class="btn btn-logout" @click="handleLogout">
-          <i class="fas fa-sign-out-alt"></i> {{ $t('adminChat.workspace.logout') }}
-        </button>
-      </header>
-
       <div class="admin-main">
         <aside class="conv-panel">
           <div class="conv-panel-head">
             <div class="conv-head-top">
               <span>{{ $t('adminChat.workspace.conversations') }}</span>
-              <span class="conv-count">{{ conversations.length }}</span>
+              <div class="conv-head-actions">
+                <span class="admin-ws-pill" :class="{ connected: wsConnected }">
+                  <span class="status-dot" :class="{ on: wsConnected }"></span>
+                  {{ wsConnected ? $t('adminChat.workspace.connected') : $t('adminChat.workspace.connecting') }}
+                </span>
+                <span class="conv-count">{{ conversations.length }}</span>
+                <button
+                  type="button"
+                  class="btn-chat-logout"
+                  :title="$t('adminChat.workspace.logout')"
+                  @click="handleLogout"
+                >
+                  <i class="fas fa-sign-out-alt"></i>
+                </button>
+              </div>
             </div>
-            
+
             <span class="conv-panel-sub">{{ $t('adminChat.workspace.selectUser') }}</span>
           </div>
           
@@ -546,14 +547,18 @@ onUnmounted(() => {
 
 <style scoped>
 .admin-chat-app {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-dark);
   overflow: hidden;
 }
 
 /* 登录界面 */
 .admin-login-overlay {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,83 +644,15 @@ onUnmounted(() => {
 
 /* 工作区 */
 .admin-workspace {
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.admin-bar {
-  height: 56px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1.5rem;
-  flex-shrink: 0;
-}
-
-.admin-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.admin-bar-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.admin-ws-pill {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  padding: 0.25rem 0.625rem;
-  background: var(--bg-dark);
-  border-radius: 9999px;
-}
-
-.admin-ws-pill.connected {
-  color: var(--primary-color);
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--border-color);
-}
-
-.status-dot.on {
-  background: var(--primary-color);
-  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
-}
-
-.btn-logout {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-logout:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #ef4444;
-}
-
 .admin-main {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -728,18 +665,79 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  min-height: 0;
 }
 
 .conv-panel-head {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .conv-head-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
+}
+
+.conv-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.admin-ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.5rem;
+  background: var(--bg-dark);
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.admin-ws-pill.connected {
+  color: var(--primary-color);
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.status-dot.on {
+  background: var(--primary-color);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+}
+
+.btn-chat-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-chat-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
 }
 
 .conv-head-top span:first-child {
@@ -797,6 +795,7 @@ onUnmounted(() => {
 
 .conv-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -924,6 +923,7 @@ onUnmounted(() => {
 /* 聊天区域 */
 .admin-chat {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-dark);
@@ -1000,6 +1000,7 @@ onUnmounted(() => {
 /* 消息区域 */
 .messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 1.5rem;
   display: flex;

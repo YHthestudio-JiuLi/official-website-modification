@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { fetchHomePopupNotice } from '@/services/popup'
+import api from '@/services/api'
 
 const visible = ref(false)
 const notice = ref(null)
@@ -31,7 +31,7 @@ const formattedContent = computed(() => {
 
 async function fetchNotice() {
   try {
-    const res = await fetchHomePopupNotice()
+    const res = await api.get('/api/popup-notice')
     if (res.data.notice) {
       notice.value = res.data.notice
       visible.value = true

@@ -38,10 +38,10 @@ class ProductManager:
         self._ensure_features_json_column()
         self._ensure_specs_json_column()
         self._ensure_usage_notice_json_column()
-        self._ensure_configs_json_column()
         self._ensure_category_id_column()
         self._ensure_sub_category_id_column()
         self._ensure_created_by_user_id_column()
+        self._ensure_configs_json_column()
 
     def _ensure_created_by_user_id_column(self) -> None:
         """已有库升级：商品创建者（代理归属）"""
@@ -93,7 +93,7 @@ class ProductManager:
         add_column_if_missing(self.conn, "products", "usageNoticeJson", "LONGTEXT")
 
     def _ensure_configs_json_column(self) -> None:
-        """已有库升级：商品可选配置 JSON 存 configsJson [{id, name, priceUsdt}]"""
+        """已有库升级：商品多配置（名称+价格）JSON 存 configsJson"""
         from ..db import add_column_if_missing
 
         add_column_if_missing(self.conn, "products", "configsJson", "LONGTEXT")
@@ -139,16 +139,16 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
-        configs_json: Optional[str] = None,
         category_id: Optional[int] = None,
         sub_category_id: Optional[int] = None,
+        configs_json: Optional[str] = None,
     ) -> int:
         self._validate_categories(category_id, sub_category_id)
         self.cur.execute(
             """
             INSERT INTO products (
               name, description, image, date, price, priceUsdt,
-              featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId
+              featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId, configsJson
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -161,9 +161,9 @@ class ProductManager:
                 features_json,
                 specs_json,
                 usage_notice_json,
-                configs_json,
                 category_id,
                 sub_category_id,
+                configs_json,
             ),
         )
         self.conn.commit()
@@ -181,9 +181,9 @@ class ProductManager:
         features_json: Optional[str] = None,
         specs_json: Optional[str] = None,
         usage_notice_json: Optional[str] = None,
-        configs_json: Optional[str] = None,
         category_id: Optional[int] = None,
         sub_category_id: Optional[int] = None,
+        configs_json: Optional[str] = None,
     ) -> None:
         self._validate_categories(category_id, sub_category_id)
         self.cur.execute(
@@ -191,7 +191,7 @@ class ProductManager:
             UPDATE products SET
               name = ?, description = ?, image = ?, date = ?,
               price = ?, priceUsdt = ?, featuresJson = ?, specsJson = ?,
-              usageNoticeJson = ?, configsJson = ?, categoryId = ?, subCategoryId = ?
+              usageNoticeJson = ?, categoryId = ?, subCategoryId = ?, configsJson = ?
             WHERE id = ?
             """,
             (
@@ -204,9 +204,9 @@ class ProductManager:
                 features_json,
                 specs_json,
                 usage_notice_json,
-                configs_json,
                 category_id,
                 sub_category_id,
+                configs_json,
                 product_id,
             ),
         )

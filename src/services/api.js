@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { currentAcceptLanguage } from '@/utils/authErrorMessage'
 import { resolveApiPath, useV2Api } from '@/utils/apiPath'
 import { readLegacyNodeBridgeToken } from '@/constants/legacyNodeBridge'
 import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
@@ -85,8 +84,6 @@ api.interceptors.request.use(
         config.headers['X-Legacy-Node-Token'] = bridgeToken
       }
     }
-
-    config.headers['Accept-Language'] = currentAcceptLanguage()
 
     const method = (config.method || 'get').toLowerCase()
 

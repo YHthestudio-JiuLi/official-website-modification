@@ -67,20 +67,7 @@ class OrderManager:
         )
         self._ensure_tracking_number_column()
         self._ensure_order_no_column()
-        self._ensure_config_id_column()
-        self._ensure_config_name_column()
-
-    def _ensure_config_id_column(self) -> None:
-        """已有库升级：下单所选商品配置 id"""
-        from ..db import add_column_if_missing
-
-        add_column_if_missing(self.conn, "orders", "configId", "VARCHAR(64)")
-
-    def _ensure_config_name_column(self) -> None:
-        """已有库升级：下单所选商品配置名称"""
-        from ..db import add_column_if_missing
-
-        add_column_if_missing(self.conn, "orders", "configName", "VARCHAR(512)")
+        self._ensure_config_columns()
 
     def _ensure_order_no_column(self) -> None:
         """已有库升级：8 位业务订单号"""
@@ -93,6 +80,13 @@ class OrderManager:
         from ..db import add_column_if_missing
 
         add_column_if_missing(self.conn, "orders", "trackingNumber", "VARCHAR(64)")
+
+    def _ensure_config_columns(self) -> None:
+        """已有库升级：下单所选商品配置快照"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "configId", "VARCHAR(64)")
+        add_column_if_missing(self.conn, "orders", "configName", "VARCHAR(255)")
 
     def find_all(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if status_filter:
@@ -164,7 +158,8 @@ class OrderManager:
             """
             INSERT INTO orders (
               orderNo, userId, username, productId, productName, quantity, price, totalAmount,
-              status, paymentMethod, usdtWallet, network, shippingAddress, configId, configName, createdAt
+              status, paymentMethod, usdtWallet, network, shippingAddress, createdAt,
+              configId, configName
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -181,9 +176,9 @@ class OrderManager:
                 order_data.get("usdtWallet"),
                 order_data.get("network", "TRC20"),
                 order_data.get("shippingAddress"),
+                created_at,
                 order_data.get("configId"),
                 order_data.get("configName"),
-                created_at,
             ),
         )
         self.conn.commit()

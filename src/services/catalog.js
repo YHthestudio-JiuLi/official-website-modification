@@ -1,45 +1,34 @@
 import * as catalogV2 from '@/services/v2/catalog'
 import api from '@/services/api'
-import i18n, { DEFAULT_LOCALE } from '@/i18n'
+import i18n from '@/i18n'
 import { useV2Api } from '@/utils/apiPath'
-import { cachedRequest, invalidateCache } from '@/utils/getCache'
 
 const USE_V2 = useV2Api() && import.meta.env.VITE_USE_V2_CATALOG !== 'false'
-const CATALOG_TTL = 60_000
-const PRODUCT_DETAIL_TTL = 30_000
 
 function langHeaders() {
-  const locale = i18n.global.locale.value || DEFAULT_LOCALE
+  const locale = i18n.global.locale.value || 'en'
   return { headers: { 'Accept-Language': locale } }
 }
 
-function catalogLocaleKey() {
-  return i18n.global.locale.value || DEFAULT_LOCALE
-}
-
 export function getProducts(config = {}) {
-  const limit = config.params?.limit ?? 'all'
-  const key = `catalog:products:${catalogLocaleKey()}:${limit}`
   if (USE_V2) {
-    return cachedRequest(key, CATALOG_TTL, () => catalogV2.fetchProducts({ ...langHeaders(), ...config }))
+    return catalogV2.fetchProducts({ ...langHeaders(), ...config })
   }
-  return cachedRequest(key, CATALOG_TTL, () => api.get('/api/products', config))
+  return api.get('/api/products', config)
 }
 
 export function getProduct(id) {
-  const key = `catalog:product:${id}:${catalogLocaleKey()}`
   if (USE_V2) {
-    return cachedRequest(key, PRODUCT_DETAIL_TTL, () => catalogV2.fetchProduct(id, langHeaders()))
+    return catalogV2.fetchProduct(id, langHeaders())
   }
-  return cachedRequest(key, PRODUCT_DETAIL_TTL, () => api.get(`/api/products/${id}`))
+  return api.get(`/api/products/${id}`)
 }
 
 export function getProductCategories() {
-  const key = 'catalog:categories'
   if (USE_V2) {
-    return cachedRequest(key, CATALOG_TTL, () => catalogV2.fetchProductCategories())
+    return catalogV2.fetchProductCategories()
   }
-  return cachedRequest(key, CATALOG_TTL, () => api.get('/api/product-categories'))
+  return api.get('/api/product-categories')
 }
 
 export function getAdminProducts() {
@@ -58,27 +47,18 @@ export function getAdminProduct(id) {
 
 export function saveProduct(id, payload) {
   if (USE_V2) {
-    return (id ? catalogV2.updateProduct(id, payload) : catalogV2.createProduct(payload))
-      .then((res) => {
-        invalidateCache('catalog:')
-        return res
-      })
+    return id ? catalogV2.updateProduct(id, payload) : catalogV2.createProduct(payload)
   }
-  return (id
+  return id
     ? api.put(`/api/admin/products/${id}`, payload)
-    : api.post('/api/admin/products', payload))
-    .then((res) => {
-      invalidateCache('catalog:')
-      return res
-    })
+    : api.post('/api/admin/products', payload)
 }
 
 export function removeProduct(id) {
-  const run = USE_V2 ? catalogV2.deleteProduct(id) : api.delete(`/api/admin/products/${id}`)
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  if (USE_V2) {
+    return catalogV2.deleteProduct(id)
+  }
+  return api.delete(`/api/admin/products/${id}`)
 }
 
 export function getAdminCategories() {
@@ -89,23 +69,19 @@ export function getAdminCategories() {
 }
 
 export function saveCategory(id, payload) {
-  const run = USE_V2
-    ? (id ? catalogV2.updateCategory(id, payload) : catalogV2.createCategory(payload))
-    : (id
-      ? api.put(`/api/admin/product-categories/${id}`, payload)
-      : api.post('/api/admin/product-categories', payload))
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  if (USE_V2) {
+    return id ? catalogV2.updateCategory(id, payload) : catalogV2.createCategory(payload)
+  }
+  return id
+    ? api.put(`/api/admin/product-categories/${id}`, payload)
+    : api.post('/api/admin/product-categories', payload)
 }
 
 export function removeCategory(id) {
-  const run = USE_V2 ? catalogV2.deleteCategory(id) : api.delete(`/api/admin/product-categories/${id}`)
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  if (USE_V2) {
+    return catalogV2.deleteCategory(id)
+  }
+  return api.delete(`/api/admin/product-categories/${id}`)
 }
 
 export function uploadProductImage(formData) {

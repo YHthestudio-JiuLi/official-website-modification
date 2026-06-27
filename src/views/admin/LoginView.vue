@@ -53,7 +53,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { resolveAuthError } from '@/utils/authErrorMessage'
 import { useI18n } from 'vue-i18n'
 import { useAdminStore } from '@/stores/admin'
 import { useAdminV2Store } from '@/stores/adminV2'
@@ -103,7 +102,16 @@ async function handleLogin() {
         : { name: 'admin-dashboard' }
     await router.replace(target)
   } catch (err) {
-    error.value = resolveAuthError(err, { context: 'admin' })
+    const status = err.response?.status
+    const data = err.response?.data
+    const fieldError = data?.errors?.username?.[0] || data?.errors?.password?.[0]
+    if (status === 429) {
+      error.value = t('admin.login.tooManyRequests')
+    } else if (status >= 500) {
+      error.value = t('admin.login.serverUnavailable')
+    } else {
+      error.value = fieldError || data?.message || data?.error || t('admin.login.error')
+    }
   } finally {
     loading.value = false
   }

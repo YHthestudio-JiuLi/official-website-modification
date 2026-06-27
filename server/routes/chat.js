@@ -312,7 +312,7 @@ app.put('/api/admin/chat-admins/:id', requireAdmin, async (req, res) => {
     );
     const updated = await dbOperations.chatAdmins.findById(adminId);
     res.json({ admin: updated });
-    telegram.restartMultiBotPolling?.().catch((err) => {
+    deps.telegram?.restartMultiBotPolling?.().catch((err) => {
       console.error('[Telegram] restart polling after config update:', err.message || err);
     });
   } catch (error) {
@@ -331,7 +331,7 @@ app.put('/api/admin/chat-admins/:id/chatbot', requireAdmin, async (req, res) => 
     await dbOperations.chatAdmins.updateChatbotEnabled(adminId, Boolean(enabled));
     const updated = await dbOperations.chatAdmins.findById(adminId);
     res.json({ admin: updated });
-    telegram.restartMultiBotPolling?.().catch((err) => {
+    deps.telegram?.restartMultiBotPolling?.().catch((err) => {
       console.error('[Telegram] restart polling after chatbot toggle:', err.message || err);
     });
   } catch (error) {

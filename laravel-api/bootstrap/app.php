@@ -31,16 +31,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PROTO
         );
 
-        // 公开只读 API 不启 Session/Sanctum，避免每次商品/论坛列表都连 Redis
-        $middleware->api(prepend: [
-            SecurityHeaders::class,
-        ]);
+        $middleware->statefulApi();
 
-        $middleware->group('stateful', [
+        // Vue Hash 路由下 Referer 含 /#/，Sanctum 可能判定非前端请求；始终启用 Session
+        $middleware->api(prepend: [
             EncryptCookies::class,
             AddQueuedCookiesToResponse::class,
             StartSession::class,
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            SecurityHeaders::class,
             EnsureUserIsActive::class,
         ]);
 

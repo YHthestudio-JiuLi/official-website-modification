@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\ProductCategory;
 use App\Services\Agent\AgentDataScope;
 use App\Services\Catalog\ProductCatalogService;
-use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,7 +28,6 @@ class ProductCategoryController extends Controller
         $this->denyScopedAgent($request);
         $data = $this->validated($request);
         $category = $this->catalog->createCategory($data);
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true, 'id' => $category->id]);
     }
@@ -39,7 +37,6 @@ class ProductCategoryController extends Controller
         $this->denyScopedAgent($request);
         $data = $this->validated($request, false);
         $this->catalog->updateCategory($category, $data);
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true]);
     }
@@ -48,7 +45,6 @@ class ProductCategoryController extends Controller
     {
         $this->denyScopedAgent($request);
         $category->delete();
-        PublicApiCache::bump('catalog');
 
         return response()->json(['success' => true]);
     }

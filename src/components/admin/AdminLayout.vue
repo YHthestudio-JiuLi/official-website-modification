@@ -206,7 +206,7 @@
     </aside>
 
     <!-- Main Content -->
-    <div class="admin-main">
+    <div class="admin-main" :class="{ 'admin-main--flush': contentFlush }">
       <header class="admin-header">
         <div class="header-left">
           <button class="sidebar-toggle-btn mobile-menu-btn" @click="toggleMobileMenu" v-if="isMobile">
@@ -233,7 +233,7 @@
         </div>
       </header>
 
-      <main class="admin-content">
+      <main class="admin-content" :class="{ 'admin-content--flush': contentFlush }">
         <slot />
       </main>
     </div>
@@ -253,10 +253,13 @@ import { useAdminPermissions } from '@/composables/useAdminPermission'
 import { useV2Api } from '@/utils/apiPath'
 import { redirectToAdminLogin } from '@/utils/adminSessionRedirect'
 import { finalizeAdminLogout } from '@/utils/adminLogout'
-import { setLanguage, resolveStoredLocale } from '@/i18n'
+import { setLanguage } from '@/i18n'
 
 const route = useRoute()
 const router = useRouter()
+
+/** 聊天工作台等全高页面：去掉内容区内边距，避免 100vh 撑出可视区域 */
+const contentFlush = computed(() => route.name === 'admin-chat')
 const adminStore = useAdminStore()
 const adminV2Store = useAdminV2Store()
 const { authReady, canAny, has, isScopedAgent } = useAdminPermissions()
@@ -297,7 +300,8 @@ const displayUsername = computed(() => {
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
-  locale.value = resolveStoredLocale()
+  const savedLang = localStorage.getItem('lang') || 'en'
+  locale.value = savedLang
 
   const savedState = localStorage.getItem('sidebar-collapsed')
   if (savedState === '1') {
@@ -840,6 +844,20 @@ onUnmounted(() => {
   overflow-y: visible;
   min-width: 0;
   width: 100%;
+}
+
+.admin-main--flush {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-content--flush {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .sidebar-overlay {

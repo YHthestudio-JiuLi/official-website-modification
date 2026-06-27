@@ -229,7 +229,7 @@
       "checkoutErrorAuth": "下单失败，请确认已登录且网络正常",
       "selectConfig": "选择配置",
       "selectConfigHint": "请先点击选择一种配置后再购买",
-      "selectConfigForPrice": "请选择配置"
+      "selectConfigForPrice": "请选择配置查看价格"
     }
   },
   "orders": {

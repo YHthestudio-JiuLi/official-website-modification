@@ -38,25 +38,24 @@
                     </template>
                   </h2>
                   <p class="pdc-hero-desc">{{ product.description || $t('products.detail.noDescription') }}</p>
-                  <!-- 商品配置选择（须手动点击，不自动选中首项） -->
+                  <!-- 多配置：首屏即展示，须用户手动选择后才能购买 -->
                   <div
                     v-if="hasProductConfigs"
-                    class="pdc-config-picker"
+                    id="pdc-config-picker"
+                    class="pdc-config-picker pdc-config-picker-hero"
                     :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
                   >
-                    <p class="pdc-config-picker-label">{{ $t('products.detail.selectConfig') }}</p>
-                    <p class="pdc-config-picker-hint">{{ $t('products.detail.selectConfigHint') }}</p>
                     <div class="pdc-config-options">
                       <button
                         v-for="cfg in productConfigs"
-                        :key="cfg.id"
+                        :key="'hero-' + cfg.id"
                         type="button"
                         class="pdc-config-option"
-                        :class="{ 'pdc-config-option--active': configExplicitlySelected && selectedConfigId === cfg.id }"
+                        :class="{ active: configExplicitlySelected && selectedConfigId === cfg.id }"
                         @click="selectConfig(cfg.id)"
                       >
-                        <span class="pdc-config-option-name">{{ cfg.name }}</span>
-                        <span class="pdc-config-option-price">{{ cfg.priceUsdt }} USDT</span>
+                        <span class="pdc-config-name">{{ cfg.name }}</span>
+                        <span class="pdc-config-price">{{ formatConfigPrice(cfg) }}</span>
                       </button>
                     </div>
                   </div>
@@ -214,25 +213,23 @@
                 <div class="pdc-price-card">
                   <div class="pdc-price-ribbon">{{ $t('products.detail.currentProductRibbon') }}</div>
                   <h3 class="pdc-price-name">{{ product.name }}</h3>
-                  <!-- 价格区同样展示配置选择，便于底部购买前切换 -->
+                  <!-- 多配置选择（底部套餐区同步展示） -->
                   <div
                     v-if="hasProductConfigs"
-                    class="pdc-config-picker pdc-config-picker--compact"
+                    class="pdc-config-picker"
                     :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
                   >
-                    <p class="pdc-config-picker-label">{{ $t('products.detail.selectConfig') }}</p>
-                    <p class="pdc-config-picker-hint">{{ $t('products.detail.selectConfigHint') }}</p>
                     <div class="pdc-config-options">
                       <button
                         v-for="cfg in productConfigs"
                         :key="'price-' + cfg.id"
                         type="button"
                         class="pdc-config-option"
-                        :class="{ 'pdc-config-option--active': configExplicitlySelected && selectedConfigId === cfg.id }"
+                        :class="{ active: configExplicitlySelected && selectedConfigId === cfg.id }"
                         @click="selectConfig(cfg.id)"
                       >
-                        <span class="pdc-config-option-name">{{ cfg.name }}</span>
-                        <span class="pdc-config-option-price">{{ cfg.priceUsdt }} USDT</span>
+                        <span class="pdc-config-name">{{ cfg.name }}</span>
+                        <span class="pdc-config-price">{{ formatConfigPrice(cfg) }}</span>
                       </button>
                     </div>
                   </div>
@@ -436,6 +433,13 @@ const canCheckout = computed(() => {
   if (!hasProductConfigs.value) return true
   return configExplicitlySelected.value && !!selectedConfigId.value
 })
+
+/** 配置行右侧价格文案 */
+function formatConfigPrice(cfg) {
+  const n = Number(cfg?.priceUsdt)
+  if (!Number.isFinite(n) || n <= 0) return t('products.detail.priceTbd')
+  return `${Number(n)} USDT`
+}
 
 /** 手动选择配置并同步 URL query，便于登录回跳恢复 */
 function selectConfig(configId) {
@@ -642,6 +646,9 @@ async function onBuyNowClick() {
   if (!product.value?.id || buySubmitting.value) return
   if (hasProductConfigs.value && !canCheckout.value) {
     configPickerHighlight.value = true
+    window.setTimeout(() => {
+      configPickerHighlight.value = false
+    }, 2200)
     return
   }
   buySubmitting.value = true
@@ -801,96 +808,66 @@ function handleImageError(e) {
   margin-bottom: 1.5rem;
 }
 
-/* 商品配置选择器 */
+/* 商品配置选择器：纵向全宽行，左名称右价格 */
 .pdc-config-picker {
-  margin-bottom: 1.35rem;
-  padding: 1rem 1.1rem;
-  border-radius: 0.65rem;
-  border: 1px solid rgba(0, 243, 255, 0.28);
-  background: rgba(18, 18, 26, 0.75);
-  transition: border-color 0.25s, box-shadow 0.25s;
+  margin: 0.75rem 0 0.5rem;
+  text-align: left;
 }
-.pdc-config-picker--compact {
-  margin-bottom: 0.85rem;
-  padding: 0.85rem 1rem;
+.pdc-config-picker-hero {
+  margin: 1rem 0 0.25rem;
+  max-width: 420px;
 }
 .pdc-config-picker-highlight {
-  border-color: var(--pdc-pink);
-  box-shadow:
-    0 0 0 1px rgba(255, 0, 255, 0.35),
-    0 0 22px rgba(255, 0, 255, 0.28);
-  animation: pdc-config-pulse 0.85s ease-in-out 2;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
+  animation: pdc-config-pulse 1.1s ease-in-out 2;
 }
 @keyframes pdc-config-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 1px rgba(255, 0, 255, 0.35),
-      0 0 22px rgba(255, 0, 255, 0.28);
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
   }
   50% {
-    box-shadow:
-      0 0 0 2px rgba(255, 0, 255, 0.55),
-      0 0 32px rgba(255, 0, 255, 0.42);
+    box-shadow: 0 0 0 3px rgba(255, 0, 255, 0.55), 0 0 24px rgba(255, 0, 255, 0.2);
   }
-}
-.pdc-config-picker-label {
-  margin: 0 0 0.35rem;
-  font-family: Orbitron, sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--pdc-cyan);
-}
-.pdc-config-picker-hint {
-  margin: 0 0 0.75rem;
-  font-size: 0.78rem;
-  color: #8b92a8;
-  line-height: 1.45;
 }
 .pdc-config-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .pdc-config-option {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  min-width: 7.5rem;
-  padding: 0.55rem 0.85rem;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(0, 243, 255, 0.35);
-  background: rgba(11, 15, 21, 0.85);
-  color: #e8eaef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   font-family: 'Roboto Mono', ui-monospace, monospace;
-  text-align: left;
 }
 .pdc-config-option:hover {
-  border-color: rgba(0, 243, 255, 0.65);
-  background: rgba(0, 243, 255, 0.08);
+  border-color: rgba(0, 229, 255, 0.55);
 }
-.pdc-config-option--active {
-  border-color: var(--pdc-usdt);
-  background: rgba(38, 161, 123, 0.14);
-  box-shadow: 0 0 14px rgba(38, 161, 123, 0.28);
+.pdc-config-option.active {
+  border-color: var(--pdc-cyan);
+  background: rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
 }
-.pdc-config-option-name {
+.pdc-config-name {
+  font-weight: 600;
+  text-align: left;
+}
+.pdc-config-price {
   font-family: Orbitron, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #fff;
-}
-.pdc-config-option-price {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--pdc-usdt);
-}
-.pdc-config-option--active .pdc-config-option-name {
-  color: var(--pdc-cyan);
+  flex-shrink: 0;
 }
 
 .pdc-hero-actions {
@@ -1475,8 +1452,9 @@ button.pdc-btn {
   color: #fff;
 }
 .pdc-price-single-hint {
-  font-size: 1.15rem;
-  color: #8b92a8;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pdc-cyan);
 }
 .pdc-price-core {
   margin-bottom: 1rem;

@@ -231,7 +231,7 @@
       "checkoutErrorAuth": "Checkout failed. Please make sure you are logged in and your network is stable.",
       "selectConfig": "Choose configuration",
       "selectConfigHint": "Tap a configuration before checkout",
-      "selectConfigForPrice": "Select a configuration"
+      "selectConfigForPrice": "Select a configuration to view price"
     }
   },
   "orders": {

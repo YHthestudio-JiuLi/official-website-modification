@@ -12,7 +12,9 @@ class ProductImageController extends Controller
 {
     public function show(int $id): BaseResponse
     {
-        $img = StoredImage::query()->find($id);
+        $img = StoredImage::query()
+            ->select(['id', 'mime', 'data'])
+            ->find($id);
         if (! $img || empty($img->data)) {
             return response()->json(['error' => 'Image not found'], 404);
         }

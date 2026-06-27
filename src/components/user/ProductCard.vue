@@ -5,8 +5,12 @@
   >
     <div class="product-image">
       <img
-        :src="currentImage"
+        v-if="coverImage"
+        :src="coverImage"
         :alt="product.name"
+        loading="lazy"
+        decoding="async"
+        fetchpriority="low"
         @error="handleImageError"
       />
     </div>
@@ -18,8 +22,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { parseProductImages } from '@/utils/productImages'
+import { computed } from 'vue'
+import { primaryProductImage } from '@/utils/productImages'
 
 const props = defineProps({
   product: {
@@ -28,32 +32,12 @@ const props = defineProps({
   }
 })
 
-const imageIndex = ref(0)
-const imageTimer = ref(null)
-const imageList = computed(() => parseProductImages(props.product?.image, props.product?.images))
-const currentImage = computed(() => imageList.value[imageIndex.value] || '')
+/** 列表卡片仅展示封面，避免多图轮播触发大量 /api/v2/product-images 并发 */
+const coverImage = computed(() => primaryProductImage(props.product))
 
 const truncatedDescription = computed(() => {
   const desc = props.product.description
   return desc && desc.length > 100 ? desc.substring(0, 100) + '...' : desc
-})
-
-function startImageRotation() {
-  if (imageTimer.value) {
-    clearInterval(imageTimer.value)
-    imageTimer.value = null
-  }
-  imageIndex.value = 0
-  if (imageList.value.length <= 1) return
-  imageTimer.value = setInterval(() => {
-    imageIndex.value = (imageIndex.value + 1) % imageList.value.length
-  }, 2500)
-}
-
-watch(imageList, startImageRotation, { immediate: true })
-onMounted(startImageRotation)
-onBeforeUnmount(() => {
-  if (imageTimer.value) clearInterval(imageTimer.value)
 })
 
 function handleImageError(e) {

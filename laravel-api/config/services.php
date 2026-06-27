@@ -39,6 +39,8 @@ return [
         'partner_id' => env('SF_PARTNER_ID'),
         'check_word' => env('SF_CHECK_WORD'),
         'sandbox' => env('SF_SANDBOX', false),
+        'prod_url' => env('SF_PROD_URL', 'https://bspgw.sf-express.com/std/service'),
+        'sandbox_url' => env('SF_SANDBOX_URL', 'https://sfapi-sbox.sf-express.com/std/service'),
     ],
 
     // Node legacy API（config:cache 后须通过 config() 读取，不可在控制器里直接 env()）

@@ -23,7 +23,7 @@ $config = match ($env) {
     ],
     'prod', 'production', '生产' => [
         'label' => '生产',
-        'url' => 'https://sfapi.sf-express.com/std/service',
+        'url' => 'https://bspgw.sf-express.com/std/service',
         'checkWord' => $prodWord,
     ],
     default => throw new RuntimeException('用法: php scripts/sf-test-routes.php [sandbox|prod]'),

@@ -84,9 +84,9 @@ class SfExpressTrackingService
     {
         $msgData = [
             'language' => '0',
-            'trackingType' => 1,
+            'trackingType' => '1',
             'trackingNumber' => [$trackingNumber],
-            'methodType' => 1,
+            'methodType' => '1',
         ];
         if ($phoneLast4 !== '') {
             $msgData['checkPhoneNo'] = $phoneLast4;
@@ -97,9 +97,16 @@ class SfExpressTrackingService
         $checkWord = (string) config('services.sf_express.check_word');
         $msgDigest = $this->buildMsgDigest($msgDataStr, $timestamp, $checkWord);
 
-        $url = filter_var(config('services.sf_express.sandbox', false), FILTER_VALIDATE_BOOLEAN)
-            ? 'https://sfapi-sbox.sf-express.com/std/service'
-            : 'https://sfapi.sf-express.com/std/service';
+        $sandbox = filter_var(config('services.sf_express.sandbox', false), FILTER_VALIDATE_BOOLEAN);
+        $url = trim((string) ($sandbox
+            ? config('services.sf_express.sandbox_url', '')
+            : config('services.sf_express.prod_url', '')));
+        if ($url === '') {
+            // 兜底地址：避免配置缺失导致请求地址为空
+            $url = $sandbox
+                ? 'https://sfapi-sbox.sf-express.com/std/service'
+                : 'https://bspgw.sf-express.com/std/service';
+        }
 
         $response = Http::asForm()
             ->timeout(15)

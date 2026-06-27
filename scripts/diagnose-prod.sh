@@ -87,9 +87,38 @@ if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
   time_url "Laravel products" "https://127.0.0.1/api/v2/products" -k -H "Host: ${DOMAIN}"
   time_url "Laravel storefront" "https://127.0.0.1/api/v2/catalog/storefront" -k -H "Host: ${DOMAIN}"
   time_url "Laravel categories" "https://127.0.0.1/api/v2/product-categories" -k -H "Host: ${DOMAIN}"
+  # 商品图：第二次应明显快于第一次（磁盘/Nginx 缓存）
+  IMG_ID="$(ls "$ROOT/laravel-api/storage/app/product-image-cache"/*.jpg 2>/dev/null | head -1 | xargs -n1 basename 2>/dev/null | cut -d. -f1 || echo 1)"
+  time_url "商品图(首次路径)" "https://127.0.0.1/api/v2/product-images/${IMG_ID}" -k -H "Host: ${DOMAIN}"
+  time_url "商品图(重复)" "https://127.0.0.1/api/v2/product-images/${IMG_ID}" -k -H "Host: ${DOMAIN}"
 else
   time_url "Laravel health" "http://127.0.0.1:8000/api/v2/health"
   time_url "Laravel products" "http://127.0.0.1:8000/api/v2/products"
+fi
+
+echo ""
+IMG_CACHE_DIR="$ROOT/laravel-api/storage/app/product-image-cache"
+if [ -d "$IMG_CACHE_DIR" ]; then
+  img_n="$(find "$IMG_CACHE_DIR" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.webp' \) 2>/dev/null | wc -l | tr -d ' ')"
+  if [ "${img_n:-0}" -gt 0 ]; then
+    ok "磁盘商品图缓存 ${img_n} 张（$IMG_CACHE_DIR）"
+  else
+    warn "磁盘商品图缓存为空，请执行: cd laravel-api && php artisan catalog:warm --images"
+  fi
+else
+  warn "缺少 product-image-cache 目录，请重新运行 setup-laravel-fpm.sh"
+fi
+
+if [ -f /www/server/nginx/conf/yh-v2-fcgi-cache.conf ]; then
+  ok "Nginx fastcgi_cache zone 已安装"
+else
+  warn "未检测到 yh-v2-fcgi-cache.conf，请 sudo bash scripts/setup-laravel-fpm.sh"
+fi
+
+if [ -d "$ROOT/.git" ]; then
+  if ! "${GIT_SAFE[@]}" merge-base --is-ancestor 6706812 HEAD 2>/dev/null; then
+    warn "尚未包含性能优化 6706812，请 git pull github refs/heads/V2.1.1"
+  fi
 fi
 
 echo ""

@@ -85,6 +85,7 @@ if [ -f "$ROOT/.laravel-fpm-enabled" ]; then
   # 本机 HTTPS 需 -k + Host，与 setup-laravel-fpm.sh 一致
   time_url "Laravel health" "https://127.0.0.1/api/v2/health" -k -H "Host: ${DOMAIN}"
   time_url "Laravel products" "https://127.0.0.1/api/v2/products" -k -H "Host: ${DOMAIN}"
+  time_url "Laravel storefront" "https://127.0.0.1/api/v2/catalog/storefront" -k -H "Host: ${DOMAIN}"
   time_url "Laravel categories" "https://127.0.0.1/api/v2/product-categories" -k -H "Host: ${DOMAIN}"
 else
   time_url "Laravel health" "http://127.0.0.1:8000/api/v2/health"

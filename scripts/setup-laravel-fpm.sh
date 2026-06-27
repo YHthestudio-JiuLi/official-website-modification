@@ -53,10 +53,26 @@ sed \
 info "设置 laravel-api/storage 权限（www）..."
 mkdir -p "$ROOT/laravel-api/storage/framework/sessions" \
   "$ROOT/laravel-api/storage/logs" \
-  "$ROOT/laravel-api/bootstrap/cache"
+  "$ROOT/laravel-api/bootstrap/cache" \
+  "$ROOT/laravel-api/storage/app/product-image-cache" \
+  "$ROOT/laravel-api/storage/nginx-fcgi-cache"
 if id www >/dev/null 2>&1; then
   chown -R www:www "$ROOT/laravel-api/storage" "$ROOT/laravel-api/bootstrap/cache"
   chmod -R ug+rwX "$ROOT/laravel-api/storage" "$ROOT/laravel-api/bootstrap/cache"
+fi
+
+# fastcgi_cache 全局 zone（http{}）
+FCGI_SNIP_SRC="$ROOT/scripts/nginx/yh-v2-fcgi-cache-http.snippet"
+FCGI_SNIP_DST="/www/server/nginx/conf/yh-v2-fcgi-cache.conf"
+if [ -f "$FCGI_SNIP_SRC" ]; then
+  sed "s|__APP_ROOT__|${ROOT}|g" "$FCGI_SNIP_SRC" > "$FCGI_SNIP_DST"
+  NGINX_MAIN="/www/server/nginx/conf/nginx.conf"
+  if [ -f "$NGINX_MAIN" ] && ! grep -q 'yh-v2-fcgi-cache.conf' "$NGINX_MAIN"; then
+    if grep -q 'http {' "$NGINX_MAIN"; then
+      sed -i '/http {/a\    include /www/server/nginx/conf/yh-v2-fcgi-cache.conf;' "$NGINX_MAIN" 2>/dev/null || \
+        warn "请手动在 nginx.conf 的 http{} 内添加: include $FCGI_SNIP_DST;"
+    fi
+  fi
 fi
 
 info "Laravel optimize（config/route 缓存）..."
@@ -65,6 +81,8 @@ cd "$ROOT/laravel-api"
   "$PHP_BIN" artisan config:cache
   "$PHP_BIN" artisan route:cache
 }
+info "预热商品 API 与磁盘图片缓存…"
+"$PHP_BIN" artisan catalog:warm --images 2>/dev/null || warn "catalog:warm 跳过（需先 migrate）"
 
 touch "$ROOT/.laravel-fpm-enabled"
 echo "$DOMAIN" > "$ROOT/.laravel-fpm-domain"

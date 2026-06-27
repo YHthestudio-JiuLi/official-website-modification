@@ -5,6 +5,11 @@ export function fetchProducts(config = {}) {
   return v2.get('/products', config)
 }
 
+/** 商城聚合读：商品 + 分类一次返回，减少 PHP-FPM 并发 */
+export function fetchStorefront(config = {}) {
+  return v2.get('/catalog/storefront', config)
+}
+
 /** 公开商品详情 */
 export function fetchProduct(id, config = {}) {
   return v2.get(`/products/${id}`, config)

@@ -26,6 +26,33 @@ export function getProducts(config = {}) {
   return cachedRequest(key, CATALOG_TTL, () => api.get('/api/products', config))
 }
 
+/** 聚合接口：产品列表页一次拉取 products + categories */
+export function getStorefront(config = {}) {
+  const limit = config.params?.limit ?? 'all'
+  const withCategories = config.params?.categories !== false
+  const key = `catalog:storefront:${catalogLocaleKey()}:${limit}:${withCategories ? 1 : 0}`
+  if (USE_V2) {
+    return cachedRequest(key, CATALOG_TTL, () =>
+      catalogV2.fetchStorefront({
+        ...langHeaders(),
+        params: {
+          ...(config.params || {}),
+          categories: withCategories ? 1 : 0
+        }
+      })
+    )
+  }
+  return Promise.all([
+    getProducts(config),
+    withCategories ? getProductCategories() : Promise.resolve({ data: [] })
+  ]).then(([productsRes, categoriesRes]) => ({
+    data: {
+      products: productsRes.data,
+      categories: categoriesRes.data
+    }
+  }))
+}
+
 export function getProduct(id) {
   const key = `catalog:product:${id}:${catalogLocaleKey()}`
   if (USE_V2) {

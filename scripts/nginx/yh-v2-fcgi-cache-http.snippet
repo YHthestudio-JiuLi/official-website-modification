@@ -1,0 +1,3 @@
+# 写入 /www/server/nginx/conf/yh-v2-fcgi-cache.conf 并在 nginx.conf 的 http{} 内 include
+# 由 scripts/setup-laravel-fpm.sh 自动安装
+fastcgi_cache_path __APP_ROOT__/laravel-api/storage/nginx-fcgi-cache levels=1:2 keys_zone=yh_v2_api:128m inactive=7d max_size=2g;

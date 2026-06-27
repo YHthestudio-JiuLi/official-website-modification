@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\StoredImage;
+use App\Support\ProductImageDiskCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,7 @@ class ProductImageController extends Controller
             'data' => $binary,
             'size' => strlen($binary),
         ]);
+        ProductImageDiskCache::write((int) $image->id, $binary, $image->mime ?: 'image/jpeg');
 
         return response()->json([
             'ok' => true,
@@ -34,9 +36,13 @@ class ProductImageController extends Controller
     {
         $imagePath = (string) $request->input('image', '');
         if (preg_match('#^/api/v2/product-images/(\d+)$#', $imagePath, $m)) {
-            StoredImage::query()->where('id', (int) $m[1])->delete();
+            $id = (int) $m[1];
+            StoredImage::query()->where('id', $id)->delete();
+            ProductImageDiskCache::forget($id);
         } elseif (preg_match('#^/api/product-images/(\d+)$#', $imagePath, $m)) {
-            StoredImage::query()->where('id', (int) $m[1])->delete();
+            $id = (int) $m[1];
+            StoredImage::query()->where('id', $id)->delete();
+            ProductImageDiskCache::forget($id);
         }
 
         return response()->json(['ok' => true]);

@@ -183,8 +183,9 @@ const statItems = computed(() => [
 
 onMounted(async () => {
   try {
-    const response = await catalogApi.getProducts({ params: { limit: 3 } })
-    const list = response.data || []
+    const response = await catalogApi.getStorefront({ params: { limit: 3, categories: 0 } })
+    const raw = response.data?.products
+    const list = Array.isArray(raw) ? raw : []
     products.value = list
     productTotal.value = list.length >= 3 ? '3+' : list.length
   } catch (error) {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V2\CatalogController;
 use App\Http\Controllers\Api\V2\AuthController;
 use App\Http\Controllers\Api\V2\Bridge\LegacyBridgeController;
 use App\Http\Controllers\Api\V2\CartController;
@@ -50,6 +51,7 @@ Route::get('/health', function () {
 
 // ---------- 公开 API（只读，限流） ----------
 Route::middleware('throttle:api')->group(function () {
+    Route::get('/catalog/storefront', [CatalogController::class, 'storefront']);
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{id}', [ProductController::class, 'show'])->whereNumber('id');
     Route::get('/product-categories', [ProductCategoryController::class, 'index']);

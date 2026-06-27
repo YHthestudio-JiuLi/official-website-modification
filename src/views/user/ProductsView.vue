@@ -190,12 +190,9 @@ function setCategory(categorySlug, subCategorySlug) {
 onMounted(async () => {
   loadError.value = false
   try {
-    const [productsRes, categoriesRes] = await Promise.all([
-      catalogApi.getProducts(),
-      catalogApi.getProductCategories()
-    ])
-    products.value = normalizeListPayload(productsRes.data)
-    categories.value = normalizeListPayload(categoriesRes.data)
+    const res = await catalogApi.getStorefront()
+    products.value = normalizeListPayload(res.data?.products)
+    categories.value = normalizeListPayload(res.data?.categories)
   } catch (error) {
     console.error('Failed to fetch products:', error)
     loadError.value = true

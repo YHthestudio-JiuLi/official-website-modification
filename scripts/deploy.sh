@@ -288,6 +288,10 @@ setup_laravel() {
     "$PHP_BIN" artisan route:cache
   fi
 
+  mkdir -p storage/app/product-image-cache storage/nginx-fcgi-cache
+  info "php artisan catalog:warm --images（预热 API + 图片磁盘缓存）..."
+  "$PHP_BIN" artisan catalog:warm --images 2>/dev/null || warn "catalog:warm 失败（可稍后手动执行）"
+
   if id www >/dev/null 2>&1; then
     chown -R www:www storage bootstrap/cache 2>/dev/null || true
     chmod -R ug+rwX storage bootstrap/cache 2>/dev/null || true

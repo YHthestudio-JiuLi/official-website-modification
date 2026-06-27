@@ -17,6 +17,6 @@ class ProductCategoryController extends Controller
 
         return response()
             ->json($data)
-            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_SECONDS);
+            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_CATALOG_SECONDS);
     }
 }

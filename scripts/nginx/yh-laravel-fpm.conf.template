@@ -4,6 +4,34 @@
 # 安装后请从站点主配置中删除（或注释）下列反代块，避免重复：
 #   location /api/v2/ { proxy_pass http://127.0.0.1:8000; ... }
 #   location /sanctum/ { proxy_pass http://127.0.0.1:8000; ... }
+#
+# fastcgi_cache 需在 nginx http{} 中定义一次（setup-laravel-fpm.sh 会写入 yh-v2-fcgi-cache.conf）：
+#   fastcgi_cache_path __APP_ROOT__/laravel-api/storage/nginx-fcgi-cache levels=1:2 keys_zone=yh_v2_api:128m inactive=7d max_size=2g;
+
+# 商品图：磁盘命中则 Nginx 直接返回，不占 PHP-FPM worker
+location ~ ^/api/v2/product-images/(?<imgid>\d+)$ {
+    root __APP_ROOT__/laravel-api/storage/app/product-image-cache;
+    try_files /$imgid.jpg /$imgid.jpeg /$imgid.png /$imgid.webp /$imgid.gif @yh_v2_php_image;
+    expires 365d;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    access_log off;
+}
+
+location @yh_v2_php_image {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME __APP_ROOT__/laravel-api/public/index.php;
+    fastcgi_param DOCUMENT_ROOT __APP_ROOT__/laravel-api/public;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param REQUEST_URI $request_uri;
+    fastcgi_pass unix:__PHP_FPM_SOCK__;
+    fastcgi_read_timeout 120;
+    fastcgi_buffers 32 64k;
+    fastcgi_buffer_size 128k;
+    fastcgi_cache yh_v2_api;
+    fastcgi_cache_valid 200 365d;
+    fastcgi_cache_methods GET HEAD;
+    add_header X-Cache-Status $upstream_cache_status always;
+}
 
 location ^~ /api/v2/ {
     include fastcgi_params;
@@ -16,6 +44,10 @@ location ^~ /api/v2/ {
     fastcgi_send_timeout 600;
     fastcgi_buffers 32 32k;
     fastcgi_buffer_size 64k;
+    fastcgi_cache yh_v2_api;
+    fastcgi_cache_valid 200 5m;
+    fastcgi_cache_methods GET HEAD;
+    add_header X-Cache-Status $upstream_cache_status always;
 }
 
 location ^~ /sanctum/ {

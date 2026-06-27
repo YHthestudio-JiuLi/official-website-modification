@@ -196,10 +196,16 @@ if [ "$SKIP_NPM" = false ]; then
 fi
 
 if [ "$SKIP_BUILD" = false ]; then
+  # 清除 Vite 构建缓存，避免 ChatAdminView 等组件仍打包旧模板
+  if [ -d "$ROOT/node_modules/.vite" ]; then
+    rm -rf "$ROOT/node_modules/.vite"
+    info "已清除 node_modules/.vite 构建缓存"
+  fi
   info "npm run build（VITE_* 从此刻 .env 写入 dist）..."
   npm run build
   test -f dist/index.html || fail "dist/index.html 不存在，构建失败"
-  ok "前端构建完成"
+  FRONT_ENTRY="$(grep -oE 'index-[A-Za-z0-9_-]+\.js' "$ROOT/dist/index.html" | head -1 || true)"
+  ok "前端构建完成${FRONT_ENTRY:+ → $FRONT_ENTRY}"
 fi
 
 # ── Python 虚拟环境 ──

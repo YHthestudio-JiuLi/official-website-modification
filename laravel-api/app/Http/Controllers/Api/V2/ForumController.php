@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V2;
 use App\Http\Controllers\Controller;
 use App\Services\Bridge\NodeTelegramNotifier;
 use App\Services\Commerce\ForumService;
+use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,17 +18,23 @@ class ForumController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json($this->forum->listPosts());
+        $data = PublicApiCache::remember('forum', 'posts', fn () => $this->forum->listPosts());
+
+        return response()
+            ->json($data)
+            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_SECONDS);
     }
 
     public function show(int $id): JsonResponse
     {
-        $post = $this->forum->getPost($id);
+        $post = PublicApiCache::remember('forum', 'post:'.$id, fn () => $this->forum->getPost($id));
         if (! $post) {
             return response()->json(['error' => 'Post not found'], 404);
         }
 
-        return response()->json($post);
+        return response()
+            ->json($post)
+            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_SECONDS);
     }
 
     public function store(Request $request): JsonResponse
@@ -37,6 +44,7 @@ class ForumController extends Controller
             'content' => ['required', 'string'],
         ]);
         $id = $this->forum->createPost($request->user()->username, $data);
+        PublicApiCache::bump('forum');
         $post = $this->forum->getPost($id);
         if ($post) {
             $this->telegram->notifyForumPost($post);
@@ -47,7 +55,11 @@ class ForumController extends Controller
 
     public function replies(int $id): JsonResponse
     {
-        return response()->json($this->forum->listReplies($id));
+        $data = PublicApiCache::remember('forum', 'replies:'.$id, fn () => $this->forum->listReplies($id));
+
+        return response()
+            ->json($data)
+            ->header('Cache-Control', 'public, max-age='.PublicApiCache::TTL_SECONDS);
     }
 
     public function storeReply(Request $request, int $id): JsonResponse
@@ -57,6 +69,7 @@ class ForumController extends Controller
             'parentReplyId' => ['nullable', 'integer'],
         ]);
         $replyId = $this->forum->createReply($id, $request->user()->username, $data);
+        PublicApiCache::bump('forum');
         $reply = $this->forum->getReply($replyId);
         $post = $this->forum->getPost($id);
         $parentReply = null;
@@ -73,6 +86,7 @@ class ForumController extends Controller
     public function destroyReply(Request $request, int $id): JsonResponse
     {
         $this->forum->deleteReply($id, $request->user()->username, false);
+        PublicApiCache::bump('forum');
 
         return response()->json(['success' => true]);
     }

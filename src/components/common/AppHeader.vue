@@ -32,9 +32,15 @@
 
         <!-- 语言切换 -->
         <li class="lang-switcher">
-          <button @click="toggleLanguage" class="nav-link lang-btn" :title="$t('language.switch')">
-            <i class="fas fa-globe"></i>
-            <span>{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
+          <button
+            type="button"
+            class="lang-btn"
+            :title="$t('language.switch')"
+            :aria-label="$t('language.switch')"
+            @click="toggleLanguage"
+          >
+            <i class="fas fa-globe" aria-hidden="true" />
+            <span class="lang-btn-label">{{ currentLang === 'zh' ? $t('language.zh') : $t('language.en') }}</span>
           </button>
         </li>
 
@@ -45,15 +51,18 @@
             </router-link>
           </li>
           <li class="nav-user">
-            <div class="user-avatar-display">
-              <span class="avatar-letter">{{ getUserAvatarLetter(authStore.username) }}</span>
+            <div class="nav-user-inner">
+              <div class="nav-user-profile">
+                <div class="user-avatar-display">
+                  <span class="avatar-letter">{{ getUserAvatarLetter(authStore.username) }}</span>
+                </div>
+                <span class="user-name" :title="authStore.username">{{ authStore.username }}</span>
+              </div>
+              <button type="button" class="nav-user-logout" @click="handleLogout">
+                <i class="fas fa-sign-out-alt" aria-hidden="true" />
+                {{ $t('nav.logout') }}
+              </button>
             </div>
-            <span class="user-name">
-              {{ authStore.username }}
-            </span>
-            <a href="#" @click.prevent="handleLogout" class="nav-link logout">
-              {{ $t('nav.logout') }}
-            </a>
           </li>
         </template>
 
@@ -97,7 +106,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { setLanguage } from '@/i18n'
+import { setLanguage, resolveStoredLocale } from '@/i18n'
 import { buildLoginRoute, buildRegisterRoute, resolveRedirectFromRoute } from '@/utils/authRedirect'
 
 const authStore = useAuthStore()
@@ -149,14 +158,13 @@ onBeforeUnmount(() => {
 const currentLang = computed(() => locale.value)
 
 onMounted(() => {
-  // 确保初始语言与 localStorage 一致
-  const savedLang = localStorage.getItem('lang') || 'en'
-  locale.value = savedLang
+  locale.value = resolveStoredLocale()
 })
 
 function toggleLanguage() {
   const newLang = currentLang.value === 'en' ? 'zh' : 'en'
   setLanguage(newLang)
+  menuOpen.value = false
 }
 
 function getUserAvatarLetter(username) {
@@ -165,6 +173,7 @@ function getUserAvatarLetter(username) {
 }
 
 async function handleLogout() {
+  menuOpen.value = false
   try {
     await authStore.logout()
   } catch (_e) {
@@ -178,20 +187,27 @@ async function handleLogout() {
 .lang-switcher {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  list-style: none;
 }
 
 .lang-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.45rem;
   background: rgba(26, 31, 58, 0.8);
   border: 1px solid #233554;
   color: #e6f1ff;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
-  font-size: 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  min-height: 40px;
+  white-space: nowrap;
+  touch-action: manipulation;
 }
 
 .lang-btn:hover {
@@ -199,18 +215,62 @@ async function handleLogout() {
   border-color: #00d4ff;
 }
 
-.lang-btn i {
-  font-size: 16px;
+.lang-btn:focus-visible {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.22);
 }
 
-@media (max-width: 768px) {
-  .lang-switcher {
-    margin-top: 1rem;
-  }
-  
+.lang-btn i {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.lang-btn-label {
+  font-weight: 500;
+}
+
+/* 桌面窄屏：仅图标，节省顶栏空间 */
+@media (min-width: 993px) and (max-width: 1180px) {
   .lang-btn {
+    padding: 0.45rem 0.55rem;
+    min-width: 40px;
+  }
+
+  .lang-btn-label {
+    display: none;
+  }
+}
+
+/* 移动端抽屉菜单：与导航项分区，按钮居中 */
+@media (max-width: 992px) {
+  .lang-switcher {
     width: 100%;
     justify-content: center;
+    padding: 0.85rem 1.25rem 0.25rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid rgba(42, 47, 74, 0.55);
+    box-sizing: border-box;
+  }
+
+  .lang-btn {
+    min-width: 9.5rem;
+    max-width: min(300px, 100%);
+    min-height: 44px;
+    padding: 0.65rem 1.35rem;
+    font-size: 0.9375rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lang-switcher {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .lang-btn {
+    width: 100%;
+    max-width: none;
   }
 }
 
@@ -278,5 +338,99 @@ async function handleLogout() {
 
 .nav-products-search input::placeholder {
   color: #6b7289;
+}
+
+/* 登录用户区：桌面横排，移动端抽屉内卡片式布局 */
+.nav-user-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.nav-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.nav-user-profile .user-name {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-user-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid #233554;
+  background: rgba(26, 31, 58, 0.55);
+  color: #c4c8d4;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.nav-user-logout:hover {
+  border-color: #00d4ff;
+  color: #e6f1ff;
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.nav-user-logout:focus-visible {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.22);
+}
+
+@media (min-width: 993px) and (max-width: 1280px) {
+  .nav-user-profile .user-name {
+    max-width: 5.5rem;
+  }
+
+  .nav-user-logout {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.55rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .nav-user-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: min(320px, 100%);
+    margin: 0 auto;
+  }
+
+  .nav-user-profile {
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.15rem 0;
+  }
+
+  .nav-user-profile .user-name {
+    max-width: min(220px, 70vw);
+    font-size: 1rem;
+    font-weight: 500;
+    color: #e6f1ff;
+  }
+
+  .nav-user-logout {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.65rem 1rem;
+    font-size: 0.9375rem;
+  }
 }
 </style>

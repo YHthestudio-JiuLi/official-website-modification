@@ -48,10 +48,10 @@ const dbOperations = {
   products: {
     findAll: () => rpc('products.findAll'),
     findById: (id) => rpc('products.findById', { id }),
-    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
-      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
-    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId) =>
-      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, categoryId, subCategoryId }),
+    create: (name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId) =>
+      rpc('products.create', { name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId }),
+    update: (id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId) =>
+      rpc('products.update', { id, name, description, image, date, price, priceUsdt, featuresJson, specsJson, usageNoticeJson, configsJson, categoryId, subCategoryId }),
     delete: (id) => rpc('products.delete', { id })
   },
   productCategories: {
@@ -174,10 +174,22 @@ const dbOperations = {
     findAll: () => rpc('popupNotices.findAll'),
     findById: (id) => rpc('popupNotices.findById', { id }),
     findActive: () => rpc('popupNotices.findActive'),
-    create: (title, content, enabled = true) =>
-      rpc('popupNotices.create', { title, content, enabled }),
-    update: (id, title, content, enabled = true) =>
-      rpc('popupNotices.update', { id, title, content, enabled }),
+    findActiveDisplay: () => rpc('popupNotices.findActiveDisplay'),
+    create: (title, content, popupEnabled = true, displayEnabled = true) =>
+      rpc('popupNotices.create', {
+        title,
+        content,
+        popup_enabled: popupEnabled,
+        display_enabled: displayEnabled
+      }),
+    update: (id, title, content, popupEnabled, displayEnabled) =>
+      rpc('popupNotices.update', {
+        id,
+        title,
+        content,
+        popup_enabled: popupEnabled,
+        display_enabled: displayEnabled
+      }),
     delete: (id) => rpc('popupNotices.delete', { id })
   },
   deviceVerification: {

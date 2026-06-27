@@ -62,15 +62,15 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('/forum/posts/{id}/replies', [ForumController::class, 'replies'])->whereNumber('id');
 });
 
-// 认证（限流防暴力破解）
-Route::middleware('throttle:login')->group(function () {
+// 认证（限流防暴力破解，需 Session）
+Route::middleware(['stateful', 'throttle:login'])->group(function () {
     Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/register', [AuthController::class, 'register']);
 });
 
 // 前台用户 API（web guard）
-Route::middleware(['auth:web', 'use.guard:web', 'throttle:api'])->group(function () {
+Route::middleware(['stateful', 'auth:web', 'use.guard:web', 'throttle:api'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'userLogout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/legacy-node-bridge', [AuthController::class, 'userLegacyNodeBridgeToken']);
@@ -97,7 +97,7 @@ Route::middleware(['auth:web', 'use.guard:web', 'throttle:api'])->group(function
 });
 
 // 后台管理 API（admin guard，与前台 web 会话独立）
-Route::middleware(['auth:admin', 'use.guard:admin', 'admin.boot', 'throttle:api'])->group(function () {
+Route::middleware(['stateful', 'auth:admin', 'use.guard:admin', 'admin.boot', 'throttle:api'])->group(function () {
     Route::post('/auth/admin/logout', [AuthController::class, 'adminLogout']);
     Route::get('/auth/admin/me', [AuthController::class, 'adminMe']);
     Route::post('/auth/admin/legacy-node-bridge', [AuthController::class, 'legacyNodeBridgeToken']);

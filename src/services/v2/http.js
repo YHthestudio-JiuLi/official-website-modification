@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { currentAcceptLanguage } from '@/utils/authErrorMessage'
 import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
 
 /**
@@ -97,6 +98,7 @@ v2.interceptors.request.use(async (config) => {
   if (!(config.data instanceof FormData)) {
     config.headers['Content-Type'] = 'application/json'
   }
+  config.headers['Accept-Language'] = currentAcceptLanguage()
   return config
 })
 

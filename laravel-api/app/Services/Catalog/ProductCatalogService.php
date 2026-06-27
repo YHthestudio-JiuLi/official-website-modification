@@ -16,6 +16,75 @@ class ProductCatalogService
 
     public function listProductsForApi(bool $translateEn = true, ?int $ownerUserId = null, ?int $limit = null): array
     {
+        return $this->listProductsForApiLite($translateEn, $ownerUserId, $limit);
+    }
+
+    /**
+     * 前台列表：不加载 features/specs 等大 JSON，显著减小响应与序列化耗时
+     */
+    public function listProductsForApiLite(bool $translateEn = true, ?int $ownerUserId = null, ?int $limit = null): array
+    {
+        $query = DB::table('products as p')
+            ->leftJoin('product_categories as c', 'p.categoryId', '=', 'c.id')
+            ->leftJoin('product_categories as sc', 'p.subCategoryId', '=', 'sc.id')
+            ->select([
+                'p.id',
+                'p.name',
+                'p.description',
+                'p.image',
+                'p.date',
+                'p.price',
+                'p.priceUsdt',
+                'p.categoryId',
+                'p.subCategoryId',
+                'c.name as categoryName',
+                'c.nameEn as categoryNameEn',
+                'c.slug as categorySlug',
+                'sc.name as subCategoryName',
+                'sc.nameEn as subCategoryNameEn',
+                'sc.slug as subCategorySlug',
+            ])
+            ->orderByDesc('p.date')
+            ->orderByDesc('p.id');
+
+        if ($ownerUserId !== null) {
+            $query->where('p.createdByUserId', $ownerUserId);
+        }
+        if ($limit !== null && $limit > 0) {
+            $query->limit($limit);
+        }
+
+        $out = [];
+        foreach ($query->get() as $row) {
+            $arr = (array) $row;
+            $images = $this->normalizer->parseImages($arr['image'] ?? null);
+            $item = [
+                'id' => (int) $arr['id'],
+                'name' => $arr['name'],
+                'description' => $arr['description'],
+                'image' => $images[0] ?? '',
+                'images' => $images,
+                'date' => $arr['date'],
+                'price' => (float) ($arr['price'] ?? 0),
+                'priceUsdt' => (float) ($arr['priceUsdt'] ?? $arr['price'] ?? 0),
+                'categoryId' => $arr['categoryId'] !== null ? (int) $arr['categoryId'] : null,
+                'subCategoryId' => $arr['subCategoryId'] !== null ? (int) $arr['subCategoryId'] : null,
+                'categoryName' => $arr['categoryName'] ?? null,
+                'categoryNameEn' => $arr['categoryNameEn'] ?? null,
+                'categorySlug' => $arr['categorySlug'] ?? null,
+                'subCategoryName' => $arr['subCategoryName'] ?? null,
+                'subCategoryNameEn' => $arr['subCategoryNameEn'] ?? null,
+                'subCategorySlug' => $arr['subCategorySlug'] ?? null,
+            ];
+            $out[] = $translateEn ? $this->translator->translateListItem($item) : $item;
+        }
+
+        return $out;
+    }
+
+    /** @deprecated 内部保留全量查询供详情等场景 */
+    public function listProductsForApiFull(bool $translateEn = true, ?int $ownerUserId = null, ?int $limit = null): array
+    {
         $query = $this->productQuery()->orderByDesc('p.date')->orderByDesc('p.id');
         if ($ownerUserId !== null) {
             $query->where('p.createdByUserId', $ownerUserId);
@@ -122,16 +191,14 @@ class ProductCatalogService
     {
         $this->validateCategories($data['categoryId'] ?? null, $data['subCategoryId'] ?? null);
         $detail = $this->normalizer->serializeDetailJson($data);
-        $configs = $this->normalizer->normalizeConfigs($data['configs'] ?? null);
-        $priceUsdt = $this->resolveBasePriceUsdt($data, $configs);
 
         return Product::query()->create([
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'image' => $this->normalizer->serializeImageField($data['image'] ?? null),
             'date' => $data['date'] ?? now()->toDateString(),
-            'price' => $priceUsdt,
-            'priceUsdt' => $priceUsdt,
+            'price' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'priceUsdt' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
             'featuresJson' => $detail['featuresJson'],
             'specsJson' => $detail['specsJson'],
             'usageNoticeJson' => $detail['usageNoticeJson'],
@@ -146,16 +213,14 @@ class ProductCatalogService
     {
         $this->validateCategories($data['categoryId'] ?? null, $data['subCategoryId'] ?? null);
         $detail = $this->normalizer->serializeDetailJson($data);
-        $configs = $this->normalizer->normalizeConfigs($data['configs'] ?? null);
-        $priceUsdt = $this->resolveBasePriceUsdt($data, $configs);
 
         $product->fill([
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'image' => $this->normalizer->serializeImageField($data['image'] ?? null),
             'date' => $data['date'] ?? $product->date,
-            'price' => $priceUsdt,
-            'priceUsdt' => $priceUsdt,
+            'price' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
+            'priceUsdt' => (float) ($data['priceUsdt'] ?? $data['price'] ?? 0),
             'featuresJson' => $detail['featuresJson'],
             'specsJson' => $detail['specsJson'],
             'usageNoticeJson' => $detail['usageNoticeJson'],
@@ -166,16 +231,6 @@ class ProductCatalogService
         $product->save();
 
         return $product;
-    }
-
-    /** 有配置时列表价取最低价，否则用表单基础价 */
-    private function resolveBasePriceUsdt(array $data, array $configs): float
-    {
-        if ($configs !== []) {
-            return min(array_map(static fn (array $c) => (float) $c['priceUsdt'], $configs));
-        }
-
-        return (float) ($data['priceUsdt'] ?? $data['price'] ?? 0);
     }
 
     public function createCategory(array $data): ProductCategory

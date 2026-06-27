@@ -53,6 +53,34 @@ class ProductTranslator
         return array_map(fn ($p) => $this->translateProduct($p, $toEnglish), $products);
     }
 
+    /** 列表项轻量翻译（不含 featureCards/specs 等大字段） */
+    public function translateListItem(array $product, bool $toEnglish = true): array
+    {
+        if (! $toEnglish) {
+            return $product;
+        }
+
+        $out = $product;
+        if (! empty($product['name'])) {
+            $out['name'] = $this->translateText((string) $product['name']);
+        }
+        if (! empty($product['description'])) {
+            $out['description'] = $this->translateText((string) $product['description']);
+        }
+        if (! empty($product['categoryNameEn'])) {
+            $out['categoryName'] = $product['categoryNameEn'];
+        } elseif (! empty($product['categoryName'])) {
+            $out['categoryName'] = $this->translateText((string) $product['categoryName']);
+        }
+        if (! empty($product['subCategoryNameEn'])) {
+            $out['subCategoryName'] = $product['subCategoryNameEn'];
+        } elseif (! empty($product['subCategoryName'])) {
+            $out['subCategoryName'] = $this->translateText((string) $product['subCategoryName']);
+        }
+
+        return $out;
+    }
+
     public function translateText(string $text): string
     {
         if ($text === '' || ! $this->containsChinese($text)) {

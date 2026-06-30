@@ -1,15 +1,18 @@
 import axios from 'axios'
 import { resolveApiPath, useV2Api } from '@/utils/apiPath'
 import { readLegacyNodeBridgeToken } from '@/constants/legacyNodeBridge'
-import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
-import { handleUserSessionUnauthorized } from '@/utils/userSessionRedirect'
+import { notifyAdminUnauthorized, notifyUserUnauthorized } from '@/services/sessionUnauthorizedRegistry'
 import {
   ensureV2Csrf,
   attachV2CsrfHeader,
   refreshV2Csrf,
-  resetV2Csrf,
   isV2CsrfError
 } from '@/services/v2/http'
+import {
+  registerApiCsrfReset,
+  runApiCsrfReset,
+  runV2CsrfReset
+} from '@/services/csrfResetRegistry'
 
 const USE_V2 = useV2Api()
 
@@ -31,6 +34,10 @@ let isRefreshingToken = false
 let failedQueue = []
 const MAX_RETRIES = 1
 const V2_CSRF_MAX_RETRIES = 3
+
+registerApiCsrfReset(() => {
+  csrfToken = null
+})
 
 function isV2Request(url) {
   const resolved = resolveApiPath(url)
@@ -139,8 +146,8 @@ api.interceptors.response.use(
     const v2Request = isV2Request(originalRequest.url)
 
     if (error.response?.status === 401 && originalRequest.url) {
-      handleAdminSessionUnauthorized(originalRequest.url)
-      handleUserSessionUnauthorized(originalRequest.url)
+      notifyAdminUnauthorized(originalRequest.url)
+      notifyUserUnauthorized(originalRequest.url)
     }
 
     if (v2Request && isV2CsrfError(error)) {
@@ -213,8 +220,8 @@ api.interceptors.response.use(
 )
 
 export function resetApiCsrf() {
-  csrfToken = null
-  resetV2Csrf()
+  runApiCsrfReset()
+  runV2CsrfReset()
 }
 
 export default api

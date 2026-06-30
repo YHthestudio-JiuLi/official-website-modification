@@ -1,4 +1,4 @@
-import { isSafeInternalRedirect } from '@/utils/productCheckout'
+import { isSafeInternalRedirect } from '@/utils/internalRedirect'
 
 export { isSafeInternalRedirect }
 

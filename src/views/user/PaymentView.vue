@@ -8,14 +8,14 @@
 
           <div v-else-if="loadError" class="load-error">
             <i class="fas fa-exclamation-triangle"></i>
-            <p>{{ $t('payment.loadFailed') }}</p>
+            <p>{{ loadErrorMessage || $t('payment.loadFailed') }}</p>
           </div>
 
           <div v-else-if="notFound" class="empty-state">
             {{ $t('payment.notFound') }}
           </div>
 
-          <div v-else class="payment-container">
+          <div v-else-if="order" class="payment-container">
             <div class="payment-info">
               <div class="order-info-card">
                 <h3><i class="fas fa-receipt"></i> {{ $t('payment.orderInfo') }}</h3>
@@ -47,7 +47,7 @@
                 </div>
               </div>
 
-              <div v-if="order.status === 'pending'" class="payment-instructions">
+              <div v-if="normalizeOrderStatus(order.status) === 'pending'" class="payment-instructions">
                 <h3><i class="fab fa-bitcoin"></i> {{ $t('payment.instructionsTitle') }}</h3>
                 <div class="wallet-address">
                   <label>{{ $t('payment.walletAddressLabel', { network: order.network || 'TRC20' }) }}: </label>
@@ -70,7 +70,7 @@
               </div>
             </div>
 
-            <div v-if="order.status === 'pending'" class="payment-form-card">
+            <div v-if="normalizeOrderStatus(order.status) === 'pending'" class="payment-form-card">
               <h3><i class="fas fa-check-circle"></i> {{ $t('payment.confirmTitle') }}</h3>
               <form @submit.prevent="handleConfirmPayment" class="payment-form">
                 <div class="form-group">
@@ -129,7 +129,7 @@
               </form>
             </div>
 
-            <div v-else-if="order.status === 'paid'" class="payment-success">
+            <div v-else-if="normalizeOrderStatus(order.status) === 'paid'" class="payment-success">
               <i class="fas fa-check-circle success-icon"></i>
               <h3>{{ $t('payment.successTitle') }}</h3>
               <p>{{ $t('payment.successDesc') }}</p>
@@ -140,21 +140,13 @@
               <router-link to="/orders" class="btn btn-primary">{{ $t('payment.viewOrders') }}</router-link>
             </div>
 
-            <div v-else-if="order.status === 'completed'" class="payment-success payment-success--completed">
+            <div v-else-if="isPostShipment(order.status)" class="payment-success payment-success--completed">
               <i class="fas fa-box-open success-icon"></i>
               <h3>{{ $t('payment.completedTitle') }}</h3>
               <p>{{ $t('payment.completedDesc') }}</p>
               <router-link to="/orders" class="btn btn-primary">{{ $t('payment.viewOrders') }}</router-link>
             </div>
-
-            <div v-else-if="order.status === 'cancelled'" class="payment-success payment-success--cancelled">
-              <i class="fas fa-ban success-icon"></i>
-              <h3>{{ $t('payment.cancelledTitle') }}</h3>
-              <p>{{ $t('payment.cancelledDesc') }}</p>
-              <router-link to="/orders" class="btn btn-secondary">{{ $t('payment.viewOrders') }}</router-link>
-            </div>
           </div>
-
         </div>
       </div>
     </main>
@@ -163,249 +155,58 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '@/services/api'
-import * as catalogApi from '@/services/catalog'
-import { fetchPaymentSettings as fetchPublicPaymentSettings } from '@/services/v2/payment'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import { displayOrderNo } from '@/utils/orderNo'
+import { usePaymentPage } from '@/composables/usePaymentPage'
+import { normalizeOrderStatus, isPostShipment, getOrderStatusLabel } from '@/utils/orderStatus'
+import { copyText, openOkxAfterCopy } from '@/utils/paymentClipboard'
 
-const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
+const { order, loading, loadError, loadErrorMessage, notFound, submitting, isCheckout, load, submit } = usePaymentPage()
 
-const order = ref(null)
 const txHash = ref('')
 const recipientName = ref('')
 const recipientPhone = ref('')
 const shippingAddressDetail = ref('')
-const loading = ref(true)
-const loadError = ref(false)
-const notFound = ref(false)
-const submitting = ref(false)
 const copied = ref(false)
-const checkoutMode = computed(() => String(route.params.id || '') === 'new')
 
-onMounted(async () => {
-  if (checkoutMode.value) {
-    await loadCheckoutPreview()
-    return
-  }
-  await loadExistingOrder()
+onMounted(() => {
+  load()
 })
 
-async function loadExistingOrder() {
-  try {
-    const response = await api.get(`/api/orders/${route.params.id}`)
-    order.value = response.data
-  } catch (error) {
-    console.error('Failed to fetch order:', error)
-    const status = error.response?.status
-    if (status === 401) return
-    if (status === 404) {
-      notFound.value = true
-    } else {
-      loadError.value = true
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadCheckoutPreview() {
-  try {
-    const productId = parsePositiveInt(route.query.productId)
-    if (!productId) {
-      throw new Error('productId missing')
-    }
-    const quantity = parsePositiveInt(route.query.quantity) || 1
-    const configId = String(route.query.configId || '').trim()
-    const [productRes, settingRes] = await Promise.all([
-      catalogApi.getProduct(productId),
-      fetchPublicPaymentSettings(),
-    ])
-    order.value = buildPreviewOrder(
-      productRes.data,
-      settingRes.data || {},
-      quantity,
-      configId
-    )
-  } catch (error) {
-    console.error('Failed to load checkout preview:', error)
-    loadError.value = true
-  } finally {
-    loading.value = false
-  }
-}
-
-function parsePositiveInt(raw) {
-  const n = Number.parseInt(String(raw || ''), 10)
-  return Number.isFinite(n) && n > 0 ? n : 0
-}
-
-function normalizeProductConfigs(raw) {
-  if (!Array.isArray(raw)) return []
-  return raw
-    .map((c) => ({
-      id: String(c.id || '').trim(),
-      name: String(c.name || '').trim(),
-      priceUsdt: Number(c.priceUsdt ?? c.price ?? 0),
-    }))
-    .filter((c) => c.id && c.name)
-}
-
-function resolveCheckoutConfig(product, configId) {
-  const configs = normalizeProductConfigs(product?.configs)
-  if (!configs.length) {
-    return {
-      configId: null,
-      configName: null,
-      price: Number(product?.priceUsdt ?? product?.price ?? 0),
-    }
-  }
-  const matched = configs.find((c) => c.id === configId)
-  if (!matched) {
-    throw new Error('config_required')
-  }
-  return {
-    configId: matched.id,
-    configName: matched.name,
-    price: Number(matched.priceUsdt || 0),
-  }
-}
-
-function buildPreviewOrder(product, settings, quantity, configId) {
-  const checkoutConfig = resolveCheckoutConfig(product, configId)
-  const unitPrice = Number(checkoutConfig.price || 0)
-  const qty = Math.max(1, quantity)
-  const productName = checkoutConfig.configName
-    ? `${product?.name || ''} - ${checkoutConfig.configName}`
-    : (product?.name || '')
-  return {
-    id: null,
-    orderNo: null,
-    status: 'pending',
-    productId: Number(product?.id || 0),
-    productName,
-    quantity: qty,
-    price: unitPrice,
-    totalAmount: unitPrice * qty,
-    paymentMethod: 'USDT',
-    usdtWallet: settings?.wallet_address || '',
-    network: settings?.network || 'TRC20',
-    configId: checkoutConfig.configId,
-    configName: checkoutConfig.configName,
-    shippingAddress: '',
-    txHash: '',
-  }
-}
-
 function getStatusText(status) {
-  const key = `orders.status.${status}`
-  const translated = t(key)
-  return translated !== key ? translated : status
+  return getOrderStatusLabel(status, t)
 }
 
 async function copyAddress() {
-  const copiedOk = await copyText(order.value.usdtWallet || '')
+  const copiedOk = await copyText(order.value?.usdtWallet || '')
   if (copiedOk) {
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
+    openOkxAfterCopy(order.value)
   } else {
     console.error('Failed to copy wallet address')
   }
-
-  openOkxAfterCopy()
-}
-
-async function copyText(text) {
-  if (!text) return false
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch {
-    // 忽略并进入回退方案
-  }
-
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.setAttribute('readonly', '')
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    ta.style.left = '-9999px'
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch {
-    return false
-  }
-}
-
-function openOkxAfterCopy() {
-  const { deepLink, universalLink } = buildOkxLinks()
-  if (isMobileBrowser()) {
-    if (/Android/i.test(navigator.userAgent || '')) {
-      const iframe = document.createElement('iframe')
-      iframe.style.display = 'none'
-      iframe.src = deepLink
-      document.body.appendChild(iframe)
-      setTimeout(() => {
-        document.body.removeChild(iframe)
-      }, 1000)
-    } else {
-      window.location.href = deepLink
-    }
-    return
-  }
-  window.open(universalLink, '_blank', 'noopener,noreferrer')
-}
-
-function buildOkxLinks() {
-  const address = order.value?.usdtWallet || ''
-  const amount = order.value?.totalAmount || ''
-  const network = (order.value?.network || 'TRC20').toUpperCase()
-  const params = new URLSearchParams({
-    toAddress: address,
-    amount: String(amount),
-    chain: network,
-    token: 'USDT'
-  })
-  const query = params.toString()
-  return {
-    deepLink: `okx://wallet/transfer?${query}`,
-    universalLink: `https://www.okx.com/web3?open=wallet/transfer&${query}`
-  }
-}
-
-function isMobileBrowser() {
-  const ua = navigator.userAgent || ''
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
 }
 
 async function handleConfirmPayment() {
   if (order.value?.status !== 'pending') return
-  if (!recipientName.value || !recipientName.value.trim()) {
+  if (!recipientName.value?.trim()) {
     alert(t('payment.recipientNameRequired'))
     return
   }
-  if (!recipientPhone.value || !recipientPhone.value.trim()) {
+  if (!recipientPhone.value?.trim()) {
     alert(t('payment.recipientPhoneRequired'))
     return
   }
-  if (!shippingAddressDetail.value || !shippingAddressDetail.value.trim()) {
+  if (!shippingAddressDetail.value?.trim()) {
     alert(t('payment.addressRequired'))
     return
   }
-  if (!txHash.value || !txHash.value.trim()) {
+  if (!txHash.value?.trim()) {
     alert(t('payment.txHashRequired'))
     return
   }
@@ -414,54 +215,18 @@ async function handleConfirmPayment() {
     phone: recipientPhone.value.trim(),
     address: shippingAddressDetail.value.trim(),
   })
-  submitting.value = true
-  try {
-    if (checkoutMode.value) {
-      const payload = {
-        productId: Number(order.value.productId),
-        quantity: Number(order.value.quantity || 1),
-        txHash: txHash.value.trim(),
-        shippingAddress,
-      }
-      if (order.value.configId) {
-        payload.configId = String(order.value.configId)
-      }
-      const createRes = await api.post('/api/orders', payload)
-      const createdOrderId = Number(createRes.data?.orderId)
-      if (Number.isFinite(createdOrderId) && createdOrderId > 0) {
-        await router.replace({
-          name: 'payment',
-          params: { id: String(createdOrderId) },
-        })
-        const response = await api.get(`/api/orders/${createdOrderId}`)
-        order.value = response.data
-      } else if (createRes.data?.order) {
-        order.value = createRes.data.order
-      }
-      txHash.value = ''
-      return
+  const result = await submit({
+    shippingAddress,
+    txHash: txHash.value.trim(),
+  })
+  if (!result.ok) {
+    if (result.message) {
+      alert(result.message)
     }
-    await api.post(`/api/orders/${route.params.id}/confirm`, {
-      txHash: txHash.value.trim(),
-      shippingAddress
-    })
-    try {
-      const response = await api.get(`/api/orders/${route.params.id}`)
-      order.value = response.data
-    } catch (refreshError) {
-      console.error('Failed to refresh order:', refreshError)
-    }
-  } catch (error) {
-    console.error('Failed to confirm payment:', error)
-    const data = error.response?.data || {}
-    if (data.deleted) {
-      alert(data.message || t('payment.orderDeleted'))
-      router.push('/orders')
-      return
-    }
-    alert(data.message || data.errors?.txHash?.[0] || t('payment.submitFailed'))
-  } finally {
-    submitting.value = false
+    return
+  }
+  if (isCheckout.value) {
+    txHash.value = ''
   }
 }
 </script>

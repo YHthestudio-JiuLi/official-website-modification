@@ -1,0 +1,212 @@
+.pdc-hero {
+  padding: 1rem 0 1.75rem;
+  background: transparent;
+}
+.pdc-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .pdc-hero-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.pdc-hero-title {
+  font-family: Orbitron, sans-serif;
+  font-size: clamp(1.65rem, 4vw, 2.75rem);
+  font-weight: 900;
+  line-height: 1.2;
+  color: #fff;
+  margin-bottom: 1rem;
+  word-break: break-word;
+}
+.pdc-hero-desc {
+  color: #c4c8d4;
+  font-size: 1rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  margin-bottom: 1.5rem;
+}
+
+.pdc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* 多图缩略图：主图下方横向居中 */
+.pdc-thumb-strip-wrap {
+  margin-top: 1rem;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.pdc-thumb-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem 0.35rem;
+  max-width: 100%;
+  width: max-content;
+  margin: 0 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.35) transparent;
+}
+.pdc-thumb-strip::-webkit-scrollbar {
+  height: 4px;
+}
+.pdc-thumb-strip::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.35);
+  border-radius: 999px;
+}
+.pdc-thumb {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+  background: rgba(10, 14, 28, 0.85);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.pdc-thumb:hover {
+  border-color: rgba(0, 229, 255, 0.55);
+  transform: translateY(-1px);
+}
+.pdc-thumb.active {
+  border-color: #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
+}
+.pdc-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pdc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: Orbitron, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.25s, border-color 0.25s, transform 0.2s;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+button.pdc-btn {
+  appearance: none;
+  -webkit-appearance: none;
+}
+.pdc-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+.pdc-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.pdc-btn-usdt {
+  border-color: var(--pdc-usdt);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(38, 161, 123, 0.35);
+  background: transparent;
+}
+.pdc-btn-usdt:hover {
+  background: rgba(38, 161, 123, 0.18);
+}
+
+.pdc-btn-outline {
+  border-color: var(--pdc-cyan);
+  color: var(--pdc-cyan);
+  background: transparent;
+}
+.pdc-btn-outline:hover {
+  background: rgba(0, 243, 255, 0.12);
+}
+
+.pdc-btn-buy {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: var(--pdc-usdt);
+  color: var(--pdc-dark);
+  border-color: var(--pdc-usdt);
+  font-size: 1rem;
+  padding: 0.9rem;
+}
+.pdc-btn-buy:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.pdc-btn-ghost {
+  border: 1px solid var(--pdc-border);
+  color: var(--pdc-gray);
+  background: rgba(18, 18, 26, 0.6);
+}
+.pdc-btn-ghost:hover {
+  border-color: var(--pdc-cyan);
+  color: var(--pdc-cyan);
+}
+
+.pdc-btn-wide {
+  min-width: 200px;
+}
+
+.pdc-float-wrap {
+  position: relative;
+}
+
+.pdc-hero-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.pdc-hero-visual .pdc-float-wrap {
+  width: 100%;
+}
+
+.pdc-img-frame {
+  border-radius: 1rem;
+  overflow: hidden;
+  animation: pdc-float 6s ease-in-out infinite;
+}
+.pdc-img-frame-cyan {
+  border: 2px solid var(--pdc-cyan);
+  box-shadow: 0 0 18px rgba(0, 243, 255, 0.28);
+}
+.pdc-img-frame-pink {
+  border: 2px solid var(--pdc-pink);
+  box-shadow: 0 0 18px rgba(255, 0, 255, 0.22);
+}
+.pdc-img-frame img {
+  width: 100%;
+  display: block;
+  vertical-align: middle;
+  background: var(--pdc-dark);
+}
+@keyframes pdc-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+

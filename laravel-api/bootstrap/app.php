@@ -50,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'use.guard' => \App\Http\Middleware\UseAuthGuard::class,
             'admin.boot' => \App\Http\Middleware\EnsureAdminBootSession::class,
+            'internal.secret' => \App\Http\Middleware\VerifyNodeInternalSecret::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

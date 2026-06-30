@@ -27,10 +27,11 @@
         v-if="canDelete"
         type="button"
         class="btn-action btn-delete"
+        :disabled="deleting"
         @click="handleDelete"
       >
         <i class="fas fa-trash" aria-hidden="true" />
-        {{ $t('forum.deleteReply') }}
+        {{ deleting ? $t('forum.deleting') : $t('forum.deleteReply') }}
       </button>
     </div>
 
@@ -70,7 +71,8 @@
           :post-id="postId"
           :current-user="currentUser"
           :is-child="true"
-          @reply-deleted="$emit('reply-deleted')"
+          @replies-changed="$emit('replies-changed')"
+          @reply-error="(message) => $emit('reply-error', message)"
         />
       </div>
     </div>
@@ -110,13 +112,14 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['reply-deleted'])
+const emit = defineEmits(['replies-changed', 'reply-error'])
 
 const { t, locale } = useI18n()
 const authStore = useAuthStore()
 const showReplyForm = ref(false)
 const replyContent = ref('')
 const submitting = ref(false)
+const deleting = ref(false)
 const isExpanded = ref(true)
 
 const parentReplyAuthor = computed(() => {
@@ -165,22 +168,40 @@ async function handleReplyToReply() {
     })
     replyContent.value = ''
     showReplyForm.value = false
-    emit('reply-deleted')
+    emit('replies-changed')
   } catch (error) {
     console.error('Failed to post reply:', error)
+    emit('reply-error', t('forum.replyFailed'))
   } finally {
     submitting.value = false
   }
 }
 
 async function handleDelete() {
+  if (deleting.value) return
   if (!confirm(t('forum.deleteReplyConfirm'))) return
 
+  deleting.value = true
   try {
-    await deleteForumReply(props.reply.id)
-    emit('reply-deleted')
+    await deleteForumReply(props.reply.id, props.postId)
+    emit('replies-changed')
   } catch (error) {
+    const status = error?.response?.status
+    const msg = error?.response?.data?.message
+      || error?.response?.data?.errors?.reply?.[0]
+      || error?.message
+    if (status === 404) {
+      emit('replies-changed')
+      return
+    }
+    if (status === 403 || (status === 422 && msg === 'Forbidden')) {
+      emit('reply-error', t('forum.deleteForbidden'))
+      return
+    }
     console.error('Failed to delete reply:', error)
+    emit('reply-error', t('forum.deleteFailed'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -314,6 +335,12 @@ function formatDate(dateStr) {
 .btn-delete:hover {
   background: rgba(255, 71, 87, 0.2);
   transform: translateY(-1px);
+}
+
+.btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .nested-reply-form {

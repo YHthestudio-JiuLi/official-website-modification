@@ -16,10 +16,10 @@ export function confirmOrder(id, payload) {
   return v2.post(`/orders/${id}/confirm`, payload)
 }
 
-export function updateOrderStatus(id, payload) {
-  return v2.put(`/orders/${id}/status`, payload)
-}
-
 export function fetchOrderTracking(id) {
   return v2.get(`/orders/${id}/tracking`)
+}
+
+export function fetchCheckoutPreview(params) {
+  return v2.get('/checkout/preview', { params })
 }

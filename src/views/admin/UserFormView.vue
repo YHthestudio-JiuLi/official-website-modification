@@ -275,7 +275,7 @@ onMounted(async () => {
     }
     await loadAvailableRoles()
   } catch (err) {
-    error.value = t('admin.users.loadFailed', {
+    error.value = t('admin.users.loadDetailFailed', {
       message: err.response?.data?.message || err.message,
     })
     setTimeout(() => router.push('/admin/users'), 2000)

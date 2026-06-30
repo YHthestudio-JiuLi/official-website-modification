@@ -6,6 +6,7 @@ import i18n from './i18n'
 import permissionDirective from '@/directives/permission'
 import { setDocumentTitle } from '@/utils/documentTitle'
 import { bindVueApp } from '@/plugins/elementPlus'
+import '@/utils/registerSessionUnauthorizedHandlers'
 import './styles/main.css'
 
 const app = createApp(App)

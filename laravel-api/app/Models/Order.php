@@ -13,7 +13,7 @@ class Order extends Model
     protected $fillable = [
         'orderNo', 'userId', 'username', 'productId', 'productName', 'quantity', 'price', 'totalAmount',
         'status', 'paymentMethod', 'usdtWallet', 'network', 'txHash', 'shippingAddress',
-        'trackingNumber', 'createdAt', 'paidAt', 'completedAt', 'configId', 'configName',
+        'trackingNumber', 'createdAt', 'paidAt', 'shippedAt', 'completedAt', 'configId', 'configName',
     ];
 
     protected function casts(): array

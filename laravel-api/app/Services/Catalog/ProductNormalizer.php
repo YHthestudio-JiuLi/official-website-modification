@@ -68,7 +68,6 @@ class ProductNormalizer
         return [$this->normalizeImageUrl($raw)];
     }
 
-    /** 历史库内 /api/product-images/{id} 统一为 V2 路径，供浏览器 img 直连 Nginx 磁盘缓存 */
     public function normalizeImageUrl(string $url): string
     {
         $url = trim($url);
@@ -129,12 +128,9 @@ class ProductNormalizer
                 continue;
             }
             $name = trim((string) ($cfg['name'] ?? ''));
-            if ($name === '') {
-                continue;
-            }
             $id = trim((string) ($cfg['id'] ?? ''));
-            if ($id === '') {
-                $id = 'cfg-'.bin2hex(random_bytes(8));
+            if ($name === '' || $id === '') {
+                continue;
             }
             $out[] = [
                 'id' => $id,

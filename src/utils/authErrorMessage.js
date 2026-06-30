@@ -17,7 +17,7 @@ const ERROR_CODE_KEYS = {
   validation_failed: 'auth.errorCodes.validationFailed',
 }
 
-/** 兼容旧版纯文本响应 */
+/** 兼容旧版纯英文文本响应（SPA 应优先使用 error_code） */
 const LEGACY_MESSAGE_CODES = {
   'invalid credentials': 'invalid_credentials',
   'invalid username or password': 'invalid_credentials',
@@ -25,10 +25,6 @@ const LEGACY_MESSAGE_CODES = {
   'email already in use': 'email_taken',
   'account suspended': 'account_suspended',
   'no admin access': 'no_admin_access',
-  '用户名或密码错误': 'invalid_credentials',
-  '用户名已存在': 'username_taken',
-  '邮箱已被注册': 'email_taken',
-  '账号已被停用': 'account_suspended',
 }
 
 function normalizeMessage(value) {
@@ -88,10 +84,9 @@ export function resolveAuthError(err, options = {}) {
   const fieldError = firstFieldError(data.errors)
   const fromField = translateCode(codeFromLegacyText(fieldError))
   if (fromField) return fromField
-  if (fieldError) return fieldError
 
-  if (data.message) return data.message
-  if (data.error) return data.error
+  const plainMessage = String(data.message || data.error || fieldError || '').trim()
+  if (plainMessage) return plainMessage
 
   if (context === 'register') {
     return t('auth.register.error.validationFailed')
@@ -102,7 +97,6 @@ export function resolveAuthError(err, options = {}) {
   return t('auth.login.error.invalidCredentials')
 }
 
-/** 供 axios 拦截器附带当前语言 */
 export function currentAcceptLanguage() {
   const lang = i18n.global.locale.value || DEFAULT_LOCALE
   return lang === 'zh' ? 'zh-CN,zh;q=0.9' : 'en-US,en;q=0.9'

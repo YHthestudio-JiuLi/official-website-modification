@@ -1,0 +1,46 @@
+{
+  "normalize": [
+    {
+      "input": [
+        { "id": "cfg-a", "name": "标准版", "priceUsdt": 99 }
+      ],
+      "expected": [
+        { "id": "cfg-a", "name": "标准版", "priceUsdt": 99 }
+      ]
+    },
+    {
+      "input": [
+        { "name": "无 ID", "price": 50 },
+        { "id": "", "name": "空 ID", "priceUsdt": 1 }
+      ],
+      "expected": []
+    },
+    {
+      "input": "[]",
+      "expected": []
+    }
+  ],
+  "resolveCheckout": [
+    {
+      "product": { "priceUsdt": 100, "configsJson": [] },
+      "configId": null,
+      "expected": { "price": 100, "configId": null, "configName": null }
+    },
+    {
+      "product": {
+        "priceUsdt": 100,
+        "configsJson": [{ "id": "cfg-a", "name": "标准版", "priceUsdt": 88 }]
+      },
+      "configId": "cfg-a",
+      "expected": { "price": 88, "configId": "cfg-a", "configName": "标准版" }
+    },
+    {
+      "product": {
+        "priceUsdt": 100,
+        "configsJson": [{ "id": "cfg-a", "name": "标准版", "priceUsdt": 88 }]
+      },
+      "configId": "missing",
+      "expected": { "error": "Configuration required" }
+    }
+  ]
+}

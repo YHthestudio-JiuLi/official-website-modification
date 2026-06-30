@@ -1,0 +1,94 @@
+/* 赛博配色（对齐参考稿 tailwind 扩展色） */
+.product-detail-cyber {
+  --pdc-cyan: #00f3ff;
+  --pdc-pink: #ff00ff;
+  --pdc-purple: #9d00ff;
+  /* 页面基底色：与外层 main、页脚衔接区一致 */
+  --pdc-dark: #0b0f15;
+  --pdc-card: #12121a;
+  --pdc-border: #1a3a5f;
+  --pdc-usdt: #26a17b;
+  --pdc-gray: #b8bcc8;
+  position: relative;
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  /* 与外层 main 同色平铺；不用左右径向（会在主列竖边与两侧 gutter 之间形成明显「竖缝」） */
+  background-color: var(--pdc-dark);
+  background-image: none;
+  /* 不向外负 margin，与外层居中容器对齐，两侧留白一致 */
+  margin: 0;
+  /* 底部少留白、无圆角，避免与页脚之间出现异色「缝隙带」 */
+  padding: 0 0 0.35rem;
+  overflow-x: clip;
+  border-radius: 0;
+}
+
+.pdc-cyan {
+  color: var(--pdc-cyan);
+}
+.pdc-pink {
+  color: var(--pdc-pink);
+}
+
+.pdc-alert {
+  background: linear-gradient(90deg, rgba(157, 0, 255, 0.22), rgba(0, 243, 255, 0.18));
+  border-top: 1px solid var(--pdc-cyan);
+  border-bottom: 1px solid var(--pdc-cyan);
+  padding: 0.85rem 0;
+  margin: 0 0 1.1rem;
+  border-radius: 0.35rem;
+}
+.pdc-alert-inner {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+}
+.pdc-alert-icon {
+  color: var(--pdc-pink);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.pdc-marquee-clip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+}
+.pdc-marquee-track {
+  display: inline-block;
+  white-space: nowrap;
+  animation: pdc-marquee-scroll linear infinite;
+}
+.pdc-marquee-seg {
+  display: inline-block;
+  padding-right: 3rem;
+  font-size: clamp(0.78rem, 2.2vw, 0.9rem);
+  line-height: 1.5;
+  color: #e8eaef;
+  font-family: Orbitron, sans-serif;
+}
+@keyframes pdc-marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdc-marquee-track {
+    animation: none;
+    transform: none;
+  }
+  .pdc-marquee-clip {
+    overflow-x: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}
+

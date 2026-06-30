@@ -11,7 +11,6 @@ class PublicApiCache
 {
     public const TTL_SECONDS = 120;
 
-    /** 变更较少的公开数据可缓存更久 */
     public const TTL_CATALOG_SECONDS = 300;
 
     public static function remember(string $namespace, string $part, callable $callback, int $ttl = self::TTL_SECONDS): mixed

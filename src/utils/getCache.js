@@ -1,5 +1,3 @@
-/** 前端 GET 短缓存：合并并发、减少重复请求 */
-
 const store = new Map()
 const inflight = new Map()
 
@@ -37,11 +35,22 @@ export function cachedRequest(key, ttlMs, fetcher) {
   return promise
 }
 
-/** 按前缀清除缓存（数据变更后调用） */
 export function invalidateCache(prefix) {
   for (const key of store.keys()) {
     if (key.startsWith(prefix)) {
       store.delete(key)
     }
   }
+}
+
+export function cachedV2OrLegacy({ key, ttl, useV2, v2, legacy }) {
+  const fetcher = useV2 ? v2 : legacy
+  return cachedRequest(key, ttl, fetcher)
+}
+
+export function afterCacheMutation(run, prefix) {
+  return run.then((res) => {
+    invalidateCache(prefix)
+    return res
+  })
 }

@@ -85,12 +85,12 @@ Route::middleware(['stateful', 'auth:web', 'use.guard:web', 'throttle:api'])->gr
     Route::delete('/cart', [CartController::class, 'clear']);
 
     // 订单
+    Route::get('/checkout/preview', [OrderController::class, 'preview']);
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
     Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->whereNumber('id');
     Route::post('/orders/{id}/confirm', [OrderController::class, 'confirm'])->whereNumber('id');
-    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id');
 
     // 论坛（写操作）
     Route::post('/forum/posts', [ForumController::class, 'store']);
@@ -298,6 +298,14 @@ Route::middleware(['stateful', 'auth:admin', 'use.guard:admin', 'admin.boot', 't
             ->whereNumber('id')
             ->middleware('permission:chat.settings');
     });
+});
+
+// Node / Telegram 内部回调（共享 NODE_INTERNAL_SECRET）
+Route::middleware(['internal.secret'])->prefix('internal')->group(function () {
+    Route::delete('/forum/posts/{id}', [\App\Http\Controllers\Api\V2\Internal\InternalForumController::class, 'destroyPost'])
+        ->whereNumber('id');
+    Route::delete('/forum/replies/{id}', [\App\Http\Controllers\Api\V2\Internal\InternalForumController::class, 'destroyReply'])
+        ->whereNumber('id');
 });
 
 // 尚未移植的接口：转发至旧 Node（用户聊天 WebSocket、设备公开验签等）

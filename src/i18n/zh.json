@@ -29,6 +29,7 @@
     "cart": "购物车",
     "orders": "我的订单",
     "orderDetail": "订单详情",
+    "checkout": "结账",
     "payment": "支付",
     "forum": "论坛",
     "forumNewPost": "发布帖子",
@@ -227,7 +228,8 @@
       "selectConfigRequired": "请先选择商品配置",
       "selectConfigToBuy": "请选择配置",
       "selectConfigHint": "请先选择上方配置后再购买",
-      "selectConfigForPrice": "请选择配置查看价格"
+      "selectConfigForPrice": "请选择配置查看价格",
+      "checkoutV2Required": "当前环境未启用 V2 接口，无法使用新结账流程"
     }
   },
   "orders": {
@@ -248,12 +250,13 @@
     "total": "总计",
     "createdAt": "创建时间",
     "paidAt": "支付时间",
-    "completedAt": "完成时间",
+    "shippedAt": "发货时间",
+    "completedAt": "签收时间",
     "details": "详情",
     "payNow": "立即支付",
     "processing": "处理中...",
-    "completed": "已完成",
-    "cancelled": "已取消",
+    "shipped": "已发货",
+    "delivered": "已签收",
     "copyHint": "双击复制",
     "notFound": "订单不存在",
     "detailTitle": "订单详情 #{id}",
@@ -267,11 +270,12 @@
     "progress": {
       "pending": "待支付",
       "paid": "已支付",
-      "completed": "已完成"
+      "shipped": "已发货",
+      "delivered": "已签收"
     },
     "shippingAddress": "收货地址",
     "paymentTime": "支付时间",
-    "completionTime": "完成时间",
+    "completionTime": "签收时间",
     "backToOrders": "返回订单列表",
     "goToPayment": "前往支付",
     "tracking": {
@@ -298,8 +302,9 @@
     "status": {
       "pending": "待支付",
       "paid": "已支付",
-      "completed": "已完成",
-      "cancelled": "已取消"
+      "shipped": "已发货",
+      "delivered": "已签收",
+      "completed": "已签收"
     }
   },
   "payment": {
@@ -339,10 +344,8 @@
     "copied": "已复制！",
     "successTitle": "支付成功！",
     "successDesc": "您的订单支付已确认，我们正在处理中。",
-    "completedTitle": "订单已完成",
-    "completedDesc": "该订单已处理完成，感谢您的购买。",
-    "cancelledTitle": "订单已取消",
-    "cancelledDesc": "该订单已取消，无法继续支付。",
+    "completedTitle": "订单已签收",
+    "completedDesc": "该订单已签收，感谢您的购买。",
     "txHashDisplay": "交易哈希",
     "viewOrders": "查看我的订单",
     "shippingAddressValue": "姓名: {name} | 电话: {phone} | 地址: {address}",
@@ -404,6 +407,9 @@
     "noReplies": "暂无回复，来抢沙发吧",
     "deleteReply": "删除",
     "deleteReplyConfirm": "确定删除这条回复吗？",
+    "deleting": "删除中…",
+    "deleteFailed": "删除失败，请稍后重试",
+    "deleteForbidden": "无权删除此回复",
     "replyTo": "回复",
     "collapseReplies": "收起回复",
     "expandReplies": "{n} 条回复",
@@ -526,7 +532,7 @@
       "createUser": "创建用户",
       "saveSuccess": "用户保存成功",
       "saveFailed": "保存用户失败，请重试",
-      "loadFailed": "加载用户失败：{message}",
+      "loadDetailFailed": "加载用户失败：{message}",
       "formInvalid": "请正确填写所有必填项"
     },
     "rbac": {
@@ -962,8 +968,8 @@
       "viewDetails": "查看详情",
       "pending": "待支付",
       "paid": "已支付",
-      "completed": "已完成",
-      "cancelled": "已取消",
+      "shipped": "已发货",
+      "delivered": "已签收",
       "updateStatus": "更新状态",
       "updateStatusTitle": "更新状态 - 当前：{status}",
       "delete": "删除",
@@ -976,9 +982,9 @@
         "all": "全部",
         "pending": "待支付",
         "paid": "已支付",
-        "completed": "已完成",
-        "cancelled": "已取消"
-      },
+        "shipped": "已发货",
+      "delivered": "已签收"
+    },
       "deleteModal": {
         "title": "确认删除订单",
         "confirmText": "确定要删除以下订单吗：",
@@ -1002,11 +1008,12 @@
         "txHash": "交易哈希：",
         "timestamps": "时间记录",
         "paidAt": "支付时间：",
-        "completedAt": "完成时间：",
+        "shippedAt": "发货时间：",
+        "completedAt": "签收时间：",
         "logistics": "物流信息",
         "trackingNumber": "快递单号",
         "trackingPlaceholder": "请输入顺丰快递单号（选填）",
-        "trackingHint": "填写后自动保存，用户可在订单详情查看物流轨迹",
+        "trackingHint": "填写后自动保存，订单将标记为已发货；用户可在订单详情查看物流轨迹",
         "trackingSaving": "正在保存…",
         "saveTracking": "保存物流单号",
         "clearTracking": "清空"

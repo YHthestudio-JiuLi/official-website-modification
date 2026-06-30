@@ -68,6 +68,7 @@ class OrderManager:
         self._ensure_tracking_number_column()
         self._ensure_order_no_column()
         self._ensure_config_columns()
+        self._ensure_shipped_at_column()
 
     def _ensure_order_no_column(self) -> None:
         """已有库升级：8 位业务订单号"""
@@ -87,6 +88,12 @@ class OrderManager:
 
         add_column_if_missing(self.conn, "orders", "configId", "VARCHAR(64)")
         add_column_if_missing(self.conn, "orders", "configName", "VARCHAR(255)")
+
+    def _ensure_shipped_at_column(self) -> None:
+        """已有库升级：发货时间"""
+        from ..db import add_column_if_missing
+
+        add_column_if_missing(self.conn, "orders", "shippedAt", "VARCHAR(40)")
 
     def find_all(self, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if status_filter:
@@ -185,13 +192,22 @@ class OrderManager:
         return int(self.cur.lastrowid)
 
     def update_status(self, order_id: int, status: str) -> None:
+        # 业务规则以 Laravel V2 为准；此处仅保留 legacy RPC 兼容
+        if status == "completed":
+            status = "delivered"
+        if status not in ("pending", "paid", "shipped", "delivered"):
+            raise ValueError(f"Invalid order status: {status}")
         sql = "UPDATE orders SET status = ?"
         params: List[Any] = [status]
         if status == "paid":
             paid_at = now_iso()
             sql += ", paidAt = ?"
             params.append(paid_at)
-        if status == "completed":
+        if status == "shipped":
+            shipped_at = now_iso()
+            sql += ", shippedAt = ?"
+            params.append(shipped_at)
+        if status == "delivered":
             completed_at = now_iso()
             sql += ", completedAt = ?"
             params.append(completed_at)
@@ -216,10 +232,20 @@ class OrderManager:
 
     def update_tracking_number(self, order_id: int, tracking_number: Optional[str]) -> None:
         value = (tracking_number or "").strip() or None
-        self.cur.execute(
-            "UPDATE orders SET trackingNumber = ? WHERE id = ?",
-            (value, order_id),
-        )
+        self.cur.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+        row = self.cur.fetchone()
+        status = row["status"] if row else None
+        if value and status == "paid":
+            shipped_at = now_iso()
+            self.cur.execute(
+                "UPDATE orders SET trackingNumber = ?, status = 'shipped', shippedAt = ? WHERE id = ?",
+                (value, shipped_at, order_id),
+            )
+        else:
+            self.cur.execute(
+                "UPDATE orders SET trackingNumber = ? WHERE id = ?",
+                (value, order_id),
+            )
         self.conn.commit()
 
     def get_stats(self) -> Dict[str, Any]:
@@ -228,7 +254,7 @@ class OrderManager:
         self.cur.execute("SELECT COUNT(*) AS pending FROM orders WHERE status = 'pending'")
         pending = int(self.cur.fetchone()["pending"])
         self.cur.execute(
-            "SELECT COALESCE(SUM(totalAmount), 0) AS revenue FROM orders WHERE status IN ('paid','completed')"
+            "SELECT COALESCE(SUM(totalAmount), 0) AS revenue FROM orders WHERE status IN ('paid','shipped','delivered')"
         )
         revenue = self.cur.fetchone()["revenue"] or 0
         return {"total": total, "pending": pending, "revenue": revenue}

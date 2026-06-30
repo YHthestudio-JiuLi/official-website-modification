@@ -1,0 +1,115 @@
+.pdc-section {
+  padding: 2rem 0;
+  /* 避免继承或层叠产生与父级不同的底色块 */
+  background: transparent;
+}
+.pdc-section-last {
+  padding-bottom: 0.5rem;
+}
+.pdc-section-head {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.pdc-h2 {
+  font-family: Orbitron, sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+.pdc-sub {
+  color: var(--pdc-gray);
+  max-width: 36rem;
+  margin: 0 auto;
+  font-size: 0.9rem;
+}
+
+.pdc-feature-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--pdc-border);
+  border-radius: 0.85rem;
+  color: #8b92a8;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+.pdc-feature-empty i {
+  display: block;
+  font-size: 2rem;
+  color: var(--pdc-cyan);
+  opacity: 0.5;
+  margin-bottom: 0.75rem;
+}
+.pdc-feature-empty p {
+  margin: 0;
+}
+
+.pdc-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+@media (min-width: 640px) {
+  .pdc-feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .pdc-feature-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.pdc-feature-card {
+  background: var(--pdc-card);
+  border: 2px solid var(--pdc-cyan);
+  border-radius: 0.85rem;
+  padding: 1.5rem;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.pdc-feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0, 243, 255, 0.12);
+}
+/* 外框统一为青色霓虹；tone 仅保留图标/标题色相变化 */
+
+.pdc-feature-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, rgba(0, 243, 255, 0.35), rgba(157, 0, 255, 0.2));
+  color: #fff;
+  font-size: 1.35rem;
+}
+.tone-1 .pdc-feature-icon {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.35), rgba(0, 243, 255, 0.15));
+}
+.tone-2 .pdc-feature-icon {
+  background: linear-gradient(135deg, rgba(157, 0, 255, 0.45), rgba(0, 243, 255, 0.12));
+}
+
+.pdc-feature-title {
+  font-family: Orbitron, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--pdc-cyan);
+  margin-bottom: 0.5rem;
+}
+.tone-1 .pdc-feature-title {
+  color: var(--pdc-pink);
+}
+.tone-2 .pdc-feature-title {
+  color: #c9a6ff;
+}
+.pdc-feature-desc {
+  color: #aeb4c5;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+

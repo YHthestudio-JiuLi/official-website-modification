@@ -2,11 +2,10 @@ import * as catalogV2 from '@/services/v2/catalog'
 import api from '@/services/api'
 import i18n, { DEFAULT_LOCALE } from '@/i18n'
 import { useV2Api } from '@/utils/apiPath'
-import { cachedRequest, invalidateCache } from '@/utils/getCache'
+import { cachedRequest, cachedV2OrLegacy, afterCacheMutation } from '@/utils/getCache'
+import { CACHE_NAMESPACE, CACHE_TTL } from '@/utils/cachePolicy'
 
 const USE_V2 = useV2Api() && import.meta.env.VITE_USE_V2_CATALOG !== 'false'
-const CATALOG_TTL = 60_000
-const PRODUCT_DETAIL_TTL = 30_000
 
 function langHeaders() {
   const locale = i18n.global.locale.value || DEFAULT_LOCALE
@@ -19,54 +18,62 @@ function catalogLocaleKey() {
 
 export function getProducts(config = {}) {
   const limit = config.params?.limit ?? 'all'
-  const key = `catalog:products:${catalogLocaleKey()}:${limit}`
-  if (USE_V2) {
-    return cachedRequest(key, CATALOG_TTL, () => catalogV2.fetchProducts({ ...langHeaders(), ...config }))
-  }
-  return cachedRequest(key, CATALOG_TTL, () => api.get('/api/products', config))
+  const key = `${CACHE_NAMESPACE.CATALOG}products:${catalogLocaleKey()}:${limit}`
+  return cachedV2OrLegacy({
+    key,
+    ttl: CACHE_TTL.CATALOG_LIST,
+    useV2: USE_V2,
+    v2: () => catalogV2.fetchProducts({ ...langHeaders(), ...config }),
+    legacy: () => api.get('/api/products', config),
+  })
 }
 
-/** 聚合接口：产品列表页一次拉取 products + categories */
 export function getStorefront(config = {}) {
   const limit = config.params?.limit ?? 'all'
   const withCategories = config.params?.categories !== false
-  const key = `catalog:storefront:${catalogLocaleKey()}:${limit}:${withCategories ? 1 : 0}`
+  const key = `${CACHE_NAMESPACE.CATALOG}storefront:${catalogLocaleKey()}:${limit}:${withCategories ? 1 : 0}`
   if (USE_V2) {
-    return cachedRequest(key, CATALOG_TTL, () =>
+    return cachedRequest(key, CACHE_TTL.CATALOG_LIST, () =>
       catalogV2.fetchStorefront({
         ...langHeaders(),
         params: {
           ...(config.params || {}),
-          categories: withCategories ? 1 : 0
-        }
+          categories: withCategories ? 1 : 0,
+        },
       })
     )
   }
   return Promise.all([
     getProducts(config),
-    withCategories ? getProductCategories() : Promise.resolve({ data: [] })
+    withCategories ? getProductCategories() : Promise.resolve({ data: [] }),
   ]).then(([productsRes, categoriesRes]) => ({
     data: {
       products: productsRes.data,
-      categories: categoriesRes.data
-    }
+      categories: categoriesRes.data,
+    },
   }))
 }
 
 export function getProduct(id) {
-  const key = `catalog:product:${id}:${catalogLocaleKey()}`
-  if (USE_V2) {
-    return cachedRequest(key, PRODUCT_DETAIL_TTL, () => catalogV2.fetchProduct(id, langHeaders()))
-  }
-  return cachedRequest(key, PRODUCT_DETAIL_TTL, () => api.get(`/api/products/${id}`))
+  const key = `${CACHE_NAMESPACE.CATALOG}product:${id}:${catalogLocaleKey()}`
+  return cachedV2OrLegacy({
+    key,
+    ttl: CACHE_TTL.CATALOG_DETAIL,
+    useV2: USE_V2,
+    v2: () => catalogV2.fetchProduct(id, langHeaders()),
+    legacy: () => api.get(`/api/products/${id}`),
+  })
 }
 
 export function getProductCategories() {
-  const key = 'catalog:categories'
-  if (USE_V2) {
-    return cachedRequest(key, CATALOG_TTL, () => catalogV2.fetchProductCategories())
-  }
-  return cachedRequest(key, CATALOG_TTL, () => api.get('/api/product-categories'))
+  const key = `${CACHE_NAMESPACE.CATALOG}categories`
+  return cachedV2OrLegacy({
+    key,
+    ttl: CACHE_TTL.CATALOG_LIST,
+    useV2: USE_V2,
+    v2: () => catalogV2.fetchProductCategories(),
+    legacy: () => api.get('/api/product-categories'),
+  })
 }
 
 export function getAdminProducts() {
@@ -84,28 +91,17 @@ export function getAdminProduct(id) {
 }
 
 export function saveProduct(id, payload) {
-  if (USE_V2) {
-    return (id ? catalogV2.updateProduct(id, payload) : catalogV2.createProduct(payload))
-      .then((res) => {
-        invalidateCache('catalog:')
-        return res
-      })
-  }
-  return (id
-    ? api.put(`/api/admin/products/${id}`, payload)
-    : api.post('/api/admin/products', payload))
-    .then((res) => {
-      invalidateCache('catalog:')
-      return res
-    })
+  const run = USE_V2
+    ? (id ? catalogV2.updateProduct(id, payload) : catalogV2.createProduct(payload))
+    : (id
+      ? api.put(`/api/admin/products/${id}`, payload)
+      : api.post('/api/admin/products', payload))
+  return afterCacheMutation(run, CACHE_NAMESPACE.CATALOG)
 }
 
 export function removeProduct(id) {
   const run = USE_V2 ? catalogV2.deleteProduct(id) : api.delete(`/api/admin/products/${id}`)
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  return afterCacheMutation(run, CACHE_NAMESPACE.CATALOG)
 }
 
 export function getAdminCategories() {
@@ -121,18 +117,12 @@ export function saveCategory(id, payload) {
     : (id
       ? api.put(`/api/admin/product-categories/${id}`, payload)
       : api.post('/api/admin/product-categories', payload))
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  return afterCacheMutation(run, CACHE_NAMESPACE.CATALOG)
 }
 
 export function removeCategory(id) {
   const run = USE_V2 ? catalogV2.deleteCategory(id) : api.delete(`/api/admin/product-categories/${id}`)
-  return run.then((res) => {
-    invalidateCache('catalog:')
-    return res
-  })
+  return afterCacheMutation(run, CACHE_NAMESPACE.CATALOG)
 }
 
 export function uploadProductImage(formData) {

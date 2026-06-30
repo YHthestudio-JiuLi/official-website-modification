@@ -3,8 +3,8 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 const winston = require('winston');
 
-// 加载环境变量
-dotenv.config();
+// 加载根目录 .env（与启动 cwd 无关）
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const rootDir = path.join(__dirname, '..');
 const PORT = process.env.PORT || 3000;

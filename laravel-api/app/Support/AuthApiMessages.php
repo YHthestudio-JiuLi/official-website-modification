@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as ValidatorInstance;
 
 /**
- * 认证相关 API 文案（随 Accept-Language 返回中英文，并附带 error_code 供前端 i18n）
+ * 认证 API 响应：始终附带 error_code；SPA 应优先用 error_code 走前端 i18n
  */
 class AuthApiMessages
 {

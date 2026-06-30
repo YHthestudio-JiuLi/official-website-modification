@@ -8,7 +8,6 @@ use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** 前台商城聚合读接口：减少 PHP-FPM 并发占用 */
 class CatalogController extends Controller
 {
     public function __construct(private readonly ProductCatalogService $catalog) {}

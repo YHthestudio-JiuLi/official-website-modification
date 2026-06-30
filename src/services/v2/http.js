@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { currentAcceptLanguage } from '@/utils/authErrorMessage'
-import { handleAdminSessionUnauthorized } from '@/utils/adminSessionRedirect'
+import { registerV2CsrfReset } from '@/services/csrfResetRegistry'
+import { notifyAdminUnauthorized } from '@/services/sessionUnauthorizedRegistry'
 
 /**
  * Laravel Sanctum API 客户端（/api/v2）
@@ -25,6 +26,10 @@ const CSRF_MAX_RETRIES = 3
 const CSRF_FETCH_TIMEOUT_MS = 15000
 
 const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+registerV2CsrfReset(() => {
+  csrfPending = null
+})
 
 /** 从 document.cookie 读取明文 XSRF-TOKEN（与 Laravel EncryptCookies 例外一致） */
 function readXsrfTokenFromCookie() {
@@ -109,7 +114,7 @@ v2.interceptors.response.use(
     if (error.response?.status === 401) {
       const base = String(originalRequest?.baseURL || '')
       const path = String(originalRequest?.url || '')
-      handleAdminSessionUnauthorized(`${base}${path}`)
+      notifyAdminUnauthorized(`${base}${path}`)
       return Promise.reject(error)
     }
 

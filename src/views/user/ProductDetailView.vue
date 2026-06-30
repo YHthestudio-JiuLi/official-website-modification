@@ -11,7 +11,6 @@
           </div>
 
           <div v-else class="product-detail-cyber">
-            <!-- 公告横幅：与弹窗公告同源，横向滚动展示 -->
             <div v-if="marqueePlainText" class="pdc-alert">
               <div class="pdc-alert-inner">
                 <i class="fas fa-bullhorn pdc-alert-icon" aria-hidden="true" />
@@ -24,11 +23,9 @@
               </div>
             </div>
 
-            <!-- 英雄区 -->
             <section class="pdc-hero">
               <div class="pdc-hero-grid">
                 <div class="pdc-hero-copy">
-                  <!-- 单行标题：商品名已足够，避免与下方描述重复堆叠 -->
                   <h2 class="pdc-hero-title">
                     <template v-if="heroParts">
                       {{ heroParts.prefix }}<span class="pdc-cyan">{{ heroParts.num }}</span>{{ heroParts.suffix }}
@@ -39,34 +36,23 @@
                   </h2>
                   <p class="pdc-hero-desc">{{ product.description || $t('products.detail.noDescription') }}</p>
 
-                  <!-- 多配置：首屏即展示，须用户手动选择后才能购买 -->
-                  <div
+                  <ProductConfigPicker
                     v-if="productConfigs.length"
                     id="pdc-config-picker"
-                    class="pdc-config-picker pdc-config-picker-hero"
-                    :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
-                  >
-                    <div class="pdc-config-options">
-                      <button
-                        v-for="cfg in productConfigs"
-                        :key="'hero-' + cfg.id"
-                        type="button"
-                        class="pdc-config-option"
-                        :class="{ active: selectedConfigId === cfg.id }"
-                        @click="selectConfig(cfg.id)"
-                      >
-                        <span class="pdc-config-name">{{ cfg.name }}</span>
-                        <span class="pdc-config-price">{{ formatConfigPrice(cfg) }}</span>
-                      </button>
-                    </div>
-                  </div>
+                    v-model="selectedConfigId"
+                    :configs="productConfigs"
+                    :highlight="configPickerHighlight"
+                    variant="hero"
+                    key-prefix="hero-"
+                    @update:model-value="onConfigSelected"
+                  />
 
                   <div class="pdc-hero-actions">
                     <button
                       type="button"
                       class="pdc-btn pdc-btn-usdt"
                       :disabled="buySubmitting"
-                      @click="onBuyNowClick('hero')"
+                      @click="onBuyNowClick"
                     >
                       <i class="fas fa-shopping-cart" />
                       {{ buyNowLabel }}
@@ -76,14 +62,12 @@
                     </router-link>
                   </div>
                 </div>
-                <!-- 单图时主图只在英雄区展示；无图时仍保留占位框 -->
                 <div class="pdc-hero-visual">
                   <div class="pdc-float-wrap">
                     <div class="pdc-img-frame pdc-img-frame-cyan">
                       <img :src="heroDisplayImage" :alt="product.name" @error="handleImageError" />
                     </div>
                   </div>
-                  <!-- 多图：主图下方横向缩略图，点击切换原图 -->
                   <div v-if="galleryImages.length > 1" class="pdc-thumb-strip-wrap">
                     <div class="pdc-thumb-strip" role="listbox" :aria-label="$t('products.detail.galleryThumbLabel')">
                       <button
@@ -108,7 +92,6 @@
               </div>
             </section>
 
-            <!-- 核心功能：后台未配置功能卡时不渲染本区块 -->
             <section v-if="displayFeatureCards.length" class="pdc-section">
               <div class="pdc-section-head">
                 <h2 class="pdc-h2">
@@ -132,7 +115,6 @@
               </div>
             </section>
 
-            <!-- 技术规格 / 重要说明：后台均未配置时不渲染；重要说明可单独存在 -->
             <section v-if="showSpecsSection" id="specs" class="pdc-section pdc-section-specs">
               <div v-if="displaySpecCards.length" class="pdc-specs-panel">
                 <div class="pdc-specs-panel-head">
@@ -154,82 +136,29 @@
                   </div>
                 </div>
                 <div v-if="displayUsageNoticeLines.length" class="pdc-spec-notice-below">
-                  <div class="pdc-spec-notice-panel">
-                    <div class="pdc-spec-notice-head">
-                      <span class="pdc-spec-notice-ico-wrap" aria-hidden="true">
-                        <!-- 对齐参考稿：品红圆内白色感叹号（非 i 信息标） -->
-                        <i class="fas fa-exclamation pdc-spec-notice-head-ico" />
-                      </span>
-                      <h3 class="pdc-spec-notice-title">{{ $t('products.detail.noticeTitle') }}</h3>
-                    </div>
-                    <ul class="pdc-spec-notice-list">
-                      <li v-for="(row, nidx) in displayUsageNoticeLines" :key="'un' + nidx">
-                        <i
-                          :class="
-                            row.mode === 'ban'
-                              ? 'fas fa-ban pdc-spec-notice-ban'
-                              : 'fas fa-check pdc-spec-notice-check'
-                          "
-                        />
-                        <span :class="{ 'pdc-spec-notice-warn': row.mode === 'ban' }">{{ row.text }}</span>
-                      </li>
-                    </ul>
-                  </div>
+                  <ProductUsageNotice :lines="displayUsageNoticeLines" key-prefix="un-" />
                 </div>
               </div>
               <div v-else-if="displayUsageNoticeLines.length" class="pdc-spec-notice-only">
-                <div class="pdc-spec-notice-panel">
-                  <div class="pdc-spec-notice-head">
-                    <span class="pdc-spec-notice-ico-wrap" aria-hidden="true">
-                      <i class="fas fa-exclamation pdc-spec-notice-head-ico" />
-                    </span>
-                    <h3 class="pdc-spec-notice-title">{{ $t('products.detail.noticeTitle') }}</h3>
-                  </div>
-                  <ul class="pdc-spec-notice-list">
-                    <li v-for="(row, nidx) in displayUsageNoticeLines" :key="'uo' + nidx">
-                      <i
-                        :class="
-                          row.mode === 'ban'
-                            ? 'fas fa-ban pdc-spec-notice-ban'
-                            : 'fas fa-check pdc-spec-notice-check'
-                        "
-                      />
-                      <span :class="{ 'pdc-spec-notice-warn': row.mode === 'ban' }">{{ row.text }}</span>
-                    </li>
-                  </ul>
-                </div>
+                <ProductUsageNotice :lines="displayUsageNoticeLines" key-prefix="uo-" />
               </div>
             </section>
 
-            <!-- 价格区 -->
             <section class="pdc-section pdc-section-last">
               <div class="pdc-pricing-wrap">
                 <div class="pdc-price-card">
                   <div class="pdc-price-ribbon">{{ $t('products.detail.currentProductRibbon') }}</div>
                   <h3 class="pdc-price-name">{{ product.name }}</h3>
 
-                  <!-- 多配置选择（底部套餐区同步展示） -->
-                  <div
-                    v-if="productConfigs.length"
-                    class="pdc-config-picker"
-                    :class="{ 'pdc-config-picker-highlight': configPickerHighlight }"
-                  >
-                    <div class="pdc-config-options">
-                      <button
-                        v-for="cfg in productConfigs"
-                        :key="cfg.id"
-                        type="button"
-                        class="pdc-config-option"
-                        :class="{ active: selectedConfigId === cfg.id }"
-                        @click="selectConfig(cfg.id)"
-                      >
-                        <span class="pdc-config-name">{{ cfg.name }}</span>
-                        <span class="pdc-config-price">{{ formatConfigPrice(cfg) }}</span>
-                      </button>
-                    </div>
+                  <div v-if="productConfigs.length && selectedConfig" class="pdc-price-config-summary">
+                    <span class="pdc-price-config-name">{{ selectedConfig.name }}</span>
                   </div>
+                  <p v-else-if="productConfigs.length" class="pdc-price-config-hint">
+                    {{ $t('products.detail.selectConfigHint') }}
+                  </p>
 
                   <div
+                    v-if="!productConfigs.length || selectedConfig"
                     class="pdc-price-single"
                     :class="{ 'pdc-price-single-cny': primaryPriceKind === 'cny' }"
                   >
@@ -254,7 +183,7 @@
                     type="button"
                     class="pdc-btn pdc-btn-buy"
                     :disabled="buySubmitting"
-                    @click="onBuyNowClick('pricing')"
+                    @click="onBuyNowClick"
                   >
                     <i class="fas fa-shopping-cart" />
                     {{ buyNowLabel }}
@@ -271,239 +200,67 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
 import * as catalogApi from '@/services/catalog'
-import { fetchDisplayNotice } from '@/services/popup'
+import { fetchDisplayNotice, fetchDisplayNoticeFresh } from '@/services/popup'
+import { subscribePopupNoticeUpdated } from '@/utils/popupNoticeSync'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
-import { parseProductImages } from '@/utils/productImages'
-import { useAuthStore } from '@/stores/auth'
-import { startProductCheckout } from '@/utils/productCheckout'
+import ProductConfigPicker from '@/components/user/ProductConfigPicker.vue'
+import ProductUsageNotice from '@/components/user/ProductUsageNotice.vue'
+import { useProductCheckout } from '@/composables/useProductCheckout'
+import { useProductDetailPresentation } from '@/composables/useProductDetailPresentation'
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
-const authStore = useAuthStore()
 const product = ref(null)
 const loading = ref(true)
-const buySubmitting = ref(false)
-const selectedConfigId = ref(null)
-/** 用户是否已手动点选配置（有多个配置时须为 true 才能下单） */
-const configExplicitlySelected = ref(false)
-const configPickerHighlight = ref(false)
-/** 未登录时由 ?checkout=1 触发过一次跳转登录，避免 watch 重复 replace */
-const checkoutLoginRedirectLock = ref(false)
-/** 登录回来自动下单只执行一次（成功后会清 query 并离开页面） */
-const checkoutSubmitLock = ref(false)
-/** 与弹窗公告接口同源，用于顶部滚动条 */
 const popupNotice = ref(null)
-/** 英雄区当前展示的图片索引 */
-const selectedGalleryIndex = ref(0)
 
-const galleryImages = computed(() =>
-  parseProductImages(product.value?.image, product.value?.images)
-)
+const {
+  selectedConfigId,
+  configExplicitlySelected,
+  configPickerHighlight,
+  buySubmitting,
+  productConfigs,
+  selectedConfig,
+  buyNowLabel,
+  resetCheckoutLocks,
+  resetConfigState,
+  onConfigSelected,
+  restoreConfigFromQuery,
+  onBuyNowClick,
+} = useProductCheckout({ route, router, product, loading })
 
-const heroDisplayImage = computed(() => {
-  const arr = galleryImages.value
-  if (!arr.length) return ''
-  return arr[selectedGalleryIndex.value] ?? arr[0]
+const {
+  selectedGalleryIndex,
+  galleryImages,
+  heroDisplayImage,
+  selectGalleryImage,
+  resetGallery,
+  marqueePlainText,
+  marqueeTrackStyle,
+  heroParts,
+  primaryPriceKind,
+  primaryPriceText,
+  displayFeatureCards,
+  displaySpecCards,
+  displayUsageNoticeLines,
+  showSpecsSection,
+  featureIconClass,
+  specIconClass,
+} = useProductDetailPresentation({
+  product,
+  popupNotice,
+  productConfigs,
+  selectedConfig,
+  configExplicitlySelected,
 })
 
-function selectGalleryImage(index) {
-  if (index >= 0 && index < galleryImages.value.length) {
-    selectedGalleryIndex.value = index
-  }
-}
-
-/** 弹窗公告正文去标签后拼标题，供跑马灯使用 */
-function stripHtmlForMarquee(html) {
-  if (!html || typeof html !== 'string') return ''
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-const marqueePlainText = computed(() => {
-  const n = popupNotice.value
-  if (!n) return ''
-  const title = String(n.title || '').trim()
-  const body = stripHtmlForMarquee(String(n.content || ''))
-  if (title && body) return t('products.detail.noticeMarqueeBoth', { title, body })
-  return title || body
-})
-
-/** 字数多则滚得慢一些，避免看不清 */
-const marqueeTrackStyle = computed(() => {
-  const len = marqueePlainText.value.length
-  const sec = Math.min(100, Math.max(22, len * 0.32))
-  return { animationDuration: `${sec}s` }
-})
-
-/** 标题中「前缀+数字+后缀」拆字高亮，对齐参考稿 YH01 样式 */
-const heroParts = computed(() => {
-  const name = product.value?.name || ''
-  const m = name.match(/^(.+?)(\d+)(.*)$/)
-  if (m) return { prefix: m[1], num: m[2], suffix: m[3] }
-  return null
-})
-
-/** 商品配置列表（后台 configsJson） */
-const productConfigs = computed(() => {
-  const raw = product.value?.configs
-  if (!Array.isArray(raw)) return []
-  return raw
-    .map((c) => ({
-      id: String(c.id || '').trim(),
-      name: String(c.name || '').trim(),
-      priceUsdt: Number(c.priceUsdt ?? c.price ?? 0)
-    }))
-    .filter((c) => c.id && c.name)
-})
-
-const selectedConfig = computed(() =>
-  productConfigs.value.find((c) => c.id === selectedConfigId.value) || null
-)
-
-const canCheckout = computed(() => {
-  if (productConfigs.value.length === 0) return true
-  return configExplicitlySelected.value && !!selectedConfigId.value
-})
-
-const buyNowLabel = computed(() => {
-  if (buySubmitting.value) return t('products.detail.buyProcessing')
-  if (productConfigs.value.length && !configExplicitlySelected.value) {
-    return t('products.detail.selectConfigToBuy')
-  }
-  return t('products.detail.buyNow')
-})
-
-function selectConfig(id) {
-  selectedConfigId.value = id
-  configExplicitlySelected.value = true
-  configPickerHighlight.value = false
-}
-
-function promptConfigSelection() {
-  configPickerHighlight.value = true
-  window.setTimeout(() => {
-    configPickerHighlight.value = false
-  }, 2200)
-}
-
-function formatConfigPrice(cfg) {
-  const n = Number(cfg.priceUsdt)
-  if (Number.isFinite(n) && n > 0) return `${n} USDT`
-  return t('products.detail.priceTbd')
-}
-
-/** 卡片内主价格：有配置用所选配置价，否则用商品基础价 */
-const primaryPriceKind = computed(() => {
-  const p = product.value
-  if (!p) return 'none'
-  if (selectedConfig.value) {
-    const n = Number(selectedConfig.value.priceUsdt)
-    if (Number.isFinite(n) && n > 0) return 'usdt'
-    return 'none'
-  }
-  const usdtRaw = p.priceUsdt
-  const usdtNum = usdtRaw != null && usdtRaw !== '' ? Number(usdtRaw) : NaN
-  if (Number.isFinite(usdtNum) && usdtNum > 0) return 'usdt'
-  const cny = p.price
-  if (cny != null && cny !== '' && Number(cny) > 0) return 'cny'
-  return 'none'
-})
-
-const primaryPriceText = computed(() => {
-  const p = product.value
-  if (!p) return t('products.detail.dash')
-  if (productConfigs.value.length && !configExplicitlySelected.value) {
-    return t('products.detail.selectConfigForPrice')
-  }
-  if (selectedConfig.value) {
-    const n = Number(selectedConfig.value.priceUsdt)
-    if (Number.isFinite(n) && n > 0) return `${n} USDT`
-    return t('products.detail.priceTbd')
-  }
-  const k = primaryPriceKind.value
-  if (k === 'usdt') return `${Number(p.priceUsdt)} USDT`
-  if (k === 'cny') return `¥${p.price}`
-  return t('products.detail.priceTbd')
-})
-
-/** 仅使用接口返回的 featureCards（后台 featuresJson） */
-const displayFeatureCards = computed(() => {
-  const raw = product.value?.featureCards
-  if (!Array.isArray(raw) || !raw.length) return []
-  return raw
-    .map((c) => ({
-      title: String(c.title || '').trim(),
-      description: String(c.description || '').trim(),
-      icon: typeof c.icon === 'string' ? c.icon.trim() : ''
-    }))
-    .filter((c) => c.title || c.description)
-    .slice(0, 12)
-})
-
-/** Font Awesome 图标 class：支持 "fa-camera" 或 "fa-solid fa-camera" */
-function featureIconClass(item) {
-  const ic = (item.icon || 'fa-star').trim()
-  if (!ic) return ['fas', 'fa-star']
-  if (/\s/.test(ic)) return ic.split(/\s+/).filter(Boolean)
-  return ['fas', ic.startsWith('fa-') ? ic : `fa-${ic}`]
-}
-
-/** 规格卡图标（默认芯片，与功能卡区分） */
-function specIconClass(item) {
-  const ic = (item.icon || '').trim()
-  if (!ic) return ['fas', 'fa-microchip']
-  return featureIconClass({ ...item, icon: ic })
-}
-
-/** 技术规格卡：仅使用接口返回的 specCards（后台 specsJson） */
-const displaySpecCards = computed(() => {
-  const raw = product.value?.specCards
-  if (!Array.isArray(raw) || !raw.length) return []
-  return raw
-    .map((c) => ({
-      title: String(c.title || '').trim(),
-      description: String(c.description || '').trim(),
-      icon: typeof c.icon === 'string' ? c.icon.trim() : ''
-    }))
-    .filter((c) => c.title || c.description)
-    .slice(0, 12)
-})
-
-/** 重要说明：接口 usageNoticeLines（后台 usageNoticeJson） */
-const displayUsageNoticeLines = computed(() => {
-  const raw = product.value?.usageNoticeLines
-  if (!Array.isArray(raw) || !raw.length) return []
-  return raw
-    .map((r) => ({
-      text: String(r.text || '').trim(),
-      mode: r.mode === 'ban' ? 'ban' : 'check'
-    }))
-    .filter((r) => r.text)
-    .slice(0, 20)
-})
-
-/** 规格区：有规格卡或重要说明之一即展示锚点区块 */
-const showSpecsSection = computed(
-  () => displaySpecCards.value.length > 0 || displayUsageNoticeLines.value.length > 0
-)
-
-async function fetchPopupNotice() {
+async function fetchPopupNotice({ fresh = false } = {}) {
   try {
-    const res = await fetchDisplayNotice()
+    const res = await (fresh ? fetchDisplayNoticeFresh() : fetchDisplayNotice())
     popupNotice.value = res.data?.notice || null
   } catch (_e) {
     popupNotice.value = null
@@ -513,20 +270,12 @@ async function fetchPopupNotice() {
 async function loadProduct() {
   loading.value = true
   product.value = null
-  selectedGalleryIndex.value = 0
-  selectedConfigId.value = null
-  configExplicitlySelected.value = false
-  configPickerHighlight.value = false
+  resetGallery()
+  resetConfigState()
   try {
     const response = await catalogApi.getProduct(route.params.id)
     product.value = response.data
-    const cfgs = Array.isArray(response.data?.configs) ? response.data.configs : []
-    const queryConfigId = String(route.query.configId || '').trim()
-    // 仅登录回跳时恢复已选配置，不默认选中第一项
-    if (queryConfigId && cfgs.some((c) => String(c.id) === queryConfigId)) {
-      selectedConfigId.value = queryConfigId
-      configExplicitlySelected.value = true
-    }
+    restoreConfigFromQuery(route.query.configId)
   } catch (error) {
     console.error('Failed to fetch product:', error)
   } finally {
@@ -534,92 +283,28 @@ async function loadProduct() {
   }
 }
 
+async function reloadPage() {
+  resetCheckoutLocks()
+  await Promise.all([loadProduct(), fetchPopupNotice()])
+}
+
 watch(
   () => route.params.id,
   () => {
-    checkoutLoginRedirectLock.value = false
-    checkoutSubmitLock.value = false
-    loadProduct()
-    fetchPopupNotice()
+    reloadPage()
   },
   { immediate: true }
 )
 
-/** 登录后回到带 ?checkout=1 的商品页：自动跳转支付页（验单成功后才创建订单） */
-watch(
-  () => [route.query.checkout, loading.value, product.value?.id, route.params.id, authStore.isLoggedIn],
-  async () => {
-    if (String(route.query.checkout || '') !== '1') {
-      checkoutLoginRedirectLock.value = false
-      checkoutSubmitLock.value = false
-      return
-    }
-    if (loading.value) return
-    if (!product.value?.id || String(product.value.id) !== String(route.params.id)) return
-
-    if (!authStore.isLoggedIn) {
-      if (checkoutLoginRedirectLock.value) return
-      checkoutLoginRedirectLock.value = true
-      await router.replace({
-        name: 'login',
-        query: { redirect: route.fullPath }
-      })
-      return
-    }
-
-    if (checkoutSubmitLock.value) return
-    checkoutSubmitLock.value = true
-    try {
-      const configId = String(route.query.configId || selectedConfigId.value || '').trim()
-      if (productConfigs.value.length) {
-        if (!configId || !configExplicitlySelected.value) {
-          checkoutSubmitLock.value = false
-          promptConfigSelection()
-          alert(t('products.detail.selectConfigRequired'))
-          return
-        }
-      }
-      await router.replace({
-        name: 'payment',
-        params: { id: 'new' },
-        query: {
-          productId: String(product.value.id),
-          quantity: '1',
-          ...(configId ? { configId } : {})
-        }
-      })
-    } catch (e) {
-      console.error(e)
-      checkoutSubmitLock.value = false
-      await router.replace({
-        name: 'product-detail',
-        params: { id: String(route.params.id) },
-        query: {}
-      })
-      alert(t('products.detail.checkoutErrorRetry'))
-    }
-  },
-  { flush: 'post' }
-)
-
-/** 立即购买：有配置时须先手动选择；未选则高亮配置区（底部按钮不滚动到页顶） */
-async function onBuyNowClick(_source = 'hero') {
-  if (!product.value?.id || buySubmitting.value) return
-  if (productConfigs.value.length && !canCheckout.value) {
-    promptConfigSelection()
-    return
-  }
-  buySubmitting.value = true
-  try {
-    const configId = productConfigs.value.length ? selectedConfigId.value : null
-    await startProductCheckout(router, product.value.id, { configId })
-  } catch (e) {
-    console.error(e)
-    alert(t('products.detail.checkoutErrorAuth'))
-  } finally {
-    buySubmitting.value = false
-  }
-}
+let unsubscribePopupNoticeSync = null
+onMounted(() => {
+  unsubscribePopupNoticeSync = subscribePopupNoticeUpdated(() => {
+    fetchPopupNotice({ fresh: true })
+  })
+})
+onUnmounted(() => {
+  unsubscribePopupNoticeSync?.()
+})
 
 function handleImageError(e) {
   e.target.src =
@@ -633,835 +318,4 @@ function handleImageError(e) {
 }
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Roboto+Mono:wght@400;500&display=swap');
-
-/* 赛博配色（对齐参考稿 tailwind 扩展色） */
-.product-detail-cyber {
-  --pdc-cyan: #00f3ff;
-  --pdc-pink: #ff00ff;
-  --pdc-purple: #9d00ff;
-  /* 页面基底色：与外层 main、页脚衔接区一致 */
-  --pdc-dark: #0b0f15;
-  --pdc-card: #12121a;
-  --pdc-border: #1a3a5f;
-  --pdc-usdt: #26a17b;
-  --pdc-gray: #b8bcc8;
-  position: relative;
-  font-family: 'Roboto Mono', ui-monospace, monospace;
-  /* 与外层 main 同色平铺；不用左右径向（会在主列竖边与两侧 gutter 之间形成明显「竖缝」） */
-  background-color: var(--pdc-dark);
-  background-image: none;
-  /* 不向外负 margin，与外层居中容器对齐，两侧留白一致 */
-  margin: 0;
-  /* 底部少留白、无圆角，避免与页脚之间出现异色「缝隙带」 */
-  padding: 0 0 0.35rem;
-  overflow-x: clip;
-  border-radius: 0;
-}
-
-.pdc-cyan {
-  color: var(--pdc-cyan);
-}
-.pdc-pink {
-  color: var(--pdc-pink);
-}
-
-.pdc-alert {
-  background: linear-gradient(90deg, rgba(157, 0, 255, 0.22), rgba(0, 243, 255, 0.18));
-  border-top: 1px solid var(--pdc-cyan);
-  border-bottom: 1px solid var(--pdc-cyan);
-  padding: 0.85rem 0;
-  margin: 0 0 1.1rem;
-  border-radius: 0.35rem;
-}
-.pdc-alert-inner {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.65rem;
-  width: 100%;
-}
-.pdc-alert-icon {
-  color: var(--pdc-pink);
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-.pdc-marquee-clip {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 8px), transparent);
-}
-.pdc-marquee-track {
-  display: inline-block;
-  white-space: nowrap;
-  animation: pdc-marquee-scroll linear infinite;
-}
-.pdc-marquee-seg {
-  display: inline-block;
-  padding-right: 3rem;
-  font-size: clamp(0.78rem, 2.2vw, 0.9rem);
-  line-height: 1.5;
-  color: #e8eaef;
-  font-family: Orbitron, sans-serif;
-}
-@keyframes pdc-marquee-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pdc-marquee-track {
-    animation: none;
-    transform: none;
-  }
-  .pdc-marquee-clip {
-    overflow-x: auto;
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-}
-
-.pdc-hero {
-  padding: 1rem 0 1.75rem;
-  background: transparent;
-}
-.pdc-hero-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2.5rem;
-  align-items: center;
-}
-@media (min-width: 900px) {
-  .pdc-hero-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 3rem;
-  }
-}
-
-.pdc-hero-title {
-  font-family: Orbitron, sans-serif;
-  font-size: clamp(1.65rem, 4vw, 2.75rem);
-  font-weight: 900;
-  line-height: 1.2;
-  color: #fff;
-  margin-bottom: 1rem;
-  word-break: break-word;
-}
-.pdc-hero-desc {
-  color: #c4c8d4;
-  font-size: 1rem;
-  line-height: 1.75;
-  white-space: pre-wrap;
-  margin-bottom: 1.5rem;
-}
-
-.pdc-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-/* 多图缩略图：主图下方横向居中 */
-.pdc-thumb-strip-wrap {
-  margin-top: 1rem;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-.pdc-thumb-strip {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: 0.65rem;
-  overflow-x: auto;
-  padding: 0.25rem 0.15rem 0.35rem;
-  max-width: 100%;
-  width: max-content;
-  margin: 0 auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 229, 255, 0.35) transparent;
-}
-.pdc-thumb-strip::-webkit-scrollbar {
-  height: 4px;
-}
-.pdc-thumb-strip::-webkit-scrollbar-thumb {
-  background: rgba(0, 229, 255, 0.35);
-  border-radius: 999px;
-}
-.pdc-thumb {
-  flex: 0 0 auto;
-  width: 4.5rem;
-  height: 4.5rem;
-  padding: 0;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 0.5rem;
-  background: rgba(10, 14, 28, 0.85);
-  cursor: pointer;
-  overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
-}
-.pdc-thumb:hover {
-  border-color: rgba(0, 229, 255, 0.55);
-  transform: translateY(-1px);
-}
-.pdc-thumb.active {
-  border-color: #00e5ff;
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.45);
-}
-.pdc-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.pdc-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  font-family: Orbitron, sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  border-radius: 6px;
-  transition: background 0.25s, border-color 0.25s, transform 0.2s;
-  cursor: pointer;
-  border: 2px solid transparent;
-}
-button.pdc-btn {
-  appearance: none;
-  -webkit-appearance: none;
-}
-.pdc-btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
-}
-.pdc-btn:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-.pdc-btn-usdt {
-  border-color: var(--pdc-usdt);
-  color: #fff;
-  box-shadow: 0 0 14px rgba(38, 161, 123, 0.35);
-  background: transparent;
-}
-.pdc-btn-usdt:hover {
-  background: rgba(38, 161, 123, 0.18);
-}
-
-.pdc-btn-outline {
-  border-color: var(--pdc-cyan);
-  color: var(--pdc-cyan);
-  background: transparent;
-}
-.pdc-btn-outline:hover {
-  background: rgba(0, 243, 255, 0.12);
-}
-
-.pdc-btn-buy {
-  width: 100%;
-  margin-top: 0.5rem;
-  background: var(--pdc-usdt);
-  color: var(--pdc-dark);
-  border-color: var(--pdc-usdt);
-  font-size: 1rem;
-  padding: 0.9rem;
-}
-.pdc-btn-buy:not(:disabled):hover {
-  filter: brightness(1.08);
-}
-
-.pdc-btn-ghost {
-  border: 1px solid var(--pdc-border);
-  color: var(--pdc-gray);
-  background: rgba(18, 18, 26, 0.6);
-}
-.pdc-btn-ghost:hover {
-  border-color: var(--pdc-cyan);
-  color: var(--pdc-cyan);
-}
-
-.pdc-btn-wide {
-  min-width: 200px;
-}
-
-.pdc-float-wrap {
-  position: relative;
-}
-
-.pdc-hero-visual {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.pdc-hero-visual .pdc-float-wrap {
-  width: 100%;
-}
-
-.pdc-img-frame {
-  border-radius: 1rem;
-  overflow: hidden;
-  animation: pdc-float 6s ease-in-out infinite;
-}
-.pdc-img-frame-cyan {
-  border: 2px solid var(--pdc-cyan);
-  box-shadow: 0 0 18px rgba(0, 243, 255, 0.28);
-}
-.pdc-img-frame-pink {
-  border: 2px solid var(--pdc-pink);
-  box-shadow: 0 0 18px rgba(255, 0, 255, 0.22);
-}
-.pdc-img-frame img {
-  width: 100%;
-  display: block;
-  vertical-align: middle;
-  background: var(--pdc-dark);
-}
-@keyframes pdc-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.pdc-section {
-  padding: 2rem 0;
-  /* 避免继承或层叠产生与父级不同的底色块 */
-  background: transparent;
-}
-.pdc-section-last {
-  padding-bottom: 0.5rem;
-}
-.pdc-section-head {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-.pdc-h2 {
-  font-family: Orbitron, sans-serif;
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 0.5rem;
-}
-.pdc-sub {
-  color: var(--pdc-gray);
-  max-width: 36rem;
-  margin: 0 auto;
-  font-size: 0.9rem;
-}
-
-.pdc-feature-empty {
-  text-align: center;
-  padding: 2rem 1rem;
-  border: 1px dashed var(--pdc-border);
-  border-radius: 0.85rem;
-  color: #8b92a8;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  max-width: 28rem;
-  margin: 0 auto;
-}
-.pdc-feature-empty i {
-  display: block;
-  font-size: 2rem;
-  color: var(--pdc-cyan);
-  opacity: 0.5;
-  margin-bottom: 0.75rem;
-}
-.pdc-feature-empty p {
-  margin: 0;
-}
-
-.pdc-feature-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-@media (min-width: 640px) {
-  .pdc-feature-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (min-width: 1024px) {
-  .pdc-feature-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.pdc-feature-card {
-  background: var(--pdc-card);
-  border: 2px solid var(--pdc-cyan);
-  border-radius: 0.85rem;
-  padding: 1.5rem;
-  transition: transform 0.25s, box-shadow 0.25s;
-}
-.pdc-feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(0, 243, 255, 0.12);
-}
-/* 外框统一为青色霓虹；tone 仅保留图标/标题色相变化 */
-
-.pdc-feature-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, rgba(0, 243, 255, 0.35), rgba(157, 0, 255, 0.2));
-  color: #fff;
-  font-size: 1.35rem;
-}
-.tone-1 .pdc-feature-icon {
-  background: linear-gradient(135deg, rgba(255, 0, 255, 0.35), rgba(0, 243, 255, 0.15));
-}
-.tone-2 .pdc-feature-icon {
-  background: linear-gradient(135deg, rgba(157, 0, 255, 0.45), rgba(0, 243, 255, 0.12));
-}
-
-.pdc-feature-title {
-  font-family: Orbitron, sans-serif;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--pdc-cyan);
-  margin-bottom: 0.5rem;
-}
-.tone-1 .pdc-feature-title {
-  color: var(--pdc-pink);
-}
-.tone-2 .pdc-feature-title {
-  color: #c9a6ff;
-}
-.pdc-feature-desc {
-  color: #aeb4c5;
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-
-/* —— #specs 技术规格：外层霓虹面板 + 4 列横向功能卡（对齐参考截图） —— */
-.pdc-section-specs {
-  padding-top: 2.25rem;
-}
-
-/* 整块规格区：深色底 + 青色霓虹描边/光晕 */
-.pdc-specs-panel {
-  max-width: min(72rem, 100%);
-  margin: 0 auto;
-  padding: clamp(1.25rem, 3vw, 2rem) clamp(1rem, 2.5vw, 1.75rem) clamp(1.35rem, 2.8vw, 1.85rem);
-  border-radius: 1rem;
-  /* 与页面基色同系，避免面板内出现「纯黑块」与周围色差线 */
-  background: linear-gradient(165deg, rgba(16, 18, 26, 0.97), rgba(11, 15, 21, 0.99));
-  border: 1px solid rgba(0, 243, 255, 0.55);
-  box-shadow:
-    0 0 0 1px rgba(0, 243, 255, 0.12),
-    0 0 28px rgba(0, 243, 255, 0.22),
-    0 0 56px rgba(0, 243, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.pdc-specs-panel-head {
-  text-align: center;
-  margin-bottom: clamp(1.25rem, 3vw, 1.85rem);
-}
-
-/* 标题：青 → 品红渐变字 */
-.pdc-specs-title {
-  margin: 0 0 0.5rem;
-  font-family: Orbitron, sans-serif;
-  font-size: clamp(1.55rem, 3.6vw, 2.35rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  background: linear-gradient(90deg, var(--pdc-cyan), #7af0ff 42%, var(--pdc-pink));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-.pdc-specs-sub {
-  margin: 0 auto;
-  max-width: 36rem;
-  color: #8b92a8;
-  font-size: 0.88rem;
-  line-height: 1.55;
-}
-
-.pdc-specs-empty {
-  text-align: center;
-  padding: 2rem 1rem;
-  border: 1px dashed rgba(0, 243, 255, 0.35);
-  border-radius: 0.85rem;
-  color: #8b92a8;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  max-width: 28rem;
-  margin: 0 auto;
-}
-.pdc-specs-empty i {
-  display: block;
-  font-size: 2rem;
-  color: var(--pdc-cyan);
-  opacity: 0.55;
-  margin-bottom: 0.75rem;
-}
-.pdc-specs-empty p {
-  margin: 0;
-}
-
-/* 桌面 4×N；平板 2 列；手机 1 列 */
-.pdc-specs-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.85rem;
-}
-@media (min-width: 520px) {
-  .pdc-specs-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem;
-  }
-}
-@media (min-width: 1024px) {
-  .pdc-specs-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-  }
-}
-
-/* 单卡：左圆标 + 右双行文案 */
-.pdc-spec-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.85rem 0.95rem;
-  border-radius: 0.65rem;
-  background: rgba(18, 20, 30, 0.92);
-  border: 1px solid rgba(0, 243, 255, 0.18);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.pdc-spec-card:hover {
-  border-color: rgba(0, 243, 255, 0.42);
-  box-shadow: 0 0 18px rgba(0, 243, 255, 0.12);
-}
-
-.pdc-spec-card-icon {
-  flex-shrink: 0;
-  width: 2.65rem;
-  height: 2.65rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  color: #fff;
-  background: rgba(0, 243, 255, 0.88);
-  box-shadow: 0 0 14px rgba(0, 243, 255, 0.45);
-}
-.pdc-spec-card-icon i {
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.35));
-}
-
-.pdc-spec-card-body {
-  min-width: 0;
-  flex: 1;
-  text-align: left;
-}
-
-.pdc-spec-card-label {
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: #7a8194;
-  margin-bottom: 0.2rem;
-  word-break: break-word;
-}
-
-.pdc-spec-card-value {
-  font-family: Orbitron, sans-serif;
-  font-size: clamp(0.82rem, 1.9vw, 0.95rem);
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-/* 仅有重要说明、无「技术规格」霓虹外框时的容器宽度 */
-.pdc-spec-notice-only {
-  max-width: min(72rem, 100%);
-  margin: 0 auto;
-}
-
-/* 重要说明：参考稿 — 深紫→墨青渐变底、亮青标题、浅灰正文、品红警示 */
-.pdc-spec-notice-below {
-  margin-top: clamp(1.25rem, 3vw, 1.75rem);
-}
-
-.pdc-spec-notice-panel {
-  text-align: left;
-  padding: clamp(1.15rem, 2.8vw, 1.45rem) clamp(1.2rem, 3vw, 1.6rem);
-  border-radius: 0.75rem;
-  /* 与参考图一致：左深紫、右墨青 */
-  background: linear-gradient(90deg, #1a0b35 0%, #101820 45%, #0a181b 100%);
-  border: 1px solid rgba(0, 229, 255, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 24px rgba(26, 11, 53, 0.5);
-}
-
-.pdc-spec-notice-head {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin-bottom: 0.75rem;
-}
-
-.pdc-spec-notice-ico-wrap {
-  flex-shrink: 0;
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ff00ff;
-  color: #fff;
-  font-size: 0.72rem;
-  box-shadow: 0 0 14px rgba(255, 0, 255, 0.55);
-}
-
-/* 标题内感叹号加粗，贴近参考 HTML 视觉比重 */
-.pdc-spec-notice-head-ico {
-  font-size: 0.95rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.pdc-spec-notice-title {
-  margin: 0;
-  font-family: Orbitron, sans-serif;
-  font-size: clamp(0.95rem, 2.2vw, 1.08rem);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #00e5ff;
-  text-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
-}
-
-.pdc-spec-notice-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  /* 列表整体右移：对勾/禁止标与标题「重」字左缘对齐（等于左侧圆标 1.85rem + 与标题间距 0.65rem） */
-  padding-left: calc(1.85rem + 0.65rem);
-  box-sizing: border-box;
-}
-.pdc-spec-notice-list li {
-  display: flex;
-  gap: 0.55rem;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-  color: #d1d1d1;
-  font-size: 0.86rem;
-  line-height: 1.55;
-}
-.pdc-spec-notice-list li:last-child {
-  margin-bottom: 0;
-}
-/* 列表对勾：与标题同系亮青 */
-.pdc-spec-notice-check {
-  color: #00e5ff;
-  margin-top: 0.18rem;
-  flex-shrink: 0;
-  font-size: 0.95rem;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
-}
-/* 禁止标 / 警示行：参考稿品红 */
-.pdc-spec-notice-ban {
-  color: #ff00ff;
-  margin-top: 0.16rem;
-  flex-shrink: 0;
-  font-size: 0.92rem;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 0 10px rgba(255, 0, 255, 0.45);
-}
-.pdc-spec-notice-warn {
-  color: #ff00ff;
-  font-weight: 700;
-}
-
-.pdc-pricing-wrap {
-  max-width: 32rem;
-  margin: 0 auto;
-}
-.pdc-price-card {
-  position: relative;
-  background: var(--pdc-card);
-  border: 2px solid var(--pdc-usdt);
-  border-radius: 1rem;
-  padding: 2rem 1.5rem 1.5rem;
-  box-shadow: 0 0 20px rgba(38, 161, 123, 0.25);
-}
-.pdc-price-ribbon {
-  position: absolute;
-  top: -0.65rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--pdc-usdt);
-  color: var(--pdc-dark);
-  font-family: Orbitron, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.25rem 0.9rem;
-  border-radius: 999px;
-}
-.pdc-price-name {
-  font-family: Orbitron, sans-serif;
-  font-size: 1.25rem;
-  color: #fff;
-  margin-bottom: 0.35rem;
-}
-
-.pdc-config-picker-hero {
-  margin: 1rem 0 0.25rem;
-  max-width: 420px;
-}
-
-.pdc-config-picker-highlight {
-  border-radius: 12px;
-  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
-  animation: pdc-config-pulse 1.1s ease-in-out 2;
-}
-
-@keyframes pdc-config-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.65), 0 0 18px rgba(0, 229, 255, 0.25);
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(255, 0, 255, 0.55), 0 0 24px rgba(255, 0, 255, 0.2);
-  }
-}
-
-.pdc-config-picker {
-  margin: 0.75rem 0 0.5rem;
-  text-align: left;
-}
-
-.pdc-config-label {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.72);
-  margin: 0 0 0.5rem;
-}
-
-.pdc-config-options {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.pdc-config-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  background: rgba(0, 0, 0, 0.25);
-  color: #fff;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-}
-
-.pdc-config-option:hover {
-  border-color: rgba(0, 229, 255, 0.55);
-}
-
-.pdc-config-option.active {
-  border-color: var(--pdc-cyan);
-  background: rgba(0, 229, 255, 0.12);
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
-}
-
-.pdc-config-name {
-  font-weight: 600;
-  text-align: left;
-}
-
-.pdc-config-price {
-  font-family: Orbitron, sans-serif;
-  font-size: 0.9rem;
-  color: var(--pdc-usdt);
-  flex-shrink: 0;
-}
-
-.pdc-price-single {
-  font-family: Orbitron, sans-serif;
-  font-size: 1.65rem;
-  font-weight: 800;
-  color: var(--pdc-usdt);
-  margin: 0.35rem 0 1rem;
-  line-height: 1.2;
-}
-.pdc-price-single-cny {
-  color: #fff;
-}
-.pdc-price-core {
-  margin-bottom: 1rem;
-}
-.pdc-price-core-title {
-  font-family: Orbitron, sans-serif;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--pdc-cyan);
-  letter-spacing: 0.06em;
-  margin: 0 0 0.5rem;
-}
-.pdc-price-core-empty {
-  color: #8b92a8;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  margin: 0;
-}
-.pdc-price-features {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 0.88rem;
-  color: #d5dae6;
-}
-.pdc-price-features li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.45rem;
-  line-height: 1.45;
-}
-.pdc-price-features .fa-check {
-  color: var(--pdc-usdt);
-  margin-top: 0.2rem;
-  flex-shrink: 0;
-}
-</style>
+<style scoped src="./product-detail-view.css"></style>

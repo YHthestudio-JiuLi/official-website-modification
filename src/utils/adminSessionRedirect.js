@@ -1,4 +1,8 @@
 import { logoutNodeAdmin } from '@/services/legacyNodeAuth'
+import router from '@/router'
+import { useAdminStore } from '@/stores/admin'
+import { useAdminV2Store } from '@/stores/adminV2'
+import { resetAllCsrfState } from '@/services/csrfResetRegistry'
 import { finalizeAdminLogout } from '@/utils/adminLogout'
 import { LEGACY_NODE_BRIDGE_TOKEN_KEY } from '@/constants/legacyNodeBridge'
 
@@ -53,10 +57,6 @@ export async function redirectToAdminLogin(options = {}) {
   if (redirectInFlight) return redirectInFlight
 
   redirectInFlight = (async () => {
-    const { default: router } = await import('@/router')
-    const { useAdminStore } = await import('@/stores/admin')
-    const { useAdminV2Store } = await import('@/stores/adminV2')
-
     const route = router.currentRoute.value
     if (route.name === 'admin-login') return
 
@@ -65,12 +65,7 @@ export async function redirectToAdminLogin(options = {}) {
 
     if (skipServerLogout) {
       sessionStorage.removeItem(LEGACY_NODE_BRIDGE_TOKEN_KEY)
-      const [{ resetApiCsrf }, { resetV2Csrf }] = await Promise.all([
-        import('@/services/api'),
-        import('@/services/v2/http')
-      ])
-      resetApiCsrf()
-      resetV2Csrf()
+      resetAllCsrfState()
     } else {
       await logoutNodeAdmin().catch(() => {})
 

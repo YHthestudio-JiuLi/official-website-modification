@@ -1,6 +1,9 @@
 /**
  * 前台用户会话失效时的跳转（与 adminSessionRedirect 分离）
  */
+import router from '@/router'
+import { useAuthStore } from '@/stores/auth'
+import { resetAllCsrfState } from '@/services/csrfResetRegistry'
 
 const USER_AUTH_PATHS = [
   '/api/v2/auth/me',
@@ -29,13 +32,9 @@ export async function redirectToUserLogin(redirectPath) {
   }
 
   redirectInFlight = (async () => {
-    const { default: router } = await import('@/router')
-    const { useAuthStore } = await import('@/stores/auth')
-    const { resetApiCsrf } = await import('@/services/api')
-
     const authStore = useAuthStore()
     authStore.$patch({ user: null, checked: true })
-    resetApiCsrf()
+    resetAllCsrfState()
 
     const route = router.currentRoute.value
     if (route.name === 'login') return

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import * as authApi from '@/services/v2/admin/auth'
 import { resetV2Csrf } from '@/services/v2/http'
 import { resetApiCsrf } from '@/services/api'
+import { useAdminStore } from '@/stores/admin'
 import { useV2Api } from '@/utils/apiPath'
 
 export const useAdminV2Store = defineStore('adminV2', () => {
@@ -25,9 +26,8 @@ export const useAdminV2Store = defineStore('adminV2', () => {
   }
 
   /** V2 模式下同步旧 adminStore，供 AdminLayout 等组件读取用户名 */
-  async function syncLegacyAdminMirror() {
+  function syncLegacyAdminMirror() {
     if (!useV2Api()) return
-    const { useAdminStore } = await import('@/stores/admin')
     useAdminStore().$patch({ admin: user.value, checked: true })
   }
 
@@ -62,7 +62,7 @@ export const useAdminV2Store = defineStore('adminV2', () => {
     user.value = data.admin || data.user
     permissions.value = data.permissions || []
     checked.value = true
-    await syncLegacyAdminMirror()
+    syncLegacyAdminMirror()
     return data
   }
 
@@ -75,7 +75,7 @@ export const useAdminV2Store = defineStore('adminV2', () => {
       menus.value = []
       resetV2Csrf()
       resetApiCsrf()
-      await syncLegacyAdminMirror()
+      syncLegacyAdminMirror()
     }
   }
 

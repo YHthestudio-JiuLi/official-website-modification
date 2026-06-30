@@ -3401,6 +3401,13 @@ a.product-card-link:focus-visible {
     border: 1px solid #43e97b;
 }
 
+.status-shipped {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+    border: 1px solid #667eea;
+}
+
+.status-delivered,
 .status-completed {
     background: rgba(0, 212, 255, 0.2);
     color: var(--primary-color);
@@ -3623,6 +3630,12 @@ a.product-card-link:focus-visible {
     background: rgba(255, 165, 0, 0.1);
 }
 
+.status-text.status-shipped {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.status-text.status-delivered,
 .status-text.status-completed {
     color: #00ff88;
     background: rgba(0, 255, 136, 0.1);

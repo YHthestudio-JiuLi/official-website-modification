@@ -17,26 +17,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { fetchHomePopupNotice } from '@/services/popup'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { fetchHomePopupNotice, fetchHomePopupNoticeFresh } from '@/services/popup'
+import { subscribePopupNoticeUpdated } from '@/utils/popupNoticeSync'
 
 const visible = ref(false)
 const notice = ref(null)
-const hasBeenShown = ref(false)
 
 const formattedContent = computed(() => {
   if (!notice.value?.content) return ''
   return notice.value.content.replace(/\n/g, '<br/>')
 })
 
-async function fetchNotice() {
+async function fetchNotice({ fresh = false } = {}) {
   try {
-    const res = await fetchHomePopupNotice()
+    const res = await (fresh ? fetchHomePopupNoticeFresh() : fetchHomePopupNotice())
     if (res.data.notice) {
       notice.value = res.data.notice
       visible.value = true
-      hasBeenShown.value = true
+      return
     }
+    notice.value = null
+    visible.value = false
   } catch (error) {
     console.error('Failed to fetch popup notice:', error)
   }
@@ -50,10 +52,17 @@ function handleOverlayClick() {
   closePopup()
 }
 
+let unsubscribePopupNoticeSync = null
+
 onMounted(() => {
-  if (!hasBeenShown.value) {
-    fetchNotice()
-  }
+  fetchNotice()
+  unsubscribePopupNoticeSync = subscribePopupNoticeUpdated(() => {
+    fetchNotice({ fresh: true })
+  })
+})
+
+onUnmounted(() => {
+  unsubscribePopupNoticeSync?.()
 })
 </script>
 

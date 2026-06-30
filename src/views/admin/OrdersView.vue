@@ -23,8 +23,8 @@
               <option value="">{{ $t('admin.orders.allOrders') }}</option>
               <option value="pending">{{ $t('admin.orders.filter.pending') }}</option>
               <option value="paid">{{ $t('admin.orders.filter.paid') }}</option>
-              <option value="completed">{{ $t('admin.orders.filter.completed') }}</option>
-              <option value="cancelled">{{ $t('admin.orders.filter.cancelled') }}</option>
+              <option value="shipped">{{ $t('admin.orders.filter.shipped') }}</option>
+              <option value="delivered">{{ $t('admin.orders.filter.delivered') }}</option>
             </select>
           </div>
           <div class="filter-summary">
@@ -80,7 +80,7 @@
                   <span class="amount">{{ order.totalAmount }} USDT</span>
                 </td>
                 <td class="col-status">
-                  <span :class="['status-badge', 'status-' + order.status]">
+                  <span :class="['status-badge', 'status-' + normalizeOrderStatus(order.status)]">
                     {{ getStatusText(order.status) }}
                   </span>
                 </td>
@@ -105,22 +105,22 @@
                     </button>
                     <select
                       v-if="canManage"
-                      :value="order.status"
+                      :value="normalizeOrderStatus(order.status)"
                       @change="handleStatusUpdate(order.id, $event.target.value)"
                       class="status-select"
                       :title="$t('admin.orders.updateStatusTitle', { status: getStatusText(order.status) })"
                     >
                       <option value="pending">{{ $t('admin.orders.filter.pending') }}</option>
                       <option value="paid">{{ $t('admin.orders.filter.paid') }}</option>
-                      <option value="completed">{{ $t('admin.orders.filter.completed') }}</option>
-                      <option value="cancelled">{{ $t('admin.orders.filter.cancelled') }}</option>
+                      <option value="shipped">{{ $t('admin.orders.filter.shipped') }}</option>
+                      <option value="delivered">{{ $t('admin.orders.filter.delivered') }}</option>
                     </select>
                     <span v-else :class="['status-badge-inline', 'status-' + order.status]">
                       {{ getStatusText(order.status) }}
                     </span>
                     <button
                       v-if="canManage"
-                      @click="confirmDelete(order.id, displayOrderNo(order))" 
+                      @click="confirmDelete(order.id)"
                       class="btn-delete"
                       :title="$t('admin.orders.deleteOrderTitle', { id: displayOrderNo(order) })"
                     >
@@ -146,168 +146,25 @@
         </div>
       </div>
 
-      <!-- Delete Confirmation Modal -->
-      <div v-if="showDeleteModal" class="modal-overlay" @click="closeDeleteModal">
-        <div class="modal-container" @click.stop>
-          <div class="modal-header danger">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3>{{ $t('admin.orders.deleteModal.title') }}</h3>
-          </div>
-          <div class="modal-body">
-            <p>{{ $t('admin.orders.deleteModal.confirmText') }}</p>
-            <div class="order-info-box">
-              <div class="order-details">
-                <p class="order-id-text"><strong>{{ $t('admin.orders.deleteModal.orderLabel', { id: orderToDelete?.id }) }}</strong></p>
-                <p class="order-customer-text">
-                  <i class="fas fa-user"></i> {{ orderToDelete?.username }}
-                </p>
-                <p class="order-amount-text">
-                  <i class="fas fa-dollar-sign"></i> {{ orderToDelete?.totalAmount }} USDT
-                </p>
-              </div>
-            </div>
-            <div class="warning-box">
-              <i class="fas fa-exclamation-circle"></i>
-              <div class="warning-content">
-                <p><strong>{{ $t('admin.orders.deleteModal.cannotUndo') }}</strong></p>
-                <p>{{ $t('admin.orders.deleteModal.permanentDelete') }}</p>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="closeDeleteModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> {{ $t('common.cancel') }}
-            </button>
-            <button @click="executeDelete" class="btn btn-danger">
-              <i class="fas fa-trash"></i> {{ $t('admin.orders.deleteModal.deleteOrder') }}
-            </button>
-          </div>
-        </div>
-      </div>
+      <DeleteOrderModal
+        :visible="showDeleteModal"
+        :order="orderToDelete"
+        :order-label="displayOrderNo(orderToDelete || {})"
+        @close="closeDeleteModal"
+        @confirm="executeDelete"
+      />
 
-      <!-- Order Detail Modal -->
-      <div v-if="showOrderDetailModal" class="modal-overlay" @click="closeOrderDetailModal">
-        <div class="modal-container modal-large" @click.stop>
-          <div class="modal-header">
-            <i class="fas fa-shopping-cart"></i>
-            <h3>{{ $t('admin.orders.detail.title', { id: displayOrderNo(selectedOrder) }) }}</h3>
-            <button @click="closeOrderDetailModal" class="modal-close">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="order-detail-grid">
-              <div class="detail-section">
-                <h4><i class="fas fa-user"></i> {{ $t('admin.orders.detail.customerInfo') }}</h4>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.username') }}</span>
-                  <span class="detail-value">{{ selectedOrder?.username }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.userId') }}</span>
-                  <span class="detail-value">#{{ selectedOrder?.userId }}</span>
-                </div>
-              </div>
-
-              <div class="detail-section">
-                <h4><i class="fas fa-box"></i> {{ $t('admin.orders.detail.productInfo') }}</h4>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.productName') }}</span>
-                  <span class="detail-value">{{ selectedOrder?.productName }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.quantity') }}</span>
-                  <span class="detail-value">{{ selectedOrder?.quantity }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.unitPrice') }}</span>
-                  <span class="detail-value">{{ selectedOrder?.price }} USDT</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.totalAmount') }}</span>
-                  <span class="detail-value highlight">{{ selectedOrder?.totalAmount }} USDT</span>
-                </div>
-              </div>
-
-              <div class="detail-section">
-                <h4><i class="fas fa-map-marker-alt"></i> {{ $t('admin.orders.detail.shippingAddress') }}</h4>
-                <div class="detail-item full-width">
-                  <span class="detail-value">{{ selectedOrder?.shippingAddress || $t('admin.orders.detail.noShippingAddress') }}</span>
-                </div>
-              </div>
-
-              <div class="detail-section">
-                <h4><i class="fas fa-link"></i> {{ $t('admin.orders.detail.transactionInfo') }}</h4>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.txHash') }}</span>
-                  <span class="detail-value tx-hash-value">{{ selectedOrder?.txHash || $t('admin.orders.na') }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.status') }}</span>
-                  <span :class="['status-badge', 'status-' + selectedOrder?.status]">
-                    {{ getStatusText(selectedOrder?.status) }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="detail-section">
-                <h4><i class="fas fa-calendar"></i> {{ $t('admin.orders.detail.timestamps') }}</h4>
-                <div class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.createdAt') }}</span>
-                  <span class="detail-value">{{ formatDate(selectedOrder?.createdAt) }}</span>
-                </div>
-                <div v-if="selectedOrder?.paidAt" class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.paidAt') }}</span>
-                  <span class="detail-value">{{ formatDate(selectedOrder?.paidAt) }}</span>
-                </div>
-                <div v-if="selectedOrder?.completedAt" class="detail-item">
-                  <span class="detail-label">{{ $t('admin.orders.detail.completedAt') }}</span>
-                  <span class="detail-value">{{ formatDate(selectedOrder?.completedAt) }}</span>
-                </div>
-              </div>
-
-              <div class="detail-section detail-section--logistics">
-                <h4><i class="fas fa-truck"></i> {{ $t('admin.orders.detail.logistics') }}</h4>
-                <div class="tracking-form">
-                  <label class="detail-label" for="tracking-number-input">
-                    {{ $t('admin.orders.detail.trackingNumber') }}
-                  </label>
-                  <input
-                    id="tracking-number-input"
-                    v-model="trackingInput"
-                    type="text"
-                    class="tracking-input"
-                    :placeholder="$t('admin.orders.detail.trackingPlaceholder')"
-                    maxlength="64"
-                    :disabled="savingTracking"
-                    @input="scheduleTrackingSave"
-                    @blur="flushTrackingSave"
-                    @keyup.enter="flushTrackingSave"
-                  />
-                  <p v-if="savingTracking" class="tracking-save-status">
-                    <i class="fas fa-spinner fa-spin"></i> {{ $t('admin.orders.detail.trackingSaving') }}
-                  </p>
-                  <div v-if="trackingInput" class="tracking-footer">
-                    <button
-                      type="button"
-                      class="btn btn-secondary btn-sm btn-clear-tracking"
-                      :disabled="savingTracking"
-                      @click="clearTracking"
-                    >
-                      <i class="fas fa-eraser"></i> {{ $t('admin.orders.detail.clearTracking') }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="closeOrderDetailModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> {{ $t('common.close') }}
-            </button>
-          </div>
-        </div>
-      </div>
+      <OrderDetailModal
+        :visible="showOrderDetailModal"
+        :order="selectedOrder"
+        :tracking-input="trackingInput"
+        :saving-tracking="savingTracking"
+        @close="closeOrderDetailModal"
+        @tracking-input="setTrackingInput"
+        @schedule-save="scheduleTrackingSave"
+        @flush-save="flushTrackingSave"
+        @clear-tracking="clearTracking"
+      />
 
       <!-- Toast Notification -->
       <div v-if="toast.visible" :class="['toast', toast.type]">
@@ -318,228 +175,44 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import {
-  fetchOrders as fetchOrdersApi,
-  updateOrderStatus,
-  deleteOrder,
-  updateOrderTracking
-} from '@/services/v2/admin/orders'
-import { displayOrderNo } from '@/utils/orderNo'
-import { useAdminPermissions } from '@/composables/useAdminPermission'
 import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+import DeleteOrderModal from '@/components/admin/orders/DeleteOrderModal.vue'
+import OrderDetailModal from '@/components/admin/orders/OrderDetailModal.vue'
+import { useAdminOrdersPage } from '@/composables/useAdminOrdersPage'
 
-const { has } = useAdminPermissions()
-const canView = computed(() => has('order.view') || has('order.view_own_tree'))
-const canManage = computed(() => has('order.manage'))
-const canAccessPage = computed(() => canView.value)
-
-const { t, locale } = useI18n()
-const orders = ref([])
-const loading = ref(true)
-const statusFilter = ref('')
-
-const showDeleteModal = ref(false)
-const orderToDelete = ref(null)
-
-const showOrderDetailModal = ref(false)
-const selectedOrder = ref(null)
-const trackingInput = ref('')
-const lastSavedTracking = ref('')
-const savingTracking = ref(false)
-let trackingSaveTimer = null
-
-const toast = ref({
-  visible: false,
-  type: 'success',
-  message: ''
-})
-
-const copiedContent = ref(null)
-
-const ORDER_STATUS_KEYS = ['pending', 'paid', 'completed', 'cancelled']
-
-onMounted(fetchOrders)
-
-async function fetchOrders() {
-  if (!canAccessPage.value) {
-    loading.value = false
-    return
-  }
-  loading.value = true
-  try {
-    const params = statusFilter.value ? { status: statusFilter.value } : {}
-    const response = await fetchOrdersApi({ params })
-    orders.value = response.data
-  } catch (error) {
-    showToast(t('admin.orders.toast.loadFailed'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-function getStatusText(status) {
-  if (!status) return ''
-  if (ORDER_STATUS_KEYS.includes(status)) {
-    return t(`admin.orders.filter.${status}`)
-  }
-  return status
-}
-
-async function handleStatusUpdate(id, status) {
-  try {
-    await updateOrderStatus(id, { status })
-    const row = orders.value.find((o) => o.id === id)
-    if (row) row.status = status
-    showToast(t('admin.orders.toast.updateSuccess', { id, status: getStatusText(status) }), 'success')
-  } catch (error) {
-    showToast(t('admin.orders.toast.updateFailed'), 'error')
-    fetchOrders()
-  }
-}
-
-function confirmDelete(id, orderId) {
-  orderToDelete.value = orders.value.find(o => o.id === id)
-  showDeleteModal.value = true
-}
-
-function closeDeleteModal() {
-  showDeleteModal.value = false
-  orderToDelete.value = null
-}
-
-async function executeDelete() {
-  if (!orderToDelete.value) return
-
-  try {
-    await deleteOrder(orderToDelete.value.id)
-    closeDeleteModal()
-    await fetchOrders()
-    showToast(t('admin.orders.toast.deleteSuccess'), 'success')
-  } catch (error) {
-    showToast(t('admin.orders.toast.deleteFailed'), 'error')
-  }
-}
-
-function showToast(message, type = 'success') {
-  toast.value = { visible: true, type, message }
-  setTimeout(() => {
-    toast.value.visible = false
-  }, 4000)
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  const fmtLocale = locale.value === 'zh' ? 'zh-CN' : 'en-US'
-  return new Date(dateStr).toLocaleString(fmtLocale)
-}
-
-function truncateHash(hash) {
-  if (!hash) return '-'
-  return hash.length > 16 ? hash.substring(0, 16) + '...' : hash
-}
-
-function truncateAddress(address) {
-  if (!address) return '-'
-  return address.length > 30 ? address.substring(0, 30) + '...' : address
-}
-
-async function copyAddress(address) {
-  if (!address) return
-  try {
-    await navigator.clipboard.writeText(address)
-    copiedContent.value = address
-    showToast(t('admin.orders.toast.addressCopied'), 'success')
-    setTimeout(() => { copiedContent.value = null }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
-  }
-}
-
-async function copyTxHash(hash) {
-  if (!hash) return
-  try {
-    await navigator.clipboard.writeText(hash)
-    copiedContent.value = hash
-    showToast(t('admin.orders.toast.txHashCopied'), 'success')
-    setTimeout(() => { copiedContent.value = null }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
-  }
-}
-
-function openOrderDetail(order) {
-  selectedOrder.value = order
-  const saved = order.trackingNumber || ''
-  trackingInput.value = saved
-  lastSavedTracking.value = saved
-  showOrderDetailModal.value = true
-}
-
-function clearTrackingSaveTimer() {
-  if (trackingSaveTimer) {
-    clearTimeout(trackingSaveTimer)
-    trackingSaveTimer = null
-  }
-}
-
-function scheduleTrackingSave() {
-  clearTrackingSaveTimer()
-  trackingSaveTimer = setTimeout(() => {
-    trackingSaveTimer = null
-    saveTracking()
-  }, 700)
-}
-
-async function flushTrackingSave() {
-  clearTrackingSaveTimer()
-  await saveTracking()
-}
-
-async function closeOrderDetailModal() {
-  await flushTrackingSave()
-  showOrderDetailModal.value = false
-  selectedOrder.value = null
-  trackingInput.value = ''
-  lastSavedTracking.value = ''
-  savingTracking.value = false
-}
-
-async function saveTracking() {
-  if (!selectedOrder.value || savingTracking.value) return
-
-  const trimmed = trackingInput.value.trim()
-  if (trimmed === lastSavedTracking.value) return
-
-  savingTracking.value = true
-  try {
-    const response = await updateOrderTracking(selectedOrder.value.id, {
-      trackingNumber: trimmed,
-    })
-    const updated = response.data?.order
-    if (updated) {
-      selectedOrder.value = { ...selectedOrder.value, ...updated }
-      const idx = orders.value.findIndex((o) => o.id === updated.id)
-      if (idx >= 0) {
-        orders.value[idx] = { ...orders.value[idx], ...updated }
-      }
-      const saved = updated.trackingNumber || ''
-      trackingInput.value = saved
-      lastSavedTracking.value = saved
-    }
-    showToast(t('admin.orders.toast.trackingSaved'), 'success')
-  } catch (error) {
-    showToast(t('admin.orders.toast.trackingSaveFailed'), 'error')
-  } finally {
-    savingTracking.value = false
-  }
-}
-
-async function clearTracking() {
-  trackingInput.value = ''
-  await saveTracking()
-}
+const {
+  canManage,
+  canAccessPage,
+  orders,
+  loading,
+  statusFilter,
+  showDeleteModal,
+  orderToDelete,
+  showOrderDetailModal,
+  selectedOrder,
+  toast,
+  trackingInput,
+  savingTracking,
+  scheduleTrackingSave,
+  flushTrackingSave,
+  clearTracking,
+  setTrackingInput,
+  fetchOrders,
+  getStatusText,
+  normalizeOrderStatus,
+  handleStatusUpdate,
+  confirmDelete,
+  closeDeleteModal,
+  executeDelete,
+  formatDate,
+  truncateHash,
+  truncateAddress,
+  copyAddress,
+  copyTxHash,
+  openOrderDetail,
+  closeOrderDetailModal,
+  displayOrderNo,
+} = useAdminOrdersPage()
 </script>
 
 <style scoped>
@@ -643,25 +316,28 @@ async function clearTracking() {
   border-radius: 10px;
   border: 1px solid var(--border-color);
   position: relative;
-  /* 关键修改：确保它不会溢出父级 */
   width: 100%;
-  max-width: 100%; 
-  overflow: hidden; /* 防止内部溢出干扰 */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 .table-scroll-container {
   overflow-x: auto !important;
-  overflow-y: block !important;
+  overflow-y: visible !important;
   width: 100%;
-  /* 解决 iOS 滑动卡顿 */
   -webkit-overflow-scrolling: touch;
+  display: block !important;
+  border-radius: 10px;
 }
 
 .orders-table {
-  /* 这里的 min-width 会强制产生滚动条 */
-  min-width: 1200px !important; 
-  width: 100%;
+  min-width: 1200px !important;
+  width: 100% !important;
+  max-width: max-content !important;
   border-collapse: collapse;
+  white-space: nowrap;
+  display: table;
 }
 
 /* Custom scrollbar */
@@ -771,20 +447,25 @@ async function clearTracking() {
   color: var(--primary-color);
 }
 
+.status-badge.status-shipped {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+}
+
+.status-badge.status-delivered,
 .status-badge.status-completed {
   background: rgba(67, 233, 123, 0.15);
   color: #43e97b;
-}
-
-.status-badge.status-cancelled {
-  background: rgba(245, 87, 108, 0.15);
-  color: #f5576c;
 }
 
 .tx-hash {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
   color: var(--primary-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
 
 .address-text {
@@ -893,17 +574,7 @@ async function clearTracking() {
   border-radius: 4px;
 }
 
-.address-text:hover {
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.tx-hash {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
+.address-text:hover,
 .tx-hash:hover {
   background: rgba(0, 212, 255, 0.1);
 }
@@ -929,54 +600,6 @@ async function clearTracking() {
   }
 }
 
-/* ========== Table Wrapper ========== */
-.table-wrapper {
-  background: var(--bg-card);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow: visible;
-}
-
-.table-scroll-container {
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  -webkit-overflow-scrolling: touch;
-  display: block !important;
-  width: 100%;
-  border-radius: 10px;
-}
-
-.table-scroll-container::-webkit-scrollbar {
-  height: 10px;
-}
-
-.table-scroll-container::-webkit-scrollbar-track {
-  background: var(--bg-darker);
-  border-radius: 5px;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb {
-  background: var(--primary-color);
-  border-radius: 5px;
-}
-
-.table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #00b8e6;
-}
-
-.orders-table {
-  width: 100% !important;
-  max-width: max-content !important;
-  min-width: 1200px !important;
-  border-collapse: collapse;
-  white-space: nowrap;
-  display: table;
-}
-
 /* ========== Empty State ========== */
 .empty-state {
   text-align: center;
@@ -992,300 +615,6 @@ async function clearTracking() {
 
 .empty-state p {
   margin: 0;
-}
-
-/* ========== Modal ========== */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.modal-container {
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-container.modal-large {
-  max-width: 800px;
-}
-
-.modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  position: relative;
-}
-
-.modal-header.danger i {
-  color: #ffc107;
-  font-size: 1.3rem;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  flex: 1;
-}
-
-/* Order Detail Modal */
-.order-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.detail-section {
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.25rem;
-}
-
-.detail-section h4 {
-  margin: 0 0 1rem 0;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.detail-section h4 i {
-  color: var(--primary-color);
-}
-
-.detail-section--logistics {
-  padding: 1rem 1.15rem;
-}
-
-.detail-section--logistics h4 {
-  margin-bottom: 0.65rem;
-  font-size: 0.9rem;
-}
-
-.detail-section--logistics .tracking-form {
-  gap: 0.45rem;
-}
-
-.detail-section--logistics .tracking-input {
-  padding: 0.45rem 0.65rem;
-  font-size: 0.85rem;
-}
-
-.detail-section--logistics .tracking-save-status {
-  margin: 0;
-  font-size: 0.75rem;
-}
-
-.tracking-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.15rem;
-}
-
-.btn-clear-tracking {
-  flex-shrink: 0;
-}
-
-.tracking-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.tracking-input {
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-darker, rgba(0, 0, 0, 0.2));
-  color: var(--text-primary);
-  font-size: 0.92rem;
-}
-
-.tracking-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
-}
-
-.tracking-save-status {
-  margin: 0.35rem 0 0;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.tracking-save-status i {
-  margin-right: 0.35rem;
-  color: var(--primary-color);
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.75rem;
-  gap: 1rem;
-}
-
-.detail-item.full-width {
-  flex-direction: column;
-}
-
-.detail-label {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.detail-value {
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  text-align: right;
-  word-break: break-word;
-}
-
-.detail-value.highlight {
-  color: var(--primary-color);
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.detail-value.tx-hash-value {
-  font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  transition: color 0.3s ease;
-}
-
-.modal-close:hover {
-  color: var(--primary-color);
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.modal-body p {
-  margin: 0 0 1rem 0;
-  color: var(--text-secondary);
-}
-
-.order-info-box {
-  padding: 1rem;
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid var(--primary-color);
-  border-radius: 8px;
-  margin: 1rem 0;
-}
-
-.order-details p {
-  margin: 0 0 0.5rem 0;
-}
-
-.order-id-text {
-  color: var(--text-primary) !important;
-  font-size: 1rem;
-}
-
-.order-customer-text,
-.order-amount-text {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.order-amount-text {
-  color: var(--primary-color) !important;
-  font-weight: 600;
-}
-
-.warning-box {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: rgba(245, 87, 108, 0.1);
-  border: 1px solid #f5576c;
-  border-radius: 8px;
-  margin-top: 1rem;
-}
-
-.warning-box i {
-  color: #f5576c;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-
-.warning-content p {
-  color: #f5576c;
-  margin: 0;
-}
-
-.modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 0.9rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-secondary {
-  background: rgba(154, 157, 180, 0.15);
-  color: var(--text-secondary);
-}
-
-.btn-secondary:hover {
-  background: rgba(154, 157, 180, 0.25);
-}
-
-.btn-danger {
-  background: #f5576c;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #e0455a;
 }
 
 /* ========== Toast ========== */

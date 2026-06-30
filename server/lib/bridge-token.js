@@ -1,9 +1,13 @@
 const crypto = require('crypto');
 
-const NODE_INTERNAL_SECRET = process.env.NODE_INTERNAL_SECRET || '';
+/** 运行时读取，避免 telegram 在 dotenv 之前加载本模块时密钥被固化为空 */
+function getNodeInternalSecret() {
+  return process.env.NODE_INTERNAL_SECRET || '';
+}
 
 /** 校验 Laravel 签发的 legacy Node bridge token */
 function verifyLegacyNodeBridgeToken(token) {
+  const NODE_INTERNAL_SECRET = getNodeInternalSecret();
   if (!NODE_INTERNAL_SECRET || !token) return null;
   const parts = String(token).split('.');
   if (parts.length !== 2) return null;
@@ -24,18 +28,22 @@ function verifyLegacyNodeBridgeToken(token) {
 }
 
 function requireInternalSecret(req, res, next) {
-  if (!NODE_INTERNAL_SECRET) {
+  const secret = getNodeInternalSecret();
+  if (!secret) {
     return res.status(503).json({ error: 'Internal API disabled' });
   }
   const provided = req.headers['x-internal-secret'] || req.body?.secret;
-  if (provided !== NODE_INTERNAL_SECRET) {
+  if (provided !== secret) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   next();
 }
 
 module.exports = {
-  NODE_INTERNAL_SECRET,
+  get NODE_INTERNAL_SECRET() {
+    return getNodeInternalSecret();
+  },
+  getNodeInternalSecret,
   verifyLegacyNodeBridgeToken,
   requireInternalSecret
 };

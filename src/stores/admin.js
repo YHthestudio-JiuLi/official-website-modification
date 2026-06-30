@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
+import * as v2AuthApi from '@/services/v2/admin/auth'
 import { useV2Api } from '@/utils/apiPath'
 
 export const useAdminStore = defineStore('admin', () => {
@@ -28,8 +29,10 @@ export const useAdminStore = defineStore('admin', () => {
 
   async function login(credentials) {
     if (useV2Api()) {
-      const { useAdminV2Store } = await import('@/stores/adminV2')
-      return useAdminV2Store().login(credentials)
+      const { data } = await v2AuthApi.adminLogin(credentials)
+      admin.value = data.admin || data.user || null
+      checked.value = true
+      return data
     }
     const response = await api.post('/api/admin/auth/login', credentials)
     admin.value = response.data.admin

@@ -134,7 +134,9 @@ class SfExpressTrackingService
             throw new \RuntimeException($code !== '' ? "{$code}: {$msg}" : $msg);
         }
 
-        $apiResponseData = json_decode((string) ($body['apiResponseData'] ?? '{}'), true);
+        // 丰桥生产网关返回 apiResultData；部分文档/沙箱示例写作 apiResponseData
+        $payloadRaw = $body['apiResultData'] ?? $body['apiResponseData'] ?? '{}';
+        $apiResponseData = json_decode((string) $payloadRaw, true);
         if (! is_array($apiResponseData)) {
             return [];
         }
@@ -186,6 +188,29 @@ class SfExpressTrackingService
         $plain = $msgData.$timestamp.$checkWord;
 
         return base64_encode(md5(urlencode($plain), true));
+    }
+
+    /**
+     * 根据路由轨迹判断是否已签收（妥投）
+     *
+     * @param  array<int, array{time: string, location: string, remark: string}>  $routes
+     */
+    public function routesIndicateDelivered(array $routes): bool
+    {
+        foreach ($routes as $route) {
+            $remark = trim((string) ($route['remark'] ?? ''));
+            if ($remark === '') {
+                continue;
+            }
+            if (preg_match('/待签收|未签收|派送中|正在派送|派件中/i', $remark)) {
+                continue;
+            }
+            if (preg_match('/签收|妥投|已领取|本人收/i', $remark)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** 从收货地址字符串提取手机号后四位（顺丰验单常用） */

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\Commerce\PopupNoticeService;
-use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +27,6 @@ class AdminPopupNoticeController extends Controller
         ]);
 
         $notice = $this->notices->create($data);
-        PublicApiCache::bump('popup');
 
         return response()->json(['notice' => $notice]);
     }
@@ -44,7 +42,6 @@ class AdminPopupNoticeController extends Controller
         ]);
 
         $notice = $this->notices->update($id, $data);
-        PublicApiCache::bump('popup');
 
         return response()->json(['notice' => $notice]);
     }
@@ -52,7 +49,6 @@ class AdminPopupNoticeController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $this->notices->delete($id);
-        PublicApiCache::bump('popup');
 
         return response()->json(['success' => true]);
     }

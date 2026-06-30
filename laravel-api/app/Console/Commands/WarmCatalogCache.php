@@ -8,7 +8,6 @@ use App\Support\ProductImageDiskCache;
 use App\Support\PublicApiCache;
 use Illuminate\Console\Command;
 
-/** 部署后预热 Redis 与商品图磁盘缓存 */
 class WarmCatalogCache extends Command
 {
     protected $signature = 'catalog:warm {--images : 同步 MySQL BLOB 到磁盘缓存}';

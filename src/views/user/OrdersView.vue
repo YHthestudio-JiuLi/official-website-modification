@@ -41,7 +41,7 @@
                     <strong>{{ displayOrderNo(order) }}</strong>
                   </div>
                 </div>
-                <span :class="['ov-status', 'ov-status--' + order.status]">
+                <span :class="['ov-status', 'ov-status--' + normalizeOrderStatus(order.status)]">
                   {{ getStatusText(order.status) }}
                 </span>
               </header>
@@ -116,11 +116,11 @@
                 </section>
               </div>
 
-              <div class="ov-progress" :class="'ov-progress--' + order.status">
+              <div class="ov-progress" :class="'ov-progress--' + normalizeOrderStatus(order.status)">
                 <div
                   v-for="step in progressSteps"
                   :key="step.key"
-                  :class="['ov-step', { 'ov-step--done': isStepDone(order.status, step.key), 'ov-step--active': order.status === step.key }]"
+                  :class="['ov-step', { 'ov-step--done': isStepDone(order.status, step.key), 'ov-step--active': normalizeOrderStatus(order.status) === step.key }]"
                 >
                   <span class="ov-step-dot"><i :class="step.icon"></i></span>
                   <span class="ov-step-label">{{ $t(step.label) }}</span>
@@ -131,6 +131,7 @@
                 <div class="ov-times">
                   <span><i class="fas fa-clock"></i>{{ $t('orders.createdAt') }} {{ formatDate(order.createdAt) }}</span>
                   <span v-if="order.paidAt"><i class="fas fa-check-circle"></i>{{ $t('orders.paidAt') }} {{ formatDate(order.paidAt) }}</span>
+                  <span v-if="order.shippedAt"><i class="fas fa-shipping-fast"></i>{{ $t('orders.shippedAt') }} {{ formatDate(order.shippedAt) }}</span>
                   <span v-if="order.completedAt"><i class="fas fa-flag-checkered"></i>{{ $t('orders.completedAt') }} {{ formatDate(order.completedAt) }}</span>
                 </div>
                 <div class="ov-actions">
@@ -162,7 +163,7 @@ import api from '@/services/api'
 import { parseShippingAddress } from '@/utils/shippingAddress'
 import { displayOrderNo } from '@/utils/orderNo'
 import AppHeader from '@/components/common/AppHeader.vue'
-import AppFooter from '@/components/common/AppFooter.vue'
+import { normalizeOrderStatus, isOrderStepDone, getOrderStatusLabel } from '@/utils/orderStatus'
 
 const { t, locale } = useI18n()
 const orders = ref([])
@@ -172,10 +173,9 @@ const loadError = ref(false)
 const progressSteps = [
   { key: 'pending', label: 'orders.progress.pending', icon: 'fas fa-wallet' },
   { key: 'paid', label: 'orders.progress.paid', icon: 'fas fa-check' },
-  { key: 'completed', label: 'orders.progress.completed', icon: 'fas fa-box' },
+  { key: 'shipped', label: 'orders.progress.shipped', icon: 'fas fa-shipping-fast' },
+  { key: 'delivered', label: 'orders.progress.delivered', icon: 'fas fa-box-open' },
 ]
-
-const statusRank = { pending: 0, paid: 1, completed: 2, cancelled: -1 }
 
 onMounted(async () => {
   try {
@@ -195,12 +195,11 @@ onMounted(async () => {
 })
 
 function getStatusText(status) {
-  return t(`orders.status.${status}`, status)
+  return getOrderStatusLabel(status, t)
 }
 
 function isStepDone(currentStatus, stepKey) {
-  if (currentStatus === 'cancelled') return false
-  return (statusRank[currentStatus] ?? 0) >= (statusRank[stepKey] ?? 0)
+  return isOrderStepDone(currentStatus, stepKey)
 }
 
 function formatDate(dateStr) {
@@ -351,8 +350,9 @@ async function copyTxHash(hash) {
 
 .ov-status--pending { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
 .ov-status--paid { background: rgba(0, 212, 255, 0.15); color: var(--primary-color); }
+.ov-status--shipped { background: rgba(102, 126, 234, 0.15); color: #667eea; }
+.ov-status--delivered,
 .ov-status--completed { background: rgba(67, 233, 123, 0.15); color: #43e97b; }
-.ov-status--cancelled { background: rgba(245, 87, 108, 0.15); color: #f5576c; }
 
 .ov-card-main {
   display: grid;
@@ -579,10 +579,6 @@ async function copyTxHash(hash) {
 
 .ov-step--active .ov-step-dot {
   box-shadow: 0 0 12px rgba(0, 212, 255, 0.35);
-}
-
-.ov-progress--cancelled .ov-step {
-  opacity: 0.45;
 }
 
 .ov-card-foot {

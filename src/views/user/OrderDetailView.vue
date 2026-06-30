@@ -107,6 +107,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { normalizeOrderStatus } from '@/utils/orderStatus'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 
@@ -136,6 +137,12 @@ async function loadTracking() {
   try {
     const response = await api.get(`/api/orders/${route.params.id}/tracking`)
     tracking.value = response.data
+    if (response.data?.orderStatus && order.value) {
+      order.value = {
+        ...order.value,
+        status: normalizeOrderStatus(response.data.orderStatus),
+      }
+    }
   } catch (error) {
     console.error('Failed to fetch tracking:', error)
     tracking.value = order.value?.trackingNumber

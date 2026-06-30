@@ -6,6 +6,7 @@ use App\Models\Agent;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\Commerce\OrderStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
@@ -88,7 +89,7 @@ class AgentDataScope
     /** 代理范围内已支付/已完成订单销售总额 */
     public function sumPaidRevenue(User $user): float
     {
-        $query = Order::query()->whereIn('status', ['paid', 'completed']);
+        $query = Order::query()->whereIn('status', OrderStatus::FULFILLED_VALUES);
         $this->scopeOrderQuery($query, $user);
 
         return (float) $query->sum('totalAmount');

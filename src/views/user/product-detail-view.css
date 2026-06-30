@@ -1,0 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Roboto+Mono:wght@400;500&display=swap');
+@import './styles/product-detail-base.css';
+@import './styles/product-detail-hero.css';
+@import './styles/product-detail-features.css';
+@import './styles/product-detail-specs.css';
+@import './styles/product-detail-pricing.css';

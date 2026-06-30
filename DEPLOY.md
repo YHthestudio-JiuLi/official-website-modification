@@ -27,6 +27,7 @@
 10. [部署验证](#10-部署验证)
 11. [日常更新代码](#11-日常更新代码)
 12. [常见问题](#12-常见问题)
+13. [附录：依赖与检查清单（独立文档）](#附录依赖与检查清单独立文档)
 
 ---
 
@@ -252,13 +253,21 @@ Laravel 内网代发（浏览器不感知）：
 
 宝塔 → **软件商店** → **PHP 8.5**（或你安装的 8.2+）→ **设置** → **安装扩展**：
 
-| 扩展 | 必须 |
-|------|------|
-| fileinfo | ✅ |
-| pdo_mysql | ✅ |
-| redis | ✅ |
-| mbstring、openssl、tokenizer、xml、ctype、json、bcmath | ✅ |
-| pcntl | 建议 |
+| 扩展 | 必须 | 用途 |
+|------|------|------|
+| fileinfo | ✅ | Laravel 文件系统、Composer |
+| pdo_mysql | ✅ | MySQL 数据库 |
+| redis | ✅ | Session / 缓存 / 队列 |
+| mbstring、openssl、tokenizer、xml、ctype、json | ✅ | Laravel 核心 |
+| bcmath | ✅ | 大数运算（链上金额解析） |
+| gmp | ✅ | USDT TRC20 验单：TRON 地址 Base58 转换；缺此项会误报「地址信息有误」 |
+| gd（含 WebP） | ✅ | 商品图磁盘缓存自动压缩为 WebP |
+| curl | ✅ | 调用 TronGrid、顺丰丰桥等 HTTP API |
+| pcntl | 建议 | Laravel 队列 / 信号处理 |
+
+安装后执行 `docs/deploy/dependency-checklist.md` 中的扩展自检命令（须确认 gmp=yes、gd 含 webp）。
+
+> 完整清单见 `docs/deploy/dependency-checklist.md`。
 
 ### 步骤 2.3 放开 PHP 禁用函数
 
@@ -400,6 +409,13 @@ CORS_ALLOWED_ORIGINS=https://yhthestudio.com,https://www.yhthestudio.com
 NODE_INTERNAL_SECRET=与根目录 .env 中相同
 LEGACY_NODE_URL=http://127.0.0.1:3000
 PY_DB_URL=http://127.0.0.1:5100
+
+# 顺丰丰桥路由查询（可选，后台填运单号后用户端查物流）
+# SF_PARTNER_ID=顾客编码
+# SF_CHECK_WORD=生产校验码
+# SF_SANDBOX=false
+# SF_PROD_URL=https://bspgw.sf-express.com/std/service
+# SF_SANDBOX_URL=https://sfapi-sbox.sf-express.com/std/service
 ```
 
 > `NODE_INTERNAL_SECRET` **根目录 `.env` 与 `laravel-api/.env` 中必须完全一致**。  
@@ -943,28 +959,35 @@ pm2 logs yh-py --lines 50
 tail -f logs/combined.log
 ```
 
----
+### 12.11 USDT 验单报「地址信息有误」
 
-## 附录：部署检查清单（打印对照）
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| 本地通过、生产失败，提示「地址信息有误，平台无法核验付款信息」 | 生产 PHP **未安装 gmp** | 宝塔 → PHP 8.5 → 安装 **gmp** → 重载 PHP-FPM |
+| 同上 | 后台收款地址与链上实际收款地址不一致 | 后台「收款设置」核对 USDT 钱包地址（TRC20，`T` 开头 34 位） |
+| 同上 | 提交的哈希不是 USDT TRC20 转账哈希 | 在 TronScan 确认该哈希为 USDT 转入后台配置地址 |
 
-```
-□ PHP 8.2+ 已安装，扩展 fileinfo / pdo_mysql / redis 已启用
-□ putenv、proc_open 已从禁用函数中移除
-□ MySQL 库 yhthestudio_web 已创建
-□ Redis 已启动
-□ 根目录 .env 已配置（VITE_USE_V2_API=true）
-□ laravel-api/.env 已配置（DB、Sanctum、Redis）
-□ laravel-api/vendor 已安装（composer install）
-□ artisan migrate + seed 已执行
-□ npm run build 已执行，dist/ 存在
-□ Python .venv 已安装依赖
-□ PM2 三个进程 online（yh-laravel / yh-api / yh-py）
-□ Nginx 已配置 /api/v2/、/sanctum/ → 8000
-□ 反代 Host 为 $host
-□ curl https://域名/api/v2/health 返回 200
-□ 浏览器 Ctrl+F5 后商品/登录正常
+验证命令：
+
+```bash
+PHP=/www/server/php/85/bin/php
+$PHP -r "echo extension_loaded('gmp')?'gmp ok':'gmp MISSING'; echo PHP_EOL;"
 ```
 
 ---
 
-**文档版本**：V2.1.0 · 2026-06 · 已根据宝塔生产环境实测更新
+## 附录：依赖与检查清单（独立文档）
+
+为降低主部署文档维护复杂度，原“附录 A/B”已拆分到独立文件：
+
+- `docs/deploy/dependency-checklist.md`
+
+包含内容：
+
+- 系统级软件、PHP 扩展、Composer/npm/pip 依赖完整清单
+- Nginx / PHP-FPM / PM2 进程对照
+- 部署检查清单（打印核对）
+
+---
+
+**文档版本**：V2.1.1 · 2026-06 · 已根据宝塔生产环境实测更新（含 gmp / gd / 顺丰网关）

@@ -1,17 +1,7 @@
 import { useAuthStore } from '@/stores/auth'
-
-/**
- * 校验登录回跳路径，避免开放重定向（仅允许站内 hash 或相对路径）
- */
-function isSafeInternalRedirect(path) {
-  if (typeof path !== 'string' || !path.length || path === '/') return false
-  if (path.startsWith('//')) return false
-  if (path.startsWith('#/')) return true
-  if (path.startsWith('/#')) return true
-  // 部分环境下 fullPath 为 /products/1?checkout=1（仍属本站路由）
-  if (path.startsWith('/') && !path.startsWith('//')) return true
-  return false
-}
+import i18n from '@/i18n'
+import { useV2Api } from '@/utils/apiPath'
+import { isSafeInternalRedirect } from '@/utils/internalRedirect'
 
 /**
  * 立即购买：已登录则进入支付页填写收货信息+TxHash 后验单并创建订单；
@@ -43,13 +33,17 @@ export async function startProductCheckout(router, productId, options = {}) {
     return
   }
 
+  if (!useV2Api()) {
+    alert(i18n.global.t('products.detail.checkoutV2Required'))
+    return
+  }
+
   const paymentQuery = { productId: String(id), quantity: '1' }
   if (options.configId) {
     paymentQuery.configId = String(options.configId)
   }
   await router.push({
-    name: 'payment',
-    params: { id: 'new' },
+    name: 'checkout-pay',
     query: paymentQuery,
   })
 }

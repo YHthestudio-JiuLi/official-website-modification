@@ -196,10 +196,10 @@ import {
   updateNotice,
   deleteNotice as deleteNoticeApi
 } from '@/services/v2/admin/popupNotices'
-import { invalidateCache } from '@/utils/getCache'
 import { handleAdminApiFailure } from '@/utils/adminApiError'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
 import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+import { notifyPopupNoticeUpdated } from '@/utils/popupNoticeSync'
 
 const { has } = useAdminPermissions()
 const canView = computed(() => has('content.view') || has('content.manage'))
@@ -278,10 +278,6 @@ function closeModal() {
   showModal.value = false
 }
 
-function clearPopupPublicCache() {
-  invalidateCache('popup:')
-}
-
 async function saveNotice() {
   if (!form.value.title.trim() || !form.value.content.trim()) {
     return
@@ -297,7 +293,7 @@ async function saveNotice() {
     } else {
       await createNotice(form.value)
     }
-    clearPopupPublicCache()
+    notifyPopupNoticeUpdated()
     closeModal()
     await fetchNotices()
   } catch (err) {
@@ -315,7 +311,7 @@ async function togglePopup(notice) {
       popup_enabled: !isNoticeEnabled(notice.popup_enabled),
       display_enabled: isNoticeEnabled(notice.display_enabled)
     })
-    clearPopupPublicCache()
+    notifyPopupNoticeUpdated()
     await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to update status')
@@ -330,7 +326,7 @@ async function toggleDisplay(notice) {
       popup_enabled: isNoticeEnabled(notice.popup_enabled),
       display_enabled: !isNoticeEnabled(notice.display_enabled)
     })
-    clearPopupPublicCache()
+    notifyPopupNoticeUpdated()
     await fetchNotices()
   } catch (err) {
     alert(err.response?.data?.error || 'Failed to update status')
@@ -340,7 +336,7 @@ async function toggleDisplay(notice) {
 async function deleteNotice(notice) {
   try {
     await deleteNoticeApi(notice.id)
-    clearPopupPublicCache()
+    notifyPopupNoticeUpdated()
     notices.value = notices.value.filter((n) => n.id !== notice.id)
     await fetchNotices()
   } catch (err) {

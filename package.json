@@ -9,6 +9,7 @@
     "laravel:setup": "bash scripts/laravel-setup.sh",
     "deploy": "bash scripts/deploy.sh",
     "validate": "bash scripts/validate-migration.sh",
+    "test:product-config": "node server/tests/productConfig.test.js",
     "dev": "npm run build && npm start",
     "build": "vite build",
     "preview": "vite preview",

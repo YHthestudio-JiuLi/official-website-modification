@@ -54,10 +54,16 @@ const routes = [
     meta: { titleKey: 'titles.orderDetail', requiresAuth: true }
   },
   {
+    path: '/checkout/pay',
+    name: 'checkout-pay',
+    component: () => import('@/views/user/PaymentView.vue'),
+    meta: { titleKey: 'titles.checkout', requiresAuth: true, paymentMode: 'checkout' }
+  },
+  {
     path: '/orders/:id/pay',
     name: 'payment',
     component: () => import('@/views/user/PaymentView.vue'),
-    meta: { titleKey: 'titles.payment', requiresAuth: true }
+    meta: { titleKey: 'titles.payment', requiresAuth: true, paymentMode: 'legacy' }
   },
   {
     path: '/forum',

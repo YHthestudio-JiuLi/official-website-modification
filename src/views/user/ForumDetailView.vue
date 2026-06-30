@@ -84,7 +84,8 @@
                   :all-replies="replies"
                   :post-id="post.id"
                   :current-user="authStore.username"
-                  @reply-deleted="fetchData"
+                  @replies-changed="handleRepliesChanged"
+                  @reply-error="handleReplyError"
                 />
               </div>
             </section>
@@ -193,11 +194,15 @@ function formatDate(dateStr) {
   })
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  fetchData()
+})
 
-async function fetchData() {
-  loading.value = true
-  loadError.value = false
+async function fetchData({ silent = false } = {}) {
+  if (!silent) {
+    loading.value = true
+    loadError.value = false
+  }
   try {
     const [postRes, repliesRes] = await Promise.all([
       getForumPost(route.params.id),
@@ -207,14 +212,25 @@ async function fetchData() {
     replies.value = repliesRes.data
   } catch (err) {
     console.error('Failed to fetch data:', err)
+    if (silent) return
     const status = err.response?.status
     if (status === 401) return
     if (status !== 404) loadError.value = true
     post.value = null
     replies.value = []
   } finally {
-    loading.value = false
+    if (!silent) {
+      loading.value = false
+    }
   }
+}
+
+function handleRepliesChanged() {
+  fetchData({ silent: true })
+}
+
+function handleReplyError(message) {
+  error.value = message || t('forum.replyFailed')
 }
 
 async function handleReply() {

@@ -29,6 +29,7 @@
     "cart": "Shopping Cart",
     "orders": "My Orders",
     "orderDetail": "Order Detail",
+    "checkout": "Checkout",
     "payment": "Payment",
     "forum": "Forum",
     "forumNewPost": "New Post",
@@ -229,7 +230,8 @@
       "selectConfigRequired": "Please select a product configuration first",
       "selectConfigToBuy": "Select configuration",
       "selectConfigHint": "Choose a configuration above before purchasing",
-      "selectConfigForPrice": "Select a configuration to view price"
+      "selectConfigForPrice": "Select a configuration to view price",
+      "checkoutV2Required": "V2 API is required for the new checkout flow in this environment"
     }
   },
   "orders": {
@@ -250,12 +252,13 @@
     "total": "Total",
     "createdAt": "Created At",
     "paidAt": "Paid At",
-    "completedAt": "Completed At",
+    "shippedAt": "Shipped At",
+    "completedAt": "Delivered At",
     "details": "Details",
     "payNow": "Pay Now",
     "processing": "Processing...",
-    "completed": "Completed",
-    "cancelled": "Cancelled",
+    "shipped": "Shipped",
+    "delivered": "Delivered",
     "copyHint": "Double click to copy",
     "notFound": "Order not found",
     "detailTitle": "Order Details #{id}",
@@ -269,11 +272,12 @@
     "progress": {
       "pending": "Pending",
       "paid": "Paid",
-      "completed": "Completed"
+      "shipped": "Shipped",
+      "delivered": "Delivered"
     },
     "shippingAddress": "Shipping Address",
     "paymentTime": "Payment Time",
-    "completionTime": "Completion Time",
+    "completionTime": "Delivered At",
     "backToOrders": "Back to Orders",
     "goToPayment": "Go to Payment",
     "tracking": {
@@ -300,8 +304,9 @@
     "status": {
       "pending": "Pending",
       "paid": "Paid",
-      "completed": "Completed",
-      "cancelled": "Cancelled"
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "completed": "Delivered"
     }
   },
   "payment": {
@@ -341,10 +346,8 @@
     "copied": "Copied!",
     "successTitle": "Payment Successful!",
     "successDesc": "Your order payment has been confirmed, we are processing it.",
-    "completedTitle": "Order Completed",
-    "completedDesc": "This order has been completed. Thank you for your purchase.",
-    "cancelledTitle": "Order Cancelled",
-    "cancelledDesc": "This order has been cancelled and cannot be paid.",
+    "completedTitle": "Order Delivered",
+    "completedDesc": "This order has been delivered. Thank you for your purchase.",
     "txHashDisplay": "Transaction Hash",
     "viewOrders": "View My Orders",
     "shippingAddressValue": "Name: {name} | Phone: {phone} | Address: {address}",
@@ -406,6 +409,9 @@
     "noReplies": "No replies yet. Be the first to reply!",
     "deleteReply": "Delete",
     "deleteReplyConfirm": "Delete this reply?",
+    "deleting": "Deleting…",
+    "deleteFailed": "Failed to delete. Please try again.",
+    "deleteForbidden": "You cannot delete this reply.",
     "replyTo": "Reply to",
     "collapseReplies": "Collapse replies",
     "expandReplies": "{n} replies",
@@ -528,7 +534,7 @@
       "createUser": "Create User",
       "saveSuccess": "User saved successfully",
       "saveFailed": "Failed to save user. Please try again.",
-      "loadFailed": "Failed to load user: {message}",
+      "loadDetailFailed": "Failed to load user: {message}",
       "formInvalid": "Please fill in all required fields correctly"
     },
     "rbac": {
@@ -964,8 +970,8 @@
       "viewDetails": "View Details",
       "pending": "Pending",
       "paid": "Paid",
-      "completed": "Completed",
-      "cancelled": "Cancelled",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
       "updateStatus": "Update Status",
       "updateStatusTitle": "Update status - Current: {status}",
       "delete": "Delete",
@@ -978,9 +984,9 @@
         "all": "All",
         "pending": "Pending",
         "paid": "Paid",
-        "completed": "Completed",
-        "cancelled": "Cancelled"
-      },
+        "shipped": "Shipped",
+      "delivered": "Delivered"
+    },
       "deleteModal": {
         "title": "Confirm Order Deletion",
         "confirmText": "Are you sure you want to delete this order:",
@@ -1004,11 +1010,12 @@
         "txHash": "TX Hash:",
         "timestamps": "Timestamps",
         "paidAt": "Paid At:",
-        "completedAt": "Completed At:",
+        "shippedAt": "Shipped At:",
+        "completedAt": "Delivered At:",
         "logistics": "Logistics",
         "trackingNumber": "Tracking Number",
         "trackingPlaceholder": "SF Express tracking number (optional)",
-        "trackingHint": "Auto-saves when you type. Customers can view tracking in order details.",
+        "trackingHint": "Auto-saves and marks the order as shipped. Customers can view tracking in order details.",
         "trackingSaving": "Saving…",
         "saveTracking": "Save Tracking Number",
         "clearTracking": "Clear"

@@ -2,10 +2,7 @@
 
 namespace App\Services\Commerce;
 
-use App\Models\ForumPost;
 use App\Models\Order;
-use App\Models\PaymentSetting;
-use App\Models\Product;
 use App\Models\User;
 use App\Services\Agent\AgentDataScope;
 use App\Services\Catalog\ProductCatalogService;
@@ -24,6 +21,8 @@ class OrderService
         private readonly UsdtTxVerificationService $txVerify,
         private readonly PaymentSettingsService $paymentSettings,
         private readonly OrderNumberGenerator $orderNumbers,
+        private readonly OrderStatusTransition $statusTransitions,
+        private readonly OrderFulfillmentService $fulfillment,
     ) {}
 
     public function listForUser(int $userId): array
@@ -46,36 +45,33 @@ class OrderService
         return $this->enrichNetwork($this->detailRow($orderId));
     }
 
-    public function createForUser(int $userId, string $username, array $data): int
+    /**
+     * @return array<string, mixed>
+     */
+    public function previewCheckout(array $data): array
     {
         $checkout = $this->resolveCheckoutData($data);
-        $orderNo = $this->orderNumbers->generateUniqueForProduct($checkout['productId']);
 
-        $order = Order::query()->create([
-            'orderNo' => $orderNo,
-            'userId' => $userId,
-            'username' => $username,
+        return [
+            'id' => null,
+            'orderNo' => null,
+            'status' => OrderStatus::Pending->value,
             'productId' => $checkout['productId'],
             'productName' => $checkout['productName'],
             'quantity' => $checkout['quantity'],
             'price' => $checkout['price'],
             'totalAmount' => $checkout['totalAmount'],
-            'status' => 'pending',
             'paymentMethod' => 'USDT',
             'usdtWallet' => $checkout['walletAddress'],
             'network' => $checkout['network'],
-            'shippingAddress' => $data['shippingAddress'] ?? null,
-            'createdAt' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
             'configId' => $checkout['configId'],
             'configName' => $checkout['configName'],
-        ]);
-
-        return (int) $order->id;
+            'shippingAddress' => '',
+            'txHash' => '',
+        ];
     }
 
     /**
-     * 下单新流程：仅在链上验单成功后创建订单（创建即 paid）
-     *
      * @return array{orderId:int, order:array}
      */
     public function createPaidForUser(int $userId, string $username, array $data): array
@@ -91,31 +87,26 @@ class OrderService
         $this->assertTxHashUnused($txHash);
 
         $checkout = $this->resolveCheckoutData($data);
-        $verifyRules = $this->paymentSettings->txVerifyRules();
-        $verification = $this->txVerify->verify(
+        $verification = $this->verifyUsdtPayment(
             $checkout['network'],
             $txHash,
             $checkout['totalAmount'],
-            $verifyRules['maxUnderpayUsdt'],
-            $verifyRules['maxAgeHours'],
             $checkout['walletAddress']
         );
         if (! $verification['valid']) {
             throw ValidationException::withMessages([
                 'txHash' => [
-                    $this->txVerify->messageForReasonZh(
-                        $verification['reason'],
+                    $this->txVerifyFailureMessage(
+                        $verification,
                         $checkout['totalAmount'],
-                        $verification['paid_amount'],
-                        $verifyRules['maxUnderpayUsdt'],
-                        $verifyRules['maxAgeHours']
+                        $verification['rules']
                     ),
                 ],
             ]);
         }
 
         $orderNo = $this->orderNumbers->generateUniqueForProduct($checkout['productId']);
-        $now = now()->utc()->format('Y-m-d\TH:i:s\Z');
+        $now = $this->statusTransitions->nowIso();
         $order = Order::query()->create([
             'orderNo' => $orderNo,
             'userId' => $userId,
@@ -125,7 +116,7 @@ class OrderService
             'quantity' => $checkout['quantity'],
             'price' => $checkout['price'],
             'totalAmount' => $checkout['totalAmount'],
-            'status' => 'paid',
+            'status' => OrderStatus::Paid->value,
             'paymentMethod' => 'USDT',
             'usdtWallet' => $checkout['walletAddress'],
             'network' => $checkout['network'],
@@ -139,6 +130,7 @@ class OrderService
 
         $orderId = (int) $order->id;
         $orderPayload = $this->findByIdEnriched($orderId) ?? $this->enrichNetwork($order->toArray());
+        $verifyRules = $verification['rules'];
         if ($verifyRules['maxUnderpayUsdt'] <= 0 && $verifyRules['maxAgeHours'] <= 0) {
             $orderPayload['txVerifyDisabled'] = true;
         }
@@ -158,7 +150,7 @@ class OrderService
         if (! $order) {
             throw ValidationException::withMessages(['order' => ['Order not found']]);
         }
-        if ($order->status !== 'pending') {
+        if ($order->status !== OrderStatus::Pending->value) {
             throw ValidationException::withMessages(['order' => ['Order is already confirmed or not payable']]);
         }
         $address = trim((string) ($data['shippingAddress'] ?? ''));
@@ -169,23 +161,32 @@ class OrderService
         if ($txHash === '') {
             throw ValidationException::withMessages(['txHash' => ['Transaction hash required']]);
         }
-        $this->assertTxHashUnused($txHash, $orderId);
-
-        $verifyRules = $this->paymentSettings->txVerifyRules();
         $paymentSettings = $this->paymentSettings->get();
-        $verification = $this->txVerify->verify(
+        $verification = $this->verifyUsdtPayment(
             (string) ($order->network ?? 'TRC20'),
             $txHash,
             (float) $order->totalAmount,
-            $verifyRules['maxUnderpayUsdt'],
-            $verifyRules['maxAgeHours'],
             (string) ($paymentSettings['wallet_address'] ?? '')
         );
+        $verifyRules = $verification['rules'];
 
         if (! $verification['valid']) {
             if ($verification['delete_order']) {
                 $expectedAmount = (float) $order->totalAmount;
-                $order->delete();
+                DB::transaction(function () use ($orderId, $userId): void {
+                    $lockedOrder = Order::query()
+                        ->where('id', $orderId)
+                        ->where('userId', $userId)
+                        ->lockForUpdate()
+                        ->first();
+                    if (! $lockedOrder) {
+                        throw ValidationException::withMessages(['order' => ['Order not found']]);
+                    }
+                    if ($lockedOrder->status !== OrderStatus::Pending->value) {
+                        throw ValidationException::withMessages(['order' => ['Order is already confirmed or not payable']]);
+                    }
+                    $lockedOrder->delete();
+                });
 
                 return [
                     'deleted' => true,
@@ -197,24 +198,35 @@ class OrderService
 
             throw ValidationException::withMessages([
                 'txHash' => [
-                    $this->txVerify->messageForReasonZh(
-                        $verification['reason'],
+                    $this->txVerifyFailureMessage(
+                        $verification,
                         (float) $order->totalAmount,
-                        $verification['paid_amount'],
-                        $verifyRules['maxUnderpayUsdt'],
-                        $verifyRules['maxAgeHours']
+                        $verifyRules
                     ),
                 ],
             ]);
         }
 
-        $now = now()->utc()->format('Y-m-d\TH:i:s\Z');
-        $order->update([
-            'shippingAddress' => $address,
-            'txHash' => $txHash,
-            'status' => 'paid',
-            'paidAt' => $now,
-        ]);
+        DB::transaction(function () use ($orderId, $userId, $address, $txHash): void {
+            $lockedOrder = Order::query()
+                ->where('id', $orderId)
+                ->where('userId', $userId)
+                ->lockForUpdate()
+                ->first();
+            if (! $lockedOrder) {
+                throw ValidationException::withMessages(['order' => ['Order not found']]);
+            }
+            if ($lockedOrder->status !== OrderStatus::Pending->value) {
+                throw ValidationException::withMessages(['order' => ['Order is already confirmed or not payable']]);
+            }
+
+            $this->assertTxHashUnused($txHash, $orderId);
+            $lockedOrder->update([
+                'shippingAddress' => $address,
+                'txHash' => $txHash,
+            ]);
+            $this->statusTransitions->applyPaid($lockedOrder);
+        });
 
         $orderPayload = $this->findByIdEnriched($orderId);
         if ($orderPayload === null) {
@@ -233,7 +245,6 @@ class OrderService
         ];
     }
 
-    /** 支付通知用：含商品分类等关联字段 */
     public function findByIdEnriched(int $orderId): ?array
     {
         $row = $this->detailRow($orderId);
@@ -244,23 +255,11 @@ class OrderService
         return $this->enrichNetwork($row);
     }
 
-    public function cancelByUser(int $orderId, int $userId): void
-    {
-        $order = Order::query()->where('id', $orderId)->where('userId', $userId)->first();
-        if (! $order) {
-            throw ValidationException::withMessages(['order' => ['Order not found']]);
-        }
-        if ($order->status !== 'pending') {
-            throw ValidationException::withMessages(['order' => ['Only pending orders can be cancelled']]);
-        }
-        $order->update(['status' => 'cancelled']);
-    }
-
     public function adminList(?string $status = null, ?User $actor = null): array
     {
         $q = Order::query()->orderByDesc('createdAt');
         if ($status) {
-            $q->where('status', $status);
+            $q->where('status', $status === 'completed' ? OrderStatus::Delivered->value : $status);
         }
         if ($actor && $this->agentScope->isScopedAgent($actor)) {
             $this->agentScope->scopeOrderQuery($q, $actor);
@@ -272,126 +271,48 @@ class OrderService
     public function adminUpdateStatus(int $orderId, string $status, ?User $actor = null): void
     {
         $order = Order::query()->findOrFail($orderId);
-        if ($actor && $this->agentScope->isScopedAgent($actor)) {
-            $scoped = Order::query()->where('id', $orderId);
-            $this->agentScope->scopeOrderQuery($scoped, $actor);
-            if (! $scoped->exists()) {
-                abort(403, 'Order out of scope');
-            }
-        }
-        $now = now()->utc()->format('Y-m-d\TH:i:s\Z');
-        $patch = ['status' => $status];
-        if ($status === 'paid') {
-            $patch['paidAt'] = $now;
-        }
-        if ($status === 'completed') {
-            $patch['completedAt'] = $now;
-        }
-        $order->update($patch);
+        $this->fulfillment->assertAgentCanAccessOrder($actor, $orderId);
+        $this->statusTransitions->applyAdminStatus($order, $status);
     }
 
     public function adminDelete(int $orderId, ?User $actor = null): void
     {
-        if ($actor && $this->agentScope->isScopedAgent($actor)) {
-            $scoped = Order::query()->where('id', $orderId);
-            $this->agentScope->scopeOrderQuery($scoped, $actor);
-            if (! $scoped->exists()) {
-                abort(403, 'Order out of scope');
-            }
-        }
+        $this->fulfillment->assertAgentCanAccessOrder($actor, $orderId);
         Order::query()->where('id', $orderId)->delete();
     }
 
     public function adminUpdateTracking(int $orderId, ?string $trackingNumber, ?User $actor = null): array
     {
-        $order = Order::query()->findOrFail($orderId);
-        if ($actor && $this->agentScope->isScopedAgent($actor)) {
-            $scoped = Order::query()->where('id', $orderId);
-            $this->agentScope->scopeOrderQuery($scoped, $actor);
-            if (! $scoped->exists()) {
-                abort(403, 'Order out of scope');
-            }
-        }
-
-        $value = trim((string) ($trackingNumber ?? ''));
-        $order->update(['trackingNumber' => $value !== '' ? $value : null]);
-
-        return $order->fresh()->toArray();
+        return $this->fulfillment->adminUpdateTracking($orderId, $trackingNumber, $actor);
     }
 
-    public function trackingForUser(int $orderId, int $userId, SfExpressTrackingService $sf): array
+    /**
+     * 物流查询（只读）+ 显式签收同步（仅 shipped → delivered）
+     *
+     * @return array<string, mixed>
+     */
+    public function trackingForUser(int $orderId, int $userId): array
     {
         $order = Order::query()->where('id', $orderId)->where('userId', $userId)->first();
         if (! $order) {
             return [];
         }
 
-        $trackingNumber = trim((string) ($order->trackingNumber ?? ''));
-        if ($trackingNumber === '') {
-            return [
-                'trackingNumber' => null,
-                'carrier' => 'SF',
-                'routes' => [],
-                'source' => 'none',
-                'externalUrl' => null,
-                'apiEnabled' => $sf->isConfigured(),
-            ];
+        $snapshot = $this->fulfillment->queryTracking($order);
+
+        if (
+            ($snapshot['deliveryDetected'] ?? false)
+            && $order->status === OrderStatus::Shipped->value
+        ) {
+            $this->fulfillment->syncDeliveredFromRoutes($order, $snapshot['routes'] ?? []);
+            $order->refresh();
         }
 
-        $phoneLast4 = SfExpressTrackingService::phoneLast4FromAddress($order->shippingAddress);
-        $result = $sf->queryRoutes($trackingNumber, $phoneLast4);
+        unset($snapshot['deliveryDetected']);
 
-        return [
-            'trackingNumber' => $trackingNumber,
-            'carrier' => 'SF',
-            'routes' => $result['routes'],
-            'source' => $result['source'],
-            'externalUrl' => $sf->externalTrackUrl($trackingNumber),
-            'apiEnabled' => $sf->isConfigured(),
-            'message' => $result['message'] ?? null,
-        ];
-    }
-
-    public function stats(?User $actor = null): array
-    {
-        $isAgent = $actor && $this->agentScope->isScopedAgent($actor);
-
-        if ($isAgent) {
-            $orderBase = Order::query();
-            $this->agentScope->scopeOrderQuery($orderBase, $actor);
-            $totalOrders = (clone $orderBase)->count();
-            $pendingOrders = (clone $orderBase)->where('status', 'pending')->count();
-            $totalRevenue = (float) (clone $orderBase)->whereIn('status', ['paid', 'completed'])->sum('totalAmount');
-            $downlineUsers = count($this->agentScope->descendantUserIds($actor));
-            $myProducts = Product::query()->where('createdByUserId', $actor->id)->count();
-
-            return [
-                'scope' => 'agent',
-                'downlineUsers' => max(0, $downlineUsers - 1),
-                'totalUsers' => max(0, $downlineUsers - 1),
-                'totalProducts' => $myProducts,
-                'totalPosts' => 0,
-                'totalOrders' => $totalOrders,
-                'pendingOrders' => $pendingOrders,
-                'totalRevenue' => $totalRevenue,
-            ];
-        }
-
-        $orderAgg = Order::query()
-            ->selectRaw('COUNT(*) as total_orders')
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders")
-            ->selectRaw("SUM(CASE WHEN status IN ('paid', 'completed') THEN totalAmount ELSE 0 END) as total_revenue")
-            ->first();
-
-        return [
-            'scope' => 'admin',
-            'totalUsers' => User::query()->count(),
-            'totalProducts' => Product::query()->count(),
-            'totalPosts' => ForumPost::query()->count(),
-            'totalOrders' => (int) ($orderAgg->total_orders ?? 0),
-            'pendingOrders' => (int) ($orderAgg->pending_orders ?? 0),
-            'totalRevenue' => (float) ($orderAgg->total_revenue ?? 0),
-        ];
+        return array_merge($snapshot, [
+            'orderStatus' => OrderStatus::normalize((string) $order->status)->value,
+        ]);
     }
 
     private function detailRow(int $orderId): array
@@ -419,16 +340,12 @@ class OrderService
 
     private function paymentSettings(): array
     {
-        $row = PaymentSetting::query()->orderByDesc('id')->first();
-
-        return $row ? $row->toArray() : ['wallet_address' => '', 'network' => 'TRC20'];
+        return $this->paymentSettings->getPublic();
     }
 
     private function assertTxHashUnused(string $txHash, ?int $ignoreOrderId = null): void
     {
-        $q = Order::query()
-            ->where('txHash', $txHash)
-            ->whereNotIn('status', ['cancelled']);
+        $q = Order::query()->where('txHash', $txHash);
         if ($ignoreOrderId !== null) {
             $q->where('id', '!=', $ignoreOrderId);
         }
@@ -489,5 +406,38 @@ class OrderService
             'configId' => $checkoutConfig['configId'],
             'configName' => $checkoutConfig['configName'],
         ];
+    }
+
+    /**
+     * @return array{valid: bool, reason: string, paid_amount: ?float, delete_order: bool, rules: array{maxUnderpayUsdt: float, maxAgeHours: int}}
+     */
+    private function verifyUsdtPayment(
+        string $network,
+        string $txHash,
+        float $expectedAmount,
+        string $walletAddress
+    ): array {
+        $rules = $this->paymentSettings->txVerifyRules();
+        $result = $this->txVerify->verify(
+            $network,
+            $txHash,
+            $expectedAmount,
+            $rules['maxUnderpayUsdt'],
+            $rules['maxAgeHours'],
+            $walletAddress
+        );
+
+        return array_merge($result, ['rules' => $rules]);
+    }
+
+    private function txVerifyFailureMessage(array $verification, float $expectedAmount, array $rules): string
+    {
+        return $this->txVerify->messageForReasonZh(
+            $verification['reason'],
+            $expectedAmount,
+            $verification['paid_amount'],
+            $rules['maxUnderpayUsdt'],
+            $rules['maxAgeHours']
+        );
     }
 }

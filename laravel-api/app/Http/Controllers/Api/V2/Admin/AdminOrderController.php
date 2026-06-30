@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V2\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\Commerce\OrderService;
+use App\Services\Commerce\OrderStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +19,9 @@ class AdminOrderController extends Controller
 
     public function updateStatus(Request $request, int $id): JsonResponse
     {
-        $data = $request->validate(['status' => ['required', 'string']]);
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:'.implode(',', OrderStatus::adminWritableValues())],
+        ]);
         $this->orders->adminUpdateStatus($id, $data['status'], $request->user());
 
         return response()->json(['success' => true]);

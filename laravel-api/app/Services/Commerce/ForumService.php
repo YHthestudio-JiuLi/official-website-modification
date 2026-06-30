@@ -2,6 +2,8 @@
 
 namespace App\Services\Commerce;
 
+use App\Services\Commerce\Exceptions\ReplyForbiddenException;
+use App\Services\Commerce\Exceptions\ReplyNotFoundException;
 use App\Models\ForumPost;
 use App\Models\ForumReply;
 use Illuminate\Support\Facades\DB;
@@ -24,14 +26,14 @@ class ForumService
     {
         $post = ForumPost::query()->find($id);
 
-        return $post?->toArray();
+        return $post ? $post->toArray() : null;
     }
 
     public function getReply(int $replyId): ?array
     {
         $reply = ForumReply::query()->find($replyId);
 
-        return $reply?->toArray();
+        return $reply ? $reply->toArray() : null;
     }
 
     public function createPost(string $author, array $data): int
@@ -82,10 +84,10 @@ class ForumService
     {
         $reply = ForumReply::query()->find($replyId);
         if (! $reply) {
-            throw ValidationException::withMessages(['reply' => ['Reply not found']]);
+            throw new ReplyNotFoundException();
         }
-        if (! $isAdmin && $reply->author !== $author) {
-            throw ValidationException::withMessages(['reply' => ['Forbidden']]);
+        if (! $isAdmin && ! $this->isSameAuthor((string) $reply->author, $author)) {
+            throw new ReplyForbiddenException();
         }
 
         DB::transaction(function () use ($reply) {
@@ -145,5 +147,15 @@ class ForumService
     public function adminDeleteReply(int $id): void
     {
         $this->deleteReply($id, '', true);
+    }
+
+    private function isSameAuthor(string $left, string $right): bool
+    {
+        return $this->normalizeAuthor($left) === $this->normalizeAuthor($right);
+    }
+
+    private function normalizeAuthor(string $author): string
+    {
+        return strtolower(trim($author));
     }
 }

@@ -1,5 +1,3 @@
-/** 认证 API 中英文提示（读取 Accept-Language） */
-
 const MESSAGES = {
   en: {
     invalid_credentials: 'Invalid username or password',

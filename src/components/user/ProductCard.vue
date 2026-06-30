@@ -32,7 +32,6 @@ const props = defineProps({
   }
 })
 
-/** 列表卡片仅展示封面，避免多图轮播触发大量 /api/v2/product-images 并发 */
 const coverImage = computed(() => primaryProductImage(props.product))
 
 const truncatedDescription = computed(() => {

@@ -1,7 +1,6 @@
-/** 商品图自动轮播间隔（毫秒），约 5 秒便于看清每张图 */
 export const PRODUCT_IMAGE_ROTATION_MS = 5000
 
-/** 历史 /api/product-images/{id} → /api/v2/product-images/{id}（img 标签不走 axios 重写） */
+/** Legacy Node 商品图路径 → V2 路径（V2 接口已规范化时可原样透传） */
 export function normalizeProductImageUrl(url) {
   if (!url || typeof url !== 'string') return ''
   const trimmed = url.trim()

@@ -219,7 +219,8 @@ class SfExpressTrackingService
         if (! $shippingAddress) {
             return '';
         }
-        if (preg_match('/(?:phone|电话|手机号?)\s*[:：]\s*([^\|\n\r]+)/iu', $shippingAddress, $m)) {
+        // 兼容多分隔符：|、;、；、逗号、换行
+        if (preg_match('/(?:phone|电话|手机号?)\s*[:：]\s*([^\|；;，,\n\r]+)/iu', $shippingAddress, $m)) {
             $digits = preg_replace('/\D+/', '', $m[1]);
 
             return strlen($digits) >= 4 ? substr($digits, -4) : $digits;

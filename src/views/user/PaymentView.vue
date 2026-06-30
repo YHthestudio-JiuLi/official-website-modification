@@ -96,6 +96,7 @@
                     required
                     :placeholder="$t('payment.recipientPhonePlaceholder')"
                   />
+                  <small>{{ $t('payment.recipientPhoneHint') }}</small>
                 </div>
                 <div class="form-group">
                   <label for="shippingAddressDetail">
@@ -108,7 +109,6 @@
                     required
                     :placeholder="$t('payment.recipientAddressPlaceholder')"
                   />
-                  <small>{{ $t('payment.recipientHint') }}</small>
                 </div>
                 <div class="form-group">
                   <label for="txHash">

@@ -17,17 +17,49 @@ function createOrderTelegramTools({ telegramRequestWithToken }) {
     const raw = String(shippingAddress || '').trim();
     const out = { name: '', phone: '', address: raw };
     if (!raw) return out;
-    const parts = raw.split('|').map((s) => s.trim()).filter(Boolean);
+
+    const parts = raw
+      .split(/\||；|;|\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const normalizeKey = (key) => String(key || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '');
+
+    const isNameKey = (key) => ['name', 'receiver', 'recipient', '收件人', '收货人', '姓名', '联系人'].includes(key);
+    const isPhoneKey = (key) => ['phone', 'mobile', 'tel', '电话', '手机号', '联系电话', '电话号码', '收件人电话'].includes(key);
+    const isAddressKey = (key) => ['address', 'addr', '地址', '收货地址', '收件地址', '详细地址'].includes(key);
+
+    let parsed = false;
     for (const p of parts) {
-      const idx = p.indexOf(':');
+      const idx = p.search(/[:：]/);
       if (idx <= 0) continue;
-      const key = p.slice(0, idx).trim().toLowerCase();
+      const key = normalizeKey(p.slice(0, idx));
       const val = p.slice(idx + 1).trim();
       if (!val) continue;
-      if (key === 'name' || key === '收件人' || key === '姓名') out.name = val;
-      if (key === 'phone' || key === '电话' || key === '手机号') out.phone = val;
-      if (key === 'address' || key === '地址') out.address = val;
+      if (isNameKey(key)) {
+        out.name = val;
+        parsed = true;
+      } else if (isPhoneKey(key)) {
+        out.phone = val;
+        parsed = true;
+      } else if (isAddressKey(key)) {
+        out.address = val;
+        parsed = true;
+      }
     }
+
+    if (!parsed) {
+      out.address = raw;
+    }
+
+    if (!out.phone) {
+      const phoneMatch = raw.match(/(1[3-9]\d{9})/);
+      if (phoneMatch) out.phone = phoneMatch[1];
+    }
+
     return out;
   }
 

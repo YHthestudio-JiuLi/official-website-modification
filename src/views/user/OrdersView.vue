@@ -49,7 +49,15 @@
               <div class="ov-card-main">
                 <section class="ov-product">
                   <div class="ov-product-visual">
-                    <i class="fas fa-cube"></i>
+                    <img
+                      v-if="getOrderProductImage(order)"
+                      :src="getOrderProductImage(order)"
+                      :alt="order.productName || 'product image'"
+                      loading="lazy"
+                      decoding="async"
+                      @error="markProductImageError(order.id)"
+                    />
+                    <i v-else class="fas fa-cube"></i>
                   </div>
                   <h3 class="ov-product-name">{{ order.productName }}</h3>
                   <div class="ov-chips">
@@ -160,15 +168,19 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
+import { getProduct } from '@/services/catalog'
 import { parseShippingAddress } from '@/utils/shippingAddress'
 import { displayOrderNo } from '@/utils/orderNo'
 import AppHeader from '@/components/common/AppHeader.vue'
 import { normalizeOrderStatus, isOrderStepDone, getOrderStatusLabel } from '@/utils/orderStatus'
+import { primaryProductImage } from '@/utils/productImages'
 
 const { t, locale } = useI18n()
 const orders = ref([])
 const loading = ref(true)
 const loadError = ref(false)
+const productImageErrorMap = ref({})
+const orderProductImageMap = ref({})
 
 const progressSteps = [
   { key: 'pending', label: 'orders.progress.pending', icon: 'fas fa-wallet' },
@@ -184,6 +196,7 @@ onMounted(async () => {
       ...order,
       _address: parseShippingAddress(order.shippingAddress),
     }))
+    await loadOrderProductImages(orders.value)
   } catch (error) {
     console.error('Failed to fetch orders:', error)
     if (error.response?.status !== 401) {
@@ -213,6 +226,64 @@ async function copyTxHash(hash) {
     await navigator.clipboard.writeText(hash)
   } catch (err) {
     console.error('Failed to copy:', err)
+  }
+}
+
+function markProductImageError(orderId) {
+  if (!orderId) return
+  productImageErrorMap.value = {
+    ...productImageErrorMap.value,
+    [orderId]: true,
+  }
+}
+
+function getOrderProductImage(order) {
+  const orderId = order?.id
+  if (orderId && productImageErrorMap.value[orderId]) return ''
+
+  if (orderId && orderProductImageMap.value[orderId]) {
+    return orderProductImageMap.value[orderId]
+  }
+
+  const directImage = primaryProductImage(order)
+  if (directImage) return directImage
+
+  return ''
+}
+
+async function loadOrderProductImages(orderList) {
+  const productOrderIdsMap = new Map()
+  for (const order of orderList) {
+    if (!order?.id) continue
+    if (primaryProductImage(order)) continue
+
+    const productId = Number(order?.productId)
+    if (!Number.isFinite(productId) || productId <= 0) continue
+
+    const orderIds = productOrderIdsMap.get(productId) || []
+    orderIds.push(order.id)
+    productOrderIdsMap.set(productId, orderIds)
+  }
+
+  const tasks = []
+  for (const [productId, orderIds] of productOrderIdsMap.entries()) {
+    tasks.push(
+      getProduct(productId)
+        .then((res) => {
+          const image = primaryProductImage(res?.data)
+          if (!image) return
+          const next = { ...orderProductImageMap.value }
+          for (const orderId of orderIds) {
+            next[orderId] = image
+          }
+          orderProductImageMap.value = next
+        })
+        .catch(() => {})
+    )
+  }
+
+  if (tasks.length > 0) {
+    await Promise.all(tasks)
   }
 }
 </script>
@@ -381,6 +452,13 @@ async function copyTxHash(hash) {
   color: var(--primary-color);
   background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.05));
   border: 1px solid rgba(0, 212, 255, 0.25);
+  overflow: hidden;
+}
+
+.ov-product-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .ov-product-name {

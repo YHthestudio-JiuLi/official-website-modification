@@ -77,6 +77,7 @@ class OrderService
     public function createPaidForUser(int $userId, string $username, array $data): array
     {
         $shippingAddress = trim((string) ($data['shippingAddress'] ?? ''));
+        $shippingAddress = $this->normalizeRecipientInfo($shippingAddress);
         $txHash = trim((string) ($data['txHash'] ?? ''));
         if ($shippingAddress === '') {
             throw ValidationException::withMessages(['shippingAddress' => ['Shipping address required']]);
@@ -154,6 +155,7 @@ class OrderService
             throw ValidationException::withMessages(['order' => ['Order is already confirmed or not payable']]);
         }
         $address = trim((string) ($data['shippingAddress'] ?? ''));
+        $address = $this->normalizeRecipientInfo($address);
         $txHash = trim((string) ($data['txHash'] ?? ''));
         if ($address === '') {
             throw ValidationException::withMessages(['shippingAddress' => ['Shipping address required']]);
@@ -354,6 +356,75 @@ class OrderService
                 'txHash' => ['该交易哈希已被使用，请勿重复提交'],
             ]);
         }
+    }
+
+    /**
+     * 统一收件人信息格式，避免分隔符变化导致解析异常
+     * 输出固定三行：
+     * 收件人: xxx
+     * 电话: xxx
+     * 地址: xxx
+     */
+    private function normalizeRecipientInfo(string $shippingAddress): string
+    {
+        $raw = trim($shippingAddress);
+        if ($raw === '') {
+            return '';
+        }
+
+        $name = '';
+        $phone = '';
+        $address = '';
+        $parts = preg_split('/[\|\n\r;；]+/u', $raw) ?: [];
+
+        foreach ($parts as $part) {
+            $part = trim((string) $part);
+            if ($part === '') {
+                continue;
+            }
+            if (! preg_match('/^([^:：]+)\s*[:：]\s*(.+)$/u', $part, $m)) {
+                continue;
+            }
+
+            $key = strtolower((string) preg_replace('/\s+/u', '', trim($m[1])));
+            $val = trim((string) ($m[2] ?? ''));
+            if ($val === '') {
+                continue;
+            }
+
+            if (in_array($key, ['name', 'receiver', 'recipient', '收件人', '收货人', '姓名', '联系人'], true)) {
+                $name = $val;
+                continue;
+            }
+            if (in_array($key, ['phone', 'mobile', 'tel', '电话', '手机号', '联系电话', '电话号码', '收件人电话'], true)) {
+                $phone = $val;
+                continue;
+            }
+            if (in_array($key, ['address', 'addr', '地址', '收货地址', '收件地址', '详细地址'], true)) {
+                $address = $val;
+            }
+        }
+
+        if ($phone === '' && preg_match('/(1[3-9]\d{9})/', $raw, $m)) {
+            $phone = $m[1];
+        }
+
+        if ($name === '' && $phone === '' && $address === '') {
+            return $raw;
+        }
+
+        $lines = [];
+        if ($name !== '') {
+            $lines[] = '收件人: '.$name;
+        }
+        if ($phone !== '') {
+            $lines[] = '电话: '.$phone;
+        }
+        if ($address !== '') {
+            $lines[] = '地址: '.$address;
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

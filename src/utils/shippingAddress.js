@@ -6,25 +6,40 @@ export function parseShippingAddress(shippingAddress) {
   if (!raw) return null
 
   const out = { name: '', phone: '', address: '', raw }
-  const parts = raw.split('|').map((s) => s.trim()).filter(Boolean)
+  const jsonParsed = tryParseAddressJson(raw)
+  if (jsonParsed) {
+    return { ...out, ...jsonParsed }
+  }
+
+  const parts = raw
+    .split(/\||\n|；|;/)
+    .map((s) => s.trim())
+    .filter(Boolean)
   let parsed = false
 
   for (const part of parts) {
-    const idx = part.indexOf(':')
+    const idx = part.search(/[:：]/)
     if (idx <= 0) continue
-    const key = part.slice(0, idx).trim().toLowerCase()
+    const key = normalizeKey(part.slice(0, idx))
     const val = part.slice(idx + 1).trim()
     if (!val) continue
 
-    if (key === 'name' || key === '收件人' || key === '姓名') {
+    if (isNameKey(key)) {
       out.name = val
       parsed = true
-    } else if (key === 'phone' || key === '电话' || key === '手机号') {
+    } else if (isPhoneKey(key)) {
       out.phone = val
       parsed = true
-    } else if (key === 'address' || key === '地址') {
+    } else if (isAddressKey(key)) {
       out.address = val
       parsed = true
+    }
+  }
+
+  if (!out.phone) {
+    const phoneMatch = raw.match(/(1[3-9]\d{9})/)
+    if (phoneMatch) {
+      out.phone = phoneMatch[1]
     }
   }
 
@@ -33,4 +48,46 @@ export function parseShippingAddress(shippingAddress) {
   }
 
   return out
+}
+
+function normalizeKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+}
+
+function isNameKey(key) {
+  return ['name', 'receiver', 'recipient', '收件人', '收货人', '姓名', '联系人'].includes(key)
+}
+
+function isPhoneKey(key) {
+  return ['phone', 'mobile', 'tel', '电话', '手机号', '联系电话', '电话号码', '收件人电话'].includes(key)
+}
+
+function isAddressKey(key) {
+  return ['address', 'addr', '地址', '收货地址', '收件地址', '详细地址'].includes(key)
+}
+
+function tryParseAddressJson(raw) {
+  if (!raw.startsWith('{')) return null
+  try {
+    const obj = JSON.parse(raw)
+    if (!obj || typeof obj !== 'object') return null
+
+    const name = String(
+      obj.name ?? obj.recipientName ?? obj.receiver ?? obj['收件人'] ?? obj['收货人'] ?? obj['姓名'] ?? ''
+    ).trim()
+    const phone = String(
+      obj.phone ?? obj.mobile ?? obj.recipientPhone ?? obj['电话'] ?? obj['手机号'] ?? obj['联系电话'] ?? ''
+    ).trim()
+    const address = String(
+      obj.address ?? obj.detail ?? obj.recipientAddress ?? obj['地址'] ?? obj['收货地址'] ?? obj['收件地址'] ?? ''
+    ).trim()
+
+    if (!name && !phone && !address) return null
+    return { name, phone, address, raw }
+  } catch (_e) {
+    return null
+  }
 }

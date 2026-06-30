@@ -44,8 +44,20 @@
 
           <div class="detail-section">
             <h4><i class="fas fa-map-marker-alt" /> {{ $t('admin.orders.detail.shippingAddress') }}</h4>
-            <div class="detail-item full-width">
-              <span class="detail-value">{{ order?.shippingAddress || $t('admin.orders.detail.noShippingAddress') }}</span>
+            <div v-if="recipientInfo" class="detail-item">
+              <span class="detail-label">{{ $t('admin.orders.detail.recipientName') }}</span>
+              <span class="detail-value">{{ recipientInfo.name || '-' }}</span>
+            </div>
+            <div v-if="recipientInfo" class="detail-item">
+              <span class="detail-label">{{ $t('admin.orders.detail.recipientPhone') }}</span>
+              <span class="detail-value">{{ recipientInfo.phone || '-' }}</span>
+            </div>
+            <div v-if="recipientInfo" class="detail-item">
+              <span class="detail-label">{{ $t('admin.orders.detail.recipientAddress') }}</span>
+              <span class="detail-value detail-value--multiline">{{ recipientInfo.address || '-' }}</span>
+            </div>
+            <div v-else class="detail-item full-width">
+              <span class="detail-value">{{ $t('admin.orders.detail.noShippingAddress') }}</span>
             </div>
           </div>
 
@@ -128,9 +140,11 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { displayOrderNo } from '@/utils/orderNo'
 import { normalizeOrderStatus, getAdminOrderStatusLabel } from '@/utils/orderStatus'
+import { parseShippingAddress } from '@/utils/shippingAddress'
 
 const props = defineProps({
   visible: {
@@ -153,6 +167,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'tracking-input', 'schedule-save', 'flush-save', 'clear-tracking'])
 const { t, locale } = useI18n()
+const recipientInfo = computed(() => parseShippingAddress(props.order?.shippingAddress))
 
 function onTrackingInput(event) {
   emit('tracking-input', event.target.value)
@@ -275,6 +290,10 @@ function formatDate(dateStr) {
   font-size: 0.9rem;
   text-align: right;
   word-break: break-word;
+}
+
+.detail-value--multiline {
+  white-space: pre-wrap;
 }
 
 .detail-value.highlight {

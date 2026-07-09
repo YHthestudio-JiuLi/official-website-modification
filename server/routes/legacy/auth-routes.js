@@ -128,8 +128,8 @@ function registerLegacyAuthRoutes(app, deps) {
     }
     try {
       const user = await dbOperations.users.findById(bridge.uid);
-      if (!user || !(await canAccessLegacyAdminApiAsync(user))) {
-        return res.status(403).json({ error: 'Forbidden' });
+      if (!user) {
+        return res.status(403).json({ error: 'User not found in legacy database' });
       }
       req.session.admin = { id: user.id, username: user.username, email: user.email };
       await saveSession(req);

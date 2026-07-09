@@ -1,10 +1,6 @@
 const { parseBridgeToken, BRIDGE_AUD_ADMIN } = require('./bridge-token');
 
-/** bridge 路径 canAccessAdmin 短 TTL 缓存，避免分片上传频繁 RPC */
-const BRIDGED_ACCESS_CACHE_TTL_MS = 60_000;
-const bridgedAccessCache = new Map();
-
-/** 与 Laravel User::canAccessAdmin 对齐：统一走 Python RPC */
+/** 与 Laravel User::canAccessAdmin 对齐：session 直连 Node 时走 Python RPC */
 async function canAccessLegacyAdminApiAsync(user, dbOperations) {
   if (!user?.id) return false;
   try {
@@ -15,30 +11,15 @@ async function canAccessLegacyAdminApiAsync(user, dbOperations) {
   }
 }
 
-/** bridge 请求复用 canAccessAdmin 结果（Laravel 签发 aud=admin 前已校验） */
-async function cachedCanAccessLegacyAdminAsync(user, dbOperations) {
-  const userId = Number(user?.id);
-  if (!userId) return false;
-
-  const now = Date.now();
-  const cached = bridgedAccessCache.get(userId);
-  if (cached && cached.exp > now) {
-    return cached.ok;
-  }
-
-  const ok = await canAccessLegacyAdminApiAsync(user, dbOperations);
-  bridgedAccessCache.set(userId, { ok, exp: now + BRIDGED_ACCESS_CACHE_TTL_MS });
-  return ok;
-}
-
 /** 从请求中读取 bridge token 字符串 */
 function readBridgeToken(req) {
   return req.headers['x-legacy-node-token'] || req.body?.token || null;
 }
 
 /**
- * 解析后台请求上下文（bridge admin token 优先，其次 session + RPC canAccessAdmin）
- * @returns {Promise<{ user: object, userId: number, isScopedAgent: boolean, scopeCheckFailed: boolean, bridged: boolean }|null>}
+ * 解析后台请求上下文
+ * - aud=admin bridge token：Laravel 签发前已校验 canAccessAdmin，Node 仅验证用户存在
+ * - session：仍走 RPC canAccessAdmin（防历史 session 越权）
  */
 async function resolveAdminRequestContext(req, dbOperations) {
   const token = readBridgeToken(req);
@@ -47,7 +28,7 @@ async function resolveAdminRequestContext(req, dbOperations) {
   if (bridge?.uid) {
     try {
       const user = await dbOperations.users.findById(bridge.uid);
-      if (user && (await cachedCanAccessLegacyAdminAsync(user, dbOperations))) {
+      if (user) {
         return attachScopeFields(user, { bridged: true }, dbOperations);
       }
     } catch (error) {
@@ -130,7 +111,6 @@ module.exports = {
   loadAgentScopeContext,
   rejectIfScopeCheckFailed,
   canAccessLegacyAdminApiAsync,
-  cachedCanAccessLegacyAdminAsync,
   toAdminSessionUser,
   denyUnlessChunkSessionOwner,
 };

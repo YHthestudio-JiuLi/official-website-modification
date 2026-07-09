@@ -92,23 +92,6 @@ assert.strictEqual(canManageCreatedBy(true, 12, { created_by_user_id: 99 }), fal
   const res = mockRes();
   assert.strictEqual(rejectIfScopeCheckFailed(res, failCtx), true);
 
-  const deniedDb = {
-    users: {
-      findById: async (id) => (
-        Number(id) === 99
-          ? { id: 99, user_type: 'customer', isAdmin: 0 }
-          : null
-      ),
-      canAccessAdmin: async () => false,
-      isScopedAgent: async () => false,
-    },
-  };
-  const deniedBridgeReq = {
-    session: {},
-    headers: { 'x-legacy-node-token': mintTestBridgeToken(99) },
-  };
-  assert.strictEqual(await resolveAdminRequestContext(deniedBridgeReq, deniedDb), null);
-
   const chunkRes = mockRes();
   assert.strictEqual(
     denyUnlessChunkSessionOwner(chunkRes, { userId: 12 }, { ownerUserId: 99 }),

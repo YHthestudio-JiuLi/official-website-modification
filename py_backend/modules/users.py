@@ -51,20 +51,23 @@ class UserManager:
         if self._is_super_admin(user):
             return True
         role_names = self._role_names(user_id)
-        if role_names and role_names <= {"customer"}:
+        # 与 Laravel：仅有 customer 且无 staff/agent/super_admin 时拒绝
+        if "customer" in role_names and not (role_names & {"super_admin", "staff", "agent"}):
             return False
         return self._has_admin_access_permission(user_id)
 
     def _has_admin_access_permission(self, user_id: int) -> bool:
         model_type = "App\\Models\\User"
+        guard = "web"
         self.cur.execute(
             """
             SELECT 1 FROM permissions p
             INNER JOIN model_has_permissions mhp ON mhp.permission_id = p.id
-            WHERE mhp.model_type = ? AND mhp.model_id = ? AND p.name = 'admin.access'
+            WHERE mhp.model_type = ? AND mhp.model_id = ?
+              AND p.name = 'admin.access' AND p.guard_name = ?
             LIMIT 1
             """,
-            (model_type, user_id),
+            (model_type, user_id, guard),
         )
         if self.cur.fetchone():
             return True
@@ -74,10 +77,12 @@ class UserManager:
             SELECT 1 FROM permissions p
             INNER JOIN role_has_permissions rhp ON rhp.permission_id = p.id
             INNER JOIN model_has_roles mhr ON mhr.role_id = rhp.role_id
-            WHERE mhr.model_type = ? AND mhr.model_id = ? AND p.name = 'admin.access'
+            INNER JOIN roles r ON r.id = mhr.role_id
+            WHERE mhr.model_type = ? AND mhr.model_id = ?
+              AND p.name = 'admin.access' AND p.guard_name = ? AND r.guard_name = ?
             LIMIT 1
             """,
-            (model_type, user_id),
+            (model_type, user_id, guard, guard),
         )
         return self.cur.fetchone() is not None
 
@@ -87,7 +92,7 @@ class UserManager:
             """
             SELECT r.name FROM roles r
             INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
-            WHERE mhr.model_type = ? AND mhr.model_id = ?
+            WHERE mhr.model_type = ? AND mhr.model_id = ? AND r.guard_name = 'web'
             """,
             (model_type, user_id),
         )

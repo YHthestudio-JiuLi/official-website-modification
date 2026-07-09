@@ -63,7 +63,7 @@ Laravel（内网）
 
 | 概念 | 权威实现 | Node / Laravel 用法 |
 |------|----------|---------------------|
-| 能否登录后台 | Laravel `User::canAccessAdmin()` + Python `users.can_access_admin()` | Node `resolveAdminRequestContext` 统一 RPC 校验 |
+| 能否登录后台 | Laravel `User::canAccessAdmin()` + Python `users.can_access_admin()` | Node **session** 路径 RPC 校验；**aud=admin bridge** 信任 Laravel 签发 |
 | 代理数据范围 | Python `users.is_scoped_agent()` | Node `adminRequestContext` + `agentScopeRoute` |
 | 分片上传鉴权 | Laravel 代发 `aud=admin` bridge token | Node `requireAdmin` → init/chunk/complete 绑定 `ownerUserId` |
 

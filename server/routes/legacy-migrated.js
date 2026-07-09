@@ -19,8 +19,9 @@ function registerLegacyMigratedRoutes(app, deps) {
     requireUser,
     requireAdmin,
     canAccessLegacyAdminApiAsync,
-    resolveLegacyAdminFromBridge,
     tryPersistAdminSession,
+    resolveAdminRequestContext,
+    toAdminSessionUser,
     questionFilesUpload,
     questionChunkUpload,
     questionChunksPath,
@@ -49,8 +50,9 @@ function registerLegacyMigratedRoutes(app, deps) {
     dbOperations,
     loginLimiter,
     canAccessLegacyAdminApiAsync,
-    resolveLegacyAdminFromBridge,
     tryPersistAdminSession,
+    resolveAdminRequestContext,
+    toAdminSessionUser,
   });
 
   registerLegacyProductRoutes(app, {

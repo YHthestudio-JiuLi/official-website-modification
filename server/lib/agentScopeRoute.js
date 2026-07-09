@@ -1,6 +1,9 @@
 const {
   loadAgentScopeContext,
-  denyIfScopeCheckFailed,
+  rejectIfScopeCheckFailed,
+  denyUnlessChunkSessionOwner,
+} = require('./adminRequestContext');
+const {
   denyUnlessCanManage,
   denyScopedAgentAction,
   assertAgentQuestionUpdateAllowed,
@@ -17,11 +20,11 @@ function createAgentScopeRoute(dbOperations, catalog = {}) {
   /** 加载上下文；未登录 401，RPC 失败 503 */
   async function requireScopeContext(req, res) {
     const ctx = await loadAgentScopeContext(req, dbOperations);
-    if (!ctx) {
+    if (!ctx?.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return null;
     }
-    if (!denyIfScopeCheckFailed(res, ctx)) {
+    if (rejectIfScopeCheckFailed(res, ctx)) {
       return null;
     }
     return ctx;
@@ -103,14 +106,14 @@ function createAgentScopeRoute(dbOperations, catalog = {}) {
    * 删除题库：代理必须能解析到归属行；管理员 find 失败时仍允许删库+清盘
    * @param {(id: number) => Promise<object|null>} findQuestionById
    */
-  async function requireQuestionDeleteAccess(req, res, questionId, findQuestionById) {
+  async function requireQuestionDeleteAccess(req, res, questionId, findQuestionByIdFn) {
     const ctx = await requireScopeContext(req, res);
     if (!ctx) {
       return null;
     }
     let question = null;
     try {
-      question = await findQuestionById(questionId);
+      question = await findQuestionByIdFn(questionId);
     } catch (error) {
       if (ctx.isScopedAgent) {
         res.status(404).json({ error: 'Question not found' });
@@ -128,6 +131,14 @@ function createAgentScopeRoute(dbOperations, catalog = {}) {
     return { ctx, question };
   }
 
+  /** 校验分片上传会话归属 */
+  function requireChunkSessionOwner(req, res, session) {
+    if (!denyUnlessChunkSessionOwner(res, req.adminCtx, session)) {
+      return false;
+    }
+    return true;
+  }
+
   return {
     requireScopeContext,
     requireNonScopedAgent,
@@ -135,6 +146,7 @@ function createAgentScopeRoute(dbOperations, catalog = {}) {
     requireManagedQuestion,
     requireAgentQuestionUpdate,
     requireQuestionDeleteAccess,
+    requireChunkSessionOwner,
   };
 }
 

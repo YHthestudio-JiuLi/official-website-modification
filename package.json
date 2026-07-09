@@ -10,7 +10,7 @@
     "deploy": "bash scripts/deploy.sh",
     "validate": "bash scripts/validate-migration.sh",
     "test:product-config": "node server/tests/productConfig.test.js",
-    "test:agent-scope": "node server/tests/agentDataScope.test.js",
+    "test:agent-scope": "node server/tests/agentDataScope.test.js && node server/tests/bridge-token.test.js",
     "dev": "npm run build && npm start",
     "build": "vite build",
     "preview": "vite preview",

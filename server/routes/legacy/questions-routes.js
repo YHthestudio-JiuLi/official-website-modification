@@ -31,9 +31,14 @@ function cleanupQuestionUploadContext(req, context) {
 function resolveChunkUploads(req, consumeCompletedQuestionUpload) {
   const dbChunkUploadId = String(req.body?.dbChunkUploadId || '').trim();
   const vectorChunkUploadId = String(req.body?.vectorChunkUploadId || '').trim();
+  const ownerUserId = resolveLegacyAdminUserId(req);
   return {
-    consumedDbChunk: dbChunkUploadId ? consumeCompletedQuestionUpload(dbChunkUploadId, 'dbFile') : null,
-    consumedVectorChunk: vectorChunkUploadId ? consumeCompletedQuestionUpload(vectorChunkUploadId, 'vectorFile') : null,
+    consumedDbChunk: dbChunkUploadId
+      ? consumeCompletedQuestionUpload(dbChunkUploadId, 'dbFile', ownerUserId)
+      : null,
+    consumedVectorChunk: vectorChunkUploadId
+      ? consumeCompletedQuestionUpload(vectorChunkUploadId, 'vectorFile', ownerUserId)
+      : null,
   };
 }
 
@@ -142,7 +147,12 @@ function registerLegacyQuestionRoutes(app, {
     }
   });
 
-  app.post('/api/admin/questions/upload/init', requireAdmin, (req, res) => {
+  app.post('/api/admin/questions/upload/init', requireAdmin, async (req, res) => {
+    const ctx = await agentScope.requireScopeContext(req, res);
+    if (!ctx) {
+      return;
+    }
+
     const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
     const fileField = String(req.body?.fileField || '').trim();
     const fileSize = parseInt(req.body?.fileSize, 10);
@@ -176,13 +186,19 @@ function registerLegacyQuestionRoutes(app, {
       fileField,
       fileSize,
       totalChunks,
+      ownerUserId: ctx.userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
     res.json({ ok: true, uploadId, chunkSize: 5 * 1024 * 1024 });
   });
 
-  app.post('/api/admin/questions/upload/chunk', requireAdmin, (req, res) => {
+  app.post('/api/admin/questions/upload/chunk', requireAdmin, async (req, res) => {
+    const ctx = await agentScope.requireScopeContext(req, res);
+    if (!ctx) {
+      return;
+    }
+
     questionChunkUpload.single('chunk')(req, res, (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -206,6 +222,9 @@ function registerLegacyQuestionRoutes(app, {
       if (!session) {
         return res.status(404).json({ error: 'Upload session expired' });
       }
+      if (!agentScope.requireChunkSessionOwner(req, res, session)) {
+        return;
+      }
       if (session.totalChunks !== totalChunks) {
         return res.status(400).json({ error: 'Chunk metadata mismatch' });
       }
@@ -218,6 +237,11 @@ function registerLegacyQuestionRoutes(app, {
   });
 
   app.post('/api/admin/questions/upload/complete', requireAdmin, async (req, res) => {
+    const scopeCtx = await agentScope.requireScopeContext(req, res);
+    if (!scopeCtx) {
+      return;
+    }
+
     const uploadId = String(req.body?.uploadId || '').trim();
     const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
     const fileField = String(req.body?.fileField || '').trim();
@@ -226,6 +250,9 @@ function registerLegacyQuestionRoutes(app, {
     const session = questionChunkSessions.get(uploadId);
     if (!session) {
       return res.status(404).json({ error: 'Upload session expired' });
+    }
+    if (!agentScope.requireChunkSessionOwner(req, res, session)) {
+      return;
     }
     if (
       session.fileName !== fileName ||
@@ -256,6 +283,7 @@ function registerLegacyQuestionRoutes(app, {
         fileField,
         originalName: fileName,
         storedPath: finalPath,
+        ownerUserId: scopeCtx.userId,
         createdAt: Date.now(),
       });
       cleanupQuestionChunkSession(uploadId);

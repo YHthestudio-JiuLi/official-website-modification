@@ -19,9 +19,12 @@ const {
   requireUser,
   requireAdmin,
   canAccessLegacyAdminApiAsync,
-  resolveLegacyAdminFromBridge,
-  tryPersistAdminSession
+  tryPersistAdminSession,
 } = require('./lib/auth');
+const {
+  resolveAdminRequestContext,
+  toAdminSessionUser,
+} = require('./lib/adminRequestContext');
 const uploads = require('./lib/uploads');
 const { attachWebSocket } = require('./ws');
 const { registerStaticRoutes, registerSpaFallback, registerErrorHandler } = require('./routes/static');
@@ -60,8 +63,9 @@ function createApp() {
     requireUser,
     requireAdmin,
     canAccessLegacyAdminApiAsync,
-    resolveLegacyAdminFromBridge,
     tryPersistAdminSession,
+    resolveAdminRequestContext,
+    toAdminSessionUser,
     broadcastToChat: () => {},
     ...uploads
   };

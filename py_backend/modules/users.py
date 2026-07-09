@@ -44,29 +44,19 @@ class UserManager:
         return row_to_dict(self.cur.fetchone())
 
     def can_access_admin(self, user_id: int) -> bool:
-        """与 Laravel User::canAccessAdmin 对齐：isAdmin / user_type / Spatie 角色与 admin.access 权限"""
+        """与 Laravel User::canAccessAdmin 对齐：super_admin 或 admin.access，纯 customer 拒绝"""
         user = self.find_by_id(user_id)
         if not user:
             return False
-        if user.get("isAdmin") in (1, True, "1"):
+        if self._is_super_admin(user):
             return True
-        user_type = str(user.get("user_type") or "customer").lower()
-        if user_type in ("agent", "staff", "super_admin"):
-            return True
+        role_names = self._role_names(user_id)
+        if role_names and role_names <= {"customer"}:
+            return False
+        return self._has_admin_access_permission(user_id)
 
+    def _has_admin_access_permission(self, user_id: int) -> bool:
         model_type = "App\\Models\\User"
-        self.cur.execute(
-            """
-            SELECT r.name FROM roles r
-            INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
-            WHERE mhr.model_type = ? AND mhr.model_id = ?
-            """,
-            (model_type, user_id),
-        )
-        role_names = {str(row[0]) for row in self.cur.fetchall()}
-        if role_names & {"super_admin", "staff", "agent"}:
-            return True
-
         self.cur.execute(
             """
             SELECT 1 FROM permissions p

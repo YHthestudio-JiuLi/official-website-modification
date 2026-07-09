@@ -67,7 +67,17 @@ class User extends Authenticatable
 
     public function canAccessAdmin(): bool
     {
-        return $this->isSuperAdmin() || $this->can('admin.access');
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // 纯 customer 角色不得进入后台（即使历史 isAdmin=1）
+        if ($this->hasRole('customer')
+            && ! $this->hasAnyRole(['super_admin', 'staff', 'agent'])) {
+            return false;
+        }
+
+        return $this->can('admin.access');
     }
 
     /** 开通代理：users 表中没有 agents 记录、且非超级管理员的用户 */

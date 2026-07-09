@@ -199,7 +199,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'token' => $this->legacyNodeTokens->mint($user->id),
+            'token' => $this->legacyNodeTokens->mint($user->id, LegacyNodeBridgeTokenService::AUD_USER),
         ]);
     }
 
@@ -220,7 +220,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'token' => $this->legacyNodeTokens->mint($user->id),
+            'token' => $this->legacyNodeTokens->mint($user->id, LegacyNodeBridgeTokenService::AUD_ADMIN),
         ]);
     }
 

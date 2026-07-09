@@ -1,89 +1,4 @@
-const { verifyLegacyNodeBridgeToken } = require('./bridge-token');
-const { canAccessLegacyAdminApiAsync } = require('./auth');
-
-const SCOPED_AGENT_CHECK_FAILED = 'SCOPED_AGENT_CHECK_FAILED';
-
-/**
- * RPC 不可用时的本地回退（与 Laravel AgentDataScope::isScopedAgentFromLocalRoles 语义对齐）
- * 仅依据 users 表字段，无法读取 Spatie 角色时保守返回 false（视为非受限代理）。
- */
-function isScopedAgentFromLocalUser(user) {
-  if (!user?.id) {
-    return false;
-  }
-  const userType = String(user.user_type || 'customer').toLowerCase();
-  if (userType === 'super_admin') {
-    return false;
-  }
-  if (user.isAdmin === 1 || user.isAdmin === true || user.isAdmin === '1') {
-    return false;
-  }
-  return userType === 'agent';
-}
-
-/** 与 Laravel AgentDataScope::isScopedAgent 对齐；RPC 失败时回退本地判断 */
-async function isScopedAgentUser(dbOperations, user) {
-  if (!user?.id) {
-    return false;
-  }
-  try {
-    return Boolean(await dbOperations.users.isScopedAgent(user.id));
-  } catch (error) {
-    console.warn('[agentDataScope] isScopedAgent RPC 失败，回退本地判断:', error.message);
-    return isScopedAgentFromLocalUser(user);
-  }
-}
-
-/** 解析当前管理端用户（优先 bridge token，其次 session + 本地/RPC 权限校验） */
-async function resolveRequestAdminUser(req, dbOperations) {
-  const token = req.headers['x-legacy-node-token'] || req.body?.token;
-  const bridgedUid = verifyLegacyNodeBridgeToken(token);
-  if (bridgedUid) {
-    try {
-      const user = await dbOperations.users.findById(bridgedUid);
-      if (user) {
-        return user;
-      }
-    } catch (error) {
-      console.error('[agentDataScope] bridge 用户加载失败:', error.message);
-    }
-  }
-
-  if (req.session?.admin?.id) {
-    try {
-      const user = await dbOperations.users.findById(req.session.admin.id);
-      if (user && (await canAccessLegacyAdminApiAsync(user))) {
-        return user;
-      }
-    } catch (error) {
-      console.error('[agentDataScope] session 用户加载失败:', error.message);
-    }
-  }
-
-  return null;
-}
-
-async function loadAgentScopeContext(req, dbOperations) {
-  const user = await resolveRequestAdminUser(req, dbOperations);
-  if (!user) {
-    return null;
-  }
-  const isScopedAgent = await isScopedAgentUser(dbOperations, user);
-  return {
-    user,
-    userId: Number(user.id),
-    isScopedAgent,
-  };
-}
-
-/** RPC 不可用时拒绝变更（fail-closed） */
-function denyIfScopeCheckFailed(res, ctx) {
-  if (ctx?.scopeCheckFailed) {
-    res.status(503).json({ error: 'Agent scope check unavailable' });
-    return false;
-  }
-  return true;
-}
+const { loadAgentScopeContext, rejectIfScopeCheckFailed } = require('./adminRequestContext');
 
 /** 代理仅能管理自己创建的资源；非代理无限制 */
 function canManageCreatedBy(isScopedAgent, userId, row) {
@@ -137,11 +52,8 @@ function assertAgentQuestionUpdateAllowed(res, isScopedAgent, question, body, fi
 }
 
 module.exports = {
-  SCOPED_AGENT_CHECK_FAILED,
-  isScopedAgentUser,
-  resolveRequestAdminUser,
   loadAgentScopeContext,
-  denyIfScopeCheckFailed,
+  rejectIfScopeCheckFailed,
   canManageCreatedBy,
   denyUnlessCanManage,
   denyScopedAgentAction,

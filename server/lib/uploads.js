@@ -82,10 +82,11 @@ function cleanupQuestionChunkSession(uploadId) {
   }
 }
 
-function consumeCompletedQuestionUpload(uploadId, expectedField) {
+function consumeCompletedQuestionUpload(uploadId, expectedField, ownerUserId = null) {
   const item = questionCompletedUploads.get(uploadId);
   if (!item) return null;
   if (expectedField && item.fileField !== expectedField) return null;
+  if (ownerUserId != null && Number(item.ownerUserId) !== Number(ownerUserId)) return null;
   questionCompletedUploads.delete(uploadId);
   return item;
 }

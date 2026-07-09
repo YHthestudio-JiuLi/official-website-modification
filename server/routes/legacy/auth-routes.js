@@ -2,15 +2,20 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { comparePassword } = require('../../lib/password');
 const { saveSession } = require('../../lib/session');
-const { verifyLegacyNodeBridgeToken } = require('../../lib/bridge-token');
+const {
+  parseBridgeToken,
+  BRIDGE_AUD_USER,
+  BRIDGE_AUD_ADMIN,
+} = require('../../lib/bridge-token');
 
 function registerLegacyAuthRoutes(app, deps) {
   const {
     dbOperations,
     loginLimiter,
     canAccessLegacyAdminApiAsync,
-    resolveLegacyAdminFromBridge,
     tryPersistAdminSession,
+    resolveAdminRequestContext,
+    toAdminSessionUser,
   } = deps;
 
   app.get('/api/auth/me', (req, res) => {
@@ -58,14 +63,14 @@ function registerLegacyAuthRoutes(app, deps) {
     res.json({ message: 'Logged out' });
   });
 
-  /** Laravel V2 已登录时，用短期 bridge token 建立 Node 前台用户会话（在线客服等） */
+  /** Laravel V2 已登录时，用 aud=user bridge token 建立 Node 前台用户会话 */
   app.post('/api/auth/establish', express.json(), async (req, res) => {
-    const uid = verifyLegacyNodeBridgeToken(req.body?.token);
-    if (!uid) {
+    const bridge = parseBridgeToken(req.body?.token, BRIDGE_AUD_USER);
+    if (!bridge?.uid) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
     try {
-      const user = await dbOperations.users.findById(uid);
+      const user = await dbOperations.users.findById(bridge.uid);
       if (!user) {
         return res.status(403).json({ error: 'User not found in legacy database' });
       }
@@ -80,16 +85,17 @@ function registerLegacyAuthRoutes(app, deps) {
 
   app.get('/api/admin/auth/me', async (req, res) => {
     try {
+      const ctx = await resolveAdminRequestContext(req, dbOperations);
+      if (!ctx?.user) {
+        req.session.admin = null;
+        return res.status(401).json({ admin: null });
+      }
+
+      const admin = toAdminSessionUser(ctx);
       if (!req.session.admin) {
-        const bridged = await resolveLegacyAdminFromBridge(req);
-        if (bridged) {
-          await tryPersistAdminSession(req, bridged);
-        }
+        await tryPersistAdminSession(req, admin);
       }
-      if (req.session.admin) {
-        return res.json({ admin: req.session.admin });
-      }
-      return res.status(401).json({ admin: null });
+      return res.json({ admin });
     } catch (error) {
       console.error('[admin/auth/me] 失败:', error.message);
       return res.status(503).json({ error: 'Database service unavailable' });
@@ -114,18 +120,17 @@ function registerLegacyAuthRoutes(app, deps) {
     }
   });
 
-  /** Laravel V2 已登录时，用短期 bridge token 建立 Node admin 会话（生产双栈 Cookie 同步） */
+  /** Laravel V2 已登录时，用 aud=admin bridge token 建立 Node admin 会话 */
   app.post('/api/admin/auth/establish', express.json(), async (req, res) => {
-    const uid = verifyLegacyNodeBridgeToken(req.body?.token);
-    if (!uid) {
+    const bridge = parseBridgeToken(req.body?.token, BRIDGE_AUD_ADMIN);
+    if (!bridge?.uid) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
     try {
-      const user = await dbOperations.users.findById(uid);
-      if (!user) {
+      const user = await dbOperations.users.findById(bridge.uid);
+      if (!user || !(await canAccessLegacyAdminApiAsync(user))) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      // bridge token 已由 Laravel 在 canAccessAdmin 通过后签发，Node 侧仅校验用户存在
       req.session.admin = { id: user.id, username: user.username, email: user.email };
       await saveSession(req);
       return res.json({ admin: req.session.admin });

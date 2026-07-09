@@ -122,7 +122,12 @@ function registerFirmwareAdminRoutes(app, deps) {
     }
   });
 
-  app.post('/api/admin/device-firmwares/upload/init', requireAdmin, (req, res) => {
+  app.post('/api/admin/device-firmwares/upload/init', requireAdmin, async (req, res) => {
+    const ctx = await agentScope.requireScopeContext(req, res);
+    if (!ctx) {
+      return;
+    }
+
     const fileName = normalizeUploadFileName(String(req.body?.fileName || '').trim());
     const fileSize = parseInt(req.body?.fileSize, 10);
     const totalChunks = parseInt(req.body?.totalChunks, 10);
@@ -147,6 +152,7 @@ function registerFirmwareAdminRoutes(app, deps) {
       fileSize,
       totalChunks,
       receivedChunks: new Set(),
+      ownerUserId: ctx.userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -157,7 +163,12 @@ function registerFirmwareAdminRoutes(app, deps) {
     });
   });
 
-  app.post('/api/admin/device-firmwares/upload/chunk', requireAdmin, (req, res) => {
+  app.post('/api/admin/device-firmwares/upload/chunk', requireAdmin, async (req, res) => {
+    const ctx = await agentScope.requireScopeContext(req, res);
+    if (!ctx) {
+      return;
+    }
+
     firmwareChunkUpload.single('chunk')(req, res, (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -180,6 +191,9 @@ function registerFirmwareAdminRoutes(app, deps) {
       const session = firmwareChunkSessions.get(uploadId);
       if (!session) {
         return res.status(404).json({ error: 'Upload session expired' });
+      }
+      if (!agentScope.requireChunkSessionOwner(req, res, session)) {
+        return;
       }
       if (session.totalChunks !== totalChunks) {
         return res.status(400).json({ error: 'Chunk metadata mismatch' });
@@ -213,6 +227,9 @@ function registerFirmwareAdminRoutes(app, deps) {
     const session = firmwareChunkSessions.get(uploadId);
     if (!session) {
       return res.status(404).json({ error: 'Upload session expired' });
+    }
+    if (!agentScope.requireChunkSessionOwner(req, res, session)) {
+      return;
     }
     if (
       session.fileName !== fileName

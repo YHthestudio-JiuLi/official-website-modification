@@ -22,7 +22,7 @@ trait ForwardsLegacyNodeAdminRequests
         $tokens = app(LegacyNodeBridgeTokenService::class);
 
         $admin = Auth::guard('admin')->user();
-        $token = $admin ? $tokens->mint((int) $admin->id) : null;
+        $token = $admin ? $tokens->mint((int) $admin->id, LegacyNodeBridgeTokenService::AUD_ADMIN) : null;
 
         $resp = $bridge->forward($request, $legacyPath, $token);
 

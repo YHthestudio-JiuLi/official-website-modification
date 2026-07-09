@@ -59,6 +59,16 @@ Laravel（内网）
 
 401 时全局拦截器调用 `redirectToAdminLogin()` 自动跳转登录页。
 
+### 权限与代理范围（权威层）
+
+| 概念 | 权威实现 | Node / Laravel 用法 |
+|------|----------|---------------------|
+| 能否登录后台 | Laravel `User::canAccessAdmin()` + Python `users.can_access_admin()` | Node `resolveAdminRequestContext` 统一 RPC 校验 |
+| 代理数据范围 | Python `users.is_scoped_agent()` | Node `adminRequestContext` + `agentScopeRoute` |
+| 分片上传鉴权 | Laravel 代发 `aud=admin` bridge token | Node `requireAdmin` → init/chunk/complete 绑定 `ownerUserId` |
+
+**约定：** 业务读写优先走 Laravel V2；Node 仅处理大文件上传与会话桥接。新增代理规则时先改 Python RPC，再对齐 Laravel trait 与 Node helper。
+
 ## 环境变量
 
 | 文件 | 用途 |

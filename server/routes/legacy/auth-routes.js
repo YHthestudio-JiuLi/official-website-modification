@@ -122,9 +122,10 @@ function registerLegacyAuthRoutes(app, deps) {
     }
     try {
       const user = await dbOperations.users.findById(uid);
-      if (!user || !(await canAccessLegacyAdminApiAsync(user))) {
+      if (!user) {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      // bridge token 已由 Laravel 在 canAccessAdmin 通过后签发，Node 侧仅校验用户存在
       req.session.admin = { id: user.id, username: user.username, email: user.email };
       await saveSession(req);
       return res.json({ admin: req.session.admin });

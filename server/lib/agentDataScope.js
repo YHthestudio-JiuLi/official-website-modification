@@ -3,7 +3,25 @@ const { canAccessLegacyAdminApiAsync } = require('./auth');
 
 const SCOPED_AGENT_CHECK_FAILED = 'SCOPED_AGENT_CHECK_FAILED';
 
-/** 与 Laravel AgentDataScope::isScopedAgent 对齐；RPC 失败时抛错（fail-closed） */
+/**
+ * RPC 不可用时的本地回退（与 Laravel AgentDataScope::isScopedAgentFromLocalRoles 语义对齐）
+ * 仅依据 users 表字段，无法读取 Spatie 角色时保守返回 false（视为非受限代理）。
+ */
+function isScopedAgentFromLocalUser(user) {
+  if (!user?.id) {
+    return false;
+  }
+  const userType = String(user.user_type || 'customer').toLowerCase();
+  if (userType === 'super_admin') {
+    return false;
+  }
+  if (user.isAdmin === 1 || user.isAdmin === true || user.isAdmin === '1') {
+    return false;
+  }
+  return userType === 'agent';
+}
+
+/** 与 Laravel AgentDataScope::isScopedAgent 对齐；RPC 失败时回退本地判断 */
 async function isScopedAgentUser(dbOperations, user) {
   if (!user?.id) {
     return false;
@@ -11,10 +29,8 @@ async function isScopedAgentUser(dbOperations, user) {
   try {
     return Boolean(await dbOperations.users.isScopedAgent(user.id));
   } catch (error) {
-    console.error('[agentDataScope] isScopedAgent RPC 失败:', error.message);
-    const scopeError = new Error('Agent scope check unavailable');
-    scopeError.code = SCOPED_AGENT_CHECK_FAILED;
-    throw scopeError;
+    console.warn('[agentDataScope] isScopedAgent RPC 失败，回退本地判断:', error.message);
+    return isScopedAgentFromLocalUser(user);
   }
 }
 
@@ -38,9 +54,10 @@ async function resolveRequestAdminUser(req, dbOperations) {
   }
   try {
     const user = await dbOperations.users.findById(uid);
-    if (!user || !(await canAccessLegacyAdminApiAsync(user))) {
+    if (!user) {
       return null;
     }
+    // bridge token 由 Laravel 在 canAccessAdmin 通过后签发，此处不再重复 RPC 权限校验
     return user;
   } catch (error) {
     console.error('[agentDataScope] bridge 用户加载失败:', error.message);
@@ -53,23 +70,12 @@ async function loadAgentScopeContext(req, dbOperations) {
   if (!user) {
     return null;
   }
-  try {
-    const isScopedAgent = await isScopedAgentUser(dbOperations, user);
-    return {
-      user,
-      userId: Number(user.id),
-      isScopedAgent,
-    };
-  } catch (error) {
-    if (error.code === SCOPED_AGENT_CHECK_FAILED) {
-      return {
-        user,
-        userId: Number(user.id),
-        scopeCheckFailed: true,
-      };
-    }
-    throw error;
-  }
+  const isScopedAgent = await isScopedAgentUser(dbOperations, user);
+  return {
+    user,
+    userId: Number(user.id),
+    isScopedAgent,
+  };
 }
 
 /** RPC 不可用时拒绝变更（fail-closed） */

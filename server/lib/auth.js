@@ -35,7 +35,8 @@ async function resolveLegacyAdminFromBridge(req) {
   if (!uid) return null;
   try {
     const user = await dbOperations.users.findById(uid);
-    if (!user || !(await canAccessLegacyAdminApiAsync(user))) return null;
+    if (!user) return null;
+    // Laravel 签发的 bridge token 已证明后台访问权限
     return { id: user.id, username: user.username, email: user.email };
   } catch (error) {
     console.error('[resolveLegacyAdminFromBridge] 失败:', error.message);

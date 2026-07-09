@@ -1,6 +1,5 @@
 const assert = require('assert');
 const {
-  SCOPED_AGENT_CHECK_FAILED,
   isScopedAgentUser,
   loadAgentScopeContext,
   denyIfScopeCheckFailed,
@@ -59,7 +58,7 @@ assert.strictEqual(canManageCreatedBy(true, 12, null), false);
   assert.strictEqual(denyIfScopeCheckFailed(mockRes(), { isScopedAgent: false }), true);
 }
 
-// isScopedAgentUser RPC 失败时抛错
+// isScopedAgentUser RPC 失败时回退本地判断
 (async () => {
   const failingDb = {
     users: {
@@ -68,19 +67,13 @@ assert.strictEqual(canManageCreatedBy(true, 12, null), false);
       },
     },
   };
-  let threw = false;
-  try {
-    await isScopedAgentUser(failingDb, { id: 12 });
-  } catch (error) {
-    threw = true;
-    assert.strictEqual(error.code, SCOPED_AGENT_CHECK_FAILED);
-  }
-  assert.strictEqual(threw, true);
+  assert.strictEqual(await isScopedAgentUser(failingDb, { id: 12, user_type: 'agent' }), true);
+  assert.strictEqual(await isScopedAgentUser(failingDb, { id: 1, isAdmin: 1, user_type: 'customer' }), false);
 
   const req = { session: { admin: { id: 12 } } };
   const dbOperations = {
     users: {
-      findById: async () => ({ id: 12, isAdmin: 0 }),
+      findById: async () => ({ id: 12, user_type: 'agent', isAdmin: 0 }),
       isScopedAgent: async () => {
         throw new Error('rpc down');
       },
@@ -91,11 +84,9 @@ assert.strictEqual(canManageCreatedBy(true, 12, null), false);
   auth.canAccessLegacyAdminApiAsync = async () => true;
   try {
     const ctx = await loadAgentScopeContext(req, dbOperations);
-    assert.strictEqual(ctx.scopeCheckFailed, true);
+    assert.strictEqual(ctx.isScopedAgent, true);
     assert.strictEqual(ctx.userId, 12);
-    const res = mockRes();
-    assert.strictEqual(denyIfScopeCheckFailed(res, ctx), false);
-    assert.strictEqual(res.statusCode, 503);
+    assert.strictEqual(denyIfScopeCheckFailed(mockRes(), ctx), true);
   } finally {
     auth.canAccessLegacyAdminApiAsync = original;
   }

@@ -1,5 +1,12 @@
 # YHthestudio 生产部署说明（V2.1.1）
 
+# 一键更新部署脚本
+ROOT=/www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2 && \
+cd "$ROOT" && \
+git -c safe.directory="$ROOT" pull github refs/heads/V2.1.1 && \
+bash scripts/deploy.sh --laravel-fpm
+
+
 > 面向 **宝塔面板 + OpenCloudOS/CentOS** 的新手逐步部署指南。  
 > 按章节顺序执行，不要跳步。  
 > **版本**：V2.1.1 · 分支 `vue_0.2.0`

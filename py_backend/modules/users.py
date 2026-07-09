@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from ..utils import DEFAULT_ADMIN_BCRYPT_HASH, row_to_dict, rows_to_dict
+from ..utils import DEFAULT_ADMIN_BCRYPT_HASH, first_column, row_to_dict, rows_to_dict
 
 
 class UserManager:
@@ -88,15 +88,25 @@ class UserManager:
 
     def _role_names(self, user_id: int) -> set[str]:
         model_type = "App\\Models\\User"
-        self.cur.execute(
-            """
-            SELECT r.name FROM roles r
-            INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
-            WHERE mhr.model_type = ? AND mhr.model_id = ? AND r.guard_name = 'web'
-            """,
-            (model_type, user_id),
-        )
-        return {str(row[0]) for row in self.cur.fetchall()}
+        try:
+            self.cur.execute(
+                """
+                SELECT r.name FROM roles r
+                INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
+                WHERE mhr.model_type = ? AND mhr.model_id = ? AND r.guard_name = 'web'
+                """,
+                (model_type, user_id),
+            )
+            names: set[str] = set()
+            for row in self.cur.fetchall():
+                value = first_column(row, "name")
+                if value is not None:
+                    names.add(str(value))
+            return names
+        except Exception as exc:
+            # Spatie 表未就绪时降级，避免 isScopedAgent RPC 整体失败
+            print(f"[users._role_names] 查询失败 user_id={user_id}: {exc}", flush=True)
+            return set()
 
     def _is_super_admin(self, user: Dict[str, Any]) -> bool:
         user_id = int(user.get("id") or 0)

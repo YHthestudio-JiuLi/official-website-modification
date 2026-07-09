@@ -40,6 +40,12 @@ class TestIsScopedAgent(unittest.TestCase):
         with patch.object(self.users, '_role_names', return_value=set()):
             self.assertFalse(self.users.is_scoped_agent(admin_id))
 
+    def test_role_names_reads_dict_cursor_rows(self) -> None:
+        """MySQL DictCursor 返回 dict，不能用 row[0]"""
+        with patch.object(self.users.cur, 'fetchall', return_value=[{'name': 'agent'}]):
+            with patch.object(self.users.cur, 'execute'):
+                self.assertEqual(self.users._role_names(self.user_id), {'agent'})
+
 
 if __name__ == '__main__':
     unittest.main()

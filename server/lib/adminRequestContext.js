@@ -68,14 +68,27 @@ async function loadAgentScopeContext(req, dbOperations) {
   return resolveAdminRequestContext(req, dbOperations);
 }
 
+/** RPC 失败时本地推断 isScopedAgent（与 Laravel AgentDataScope fallback 对齐） */
+function inferScopedAgentLocally(user) {
+  if (!user?.id) return false;
+  const userType = String(user.user_type || '').toLowerCase();
+  if (userType === 'super_admin') return false;
+  const isLegacySuperAdmin = (
+    (user.isAdmin === 1 || user.isAdmin === true || String(user.isAdmin) === '1')
+    && !userType
+  );
+  if (isLegacySuperAdmin) return false;
+  return userType === 'agent';
+}
+
 async function attachScopeFields(user, meta, dbOperations) {
   let isScopedAgent = false;
   let scopeCheckFailed = false;
   try {
     isScopedAgent = Boolean(await dbOperations.users.isScopedAgent(user.id));
   } catch (error) {
-    console.error('[adminRequestContext] isScopedAgent RPC 失败:', error.message);
-    scopeCheckFailed = true;
+    console.error('[adminRequestContext] isScopedAgent RPC 失败，已本地回退:', error.message);
+    isScopedAgent = inferScopedAgentLocally(user);
   }
   return {
     user,

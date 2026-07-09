@@ -88,6 +88,19 @@ def get_db_lock() -> threading.Lock:
     return _db_lock
 
 
+def first_column(row: Any, column: str = "") -> Any:
+    """从 PyMySQL DictCursor 或 sqlite3 Row 取首列/指定列"""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        if column and column in row:
+            return row[column]
+        return next(iter(row.values()), None)
+    if isinstance(row, (list, tuple)):
+        return row[0] if row else None
+    return None
+
+
 def row_to_dict(row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:
     if row is None:
         return None

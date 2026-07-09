@@ -88,9 +88,10 @@ assert.strictEqual(canManageCreatedBy(true, 12, { created_by_user_id: 99 }), fal
     },
   };
   const failCtx = await resolveAdminRequestContext(adminBridgeReq, failDb);
-  assert.strictEqual(failCtx.scopeCheckFailed, true);
+  assert.strictEqual(failCtx.scopeCheckFailed, false);
+  assert.strictEqual(failCtx.isScopedAgent, true);
   const res = mockRes();
-  assert.strictEqual(rejectIfScopeCheckFailed(res, failCtx), true);
+  assert.strictEqual(rejectIfScopeCheckFailed(res, failCtx), false);
 
   const chunkRes = mockRes();
   assert.strictEqual(

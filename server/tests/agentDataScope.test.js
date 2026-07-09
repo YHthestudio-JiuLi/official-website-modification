@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   isScopedAgentUser,
+  resolveRequestAdminUser,
   loadAgentScopeContext,
   denyIfScopeCheckFailed,
   canManageCreatedBy,
@@ -58,8 +59,20 @@ assert.strictEqual(canManageCreatedBy(true, 12, null), false);
   assert.strictEqual(denyIfScopeCheckFailed(mockRes(), { isScopedAgent: false }), true);
 }
 
-// isScopedAgentUser RPC 失败时回退本地判断
+function mintTestBridgeToken(uid, secret = 'test-bridge-secret') {
+  const crypto = require('crypto');
+  const payloadB64 = Buffer.from(JSON.stringify({
+    uid,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const sig = crypto.createHmac('sha256', secret).update(payloadB64).digest('hex');
+  return `${payloadB64}.${sig}`;
+}
+
+// isScopedAgentUser RPC 失败时回退本地判断；bridge token 优先于 session
 (async () => {
+  process.env.NODE_INTERNAL_SECRET = 'test-bridge-secret';
+
   const failingDb = {
     users: {
       isScopedAgent: async () => {
@@ -70,25 +83,36 @@ assert.strictEqual(canManageCreatedBy(true, 12, null), false);
   assert.strictEqual(await isScopedAgentUser(failingDb, { id: 12, user_type: 'agent' }), true);
   assert.strictEqual(await isScopedAgentUser(failingDb, { id: 1, isAdmin: 1, user_type: 'customer' }), false);
 
-  const req = { session: { admin: { id: 12 } } };
   const dbOperations = {
     users: {
-      findById: async () => ({ id: 12, user_type: 'agent', isAdmin: 0 }),
-      isScopedAgent: async () => {
-        throw new Error('rpc down');
-      },
+      findById: async (id) => (
+        Number(id) === 12
+          ? { id: 12, user_type: 'customer', isAdmin: 0 }
+          : null
+      ),
+      canAccessAdmin: async () => false,
+      isScopedAgent: async () => false,
     },
   };
   const auth = require('../lib/auth');
-  const original = auth.canAccessLegacyAdminApiAsync;
-  auth.canAccessLegacyAdminApiAsync = async () => true;
+  const originalCanAccess = auth.canAccessLegacyAdminApiAsync;
+  auth.canAccessLegacyAdminApiAsync = async () => false;
+
+  const bridgeTokenValue = mintTestBridgeToken(12);
+  const bridgedReq = {
+    session: { admin: { id: 12 } },
+    headers: { 'x-legacy-node-token': bridgeTokenValue },
+  };
   try {
-    const ctx = await loadAgentScopeContext(req, dbOperations);
-    assert.strictEqual(ctx.isScopedAgent, true);
+    const user = await resolveRequestAdminUser(bridgedReq, dbOperations);
+    assert.strictEqual(user.id, 12);
+
+    const ctx = await loadAgentScopeContext(bridgedReq, dbOperations);
+    assert.strictEqual(ctx.isScopedAgent, false);
     assert.strictEqual(ctx.userId, 12);
     assert.strictEqual(denyIfScopeCheckFailed(mockRes(), ctx), true);
   } finally {
-    auth.canAccessLegacyAdminApiAsync = original;
+    auth.canAccessLegacyAdminApiAsync = originalCanAccess;
   }
 })().then(() => {
   console.log('agentDataScope: ok');

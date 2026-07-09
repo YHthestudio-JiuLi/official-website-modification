@@ -64,7 +64,15 @@ async function tryPersistAdminSession(req, admin) {
   }
 }
 
+/** 从请求头/body 解析 Laravel bridge token 对应的用户 ID */
+function resolveBridgedAdminUserId(req) {
+  const token = req.headers['x-legacy-node-token'] || req.body?.token;
+  return verifyLegacyNodeBridgeToken(token);
+}
+
 async function requireAdmin(req, res, next) {
+  const bridgedUid = resolveBridgedAdminUserId(req);
+
   if (!req.session.admin) {
     const bridged = await resolveLegacyAdminFromBridge(req);
     if (bridged) {
@@ -76,7 +84,15 @@ async function requireAdmin(req, res, next) {
   }
   try {
     const user = await dbOperations.users.findById(req.session.admin.id);
-    if (!user || !(await canAccessLegacyAdminApiAsync(user))) {
+    if (!user) {
+      req.session.admin = null;
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    // Laravel 已登录并签发 bridge token 时（含代理账号），跳过后台权限重复 RPC 校验
+    if (bridgedUid && Number(bridgedUid) === Number(user.id)) {
+      return next();
+    }
+    if (!(await canAccessLegacyAdminApiAsync(user))) {
       req.session.admin = null;
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -93,6 +109,7 @@ module.exports = {
   canAccessLegacyAdminApi,
   canAccessLegacyAdminApiAsync,
   resolveLegacyAdminFromBridge,
+  resolveBridgedAdminUserId,
   tryPersistAdminSession,
   resolveLegacyAdminUserId
 };

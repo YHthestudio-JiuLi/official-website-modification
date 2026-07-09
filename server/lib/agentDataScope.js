@@ -34,8 +34,21 @@ async function isScopedAgentUser(dbOperations, user) {
   }
 }
 
-/** 解析当前管理端用户（session 或 bridge token，含角色校验） */
+/** 解析当前管理端用户（优先 bridge token，其次 session + 本地/RPC 权限校验） */
 async function resolveRequestAdminUser(req, dbOperations) {
+  const token = req.headers['x-legacy-node-token'] || req.body?.token;
+  const bridgedUid = verifyLegacyNodeBridgeToken(token);
+  if (bridgedUid) {
+    try {
+      const user = await dbOperations.users.findById(bridgedUid);
+      if (user) {
+        return user;
+      }
+    } catch (error) {
+      console.error('[agentDataScope] bridge 用户加载失败:', error.message);
+    }
+  }
+
   if (req.session?.admin?.id) {
     try {
       const user = await dbOperations.users.findById(req.session.admin.id);
@@ -47,22 +60,7 @@ async function resolveRequestAdminUser(req, dbOperations) {
     }
   }
 
-  const token = req.headers['x-legacy-node-token'] || req.body?.token;
-  const uid = verifyLegacyNodeBridgeToken(token);
-  if (!uid) {
-    return null;
-  }
-  try {
-    const user = await dbOperations.users.findById(uid);
-    if (!user) {
-      return null;
-    }
-    // bridge token 由 Laravel 在 canAccessAdmin 通过后签发，此处不再重复 RPC 权限校验
-    return user;
-  } catch (error) {
-    console.error('[agentDataScope] bridge 用户加载失败:', error.message);
-    return null;
-  }
+  return null;
 }
 
 async function loadAgentScopeContext(req, dbOperations) {

@@ -88,9 +88,17 @@ async def create_question(
     db_file: UploadFile = File(None),
     vector_file: UploadFile = File(None),
     name: str = Form(...),
-    category_name: str | None = Form(None)
+    category_name: str | None = Form(None),
+    created_by_user_id: int | None = Form(None)
 ) -> Dict[str, Any]:
     logger.info(f"Create question request - name: {name}, db_file: {db_file.filename if db_file else None}, vector_file: {vector_file.filename if vector_file else None}")
+
+    owner_id = None
+    if created_by_user_id is not None:
+        try:
+            owner_id = int(created_by_user_id)
+        except (TypeError, ValueError):
+            owner_id = None
     
     try:
         with get_db_lock():
@@ -98,7 +106,8 @@ async def create_question(
                 name=name,
                 category_name=(category_name.strip() if category_name else None),
                 db_file_path=None,
-                vector_file_path=None
+                vector_file_path=None,
+                created_by_user_id=owner_id,
             )
         
         question_dir = QUESTIONS_UPLOAD_DIR / str(question_id)

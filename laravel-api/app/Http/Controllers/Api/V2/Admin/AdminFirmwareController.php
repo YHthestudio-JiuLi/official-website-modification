@@ -3,42 +3,66 @@
 namespace App\Http\Controllers\Api\V2\Admin;
 
 use App\Http\Controllers\Api\V2\Admin\Concerns\ForwardsLegacyNodeAdminRequests;
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\V2\Admin\Concerns\ScopesAgentOwnedAdminList;
+use App\Services\Agent\AgentDataScope;
+use App\Services\Agent\CreatorAttributionEnricher;
 use App\Services\Legacy\FirmwareService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
 
-class AdminFirmwareController extends Controller
+class AdminFirmwareController extends AdminAgentScopedResourceController
 {
     use ForwardsLegacyNodeAdminRequests;
+    use ScopesAgentOwnedAdminList;
 
-    public function __construct(private readonly FirmwareService $firmware) {}
+    public function __construct(
+        private readonly FirmwareService $firmware,
+        AgentDataScope $agentScope,
+        CreatorAttributionEnricher $creatorAttribution,
+    ) {
+        parent::__construct($agentScope, $creatorAttribution);
+    }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            return response()->json(['items' => $this->firmware->listFirmwareFiles()]);
+            $ownerId = $this->scopedOwnerId($request);
+            $items = $this->firmware->listFirmwareFiles($ownerId);
+
+            return $this->jsonListResponse($items, $ownerId);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 503);
         }
     }
 
-    public function localFiles(): JsonResponse
+    public function localFiles(Request $request): JsonResponse
     {
+        if ($this->agentScope->isScopedAgent($request->user())) {
+            return response()->json(['error' => 'Agents cannot list server firmware files'], 403);
+        }
+
         try {
             return response()->json(['items' => $this->firmware->listLocalFiles()]);
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return response()->json(['error' => 'Failed to list local firmware files'], 500);
         }
     }
 
     public function registerLocal(Request $request): JsonResponse
     {
+        if ($this->agentScope->isScopedAgent($request->user())) {
+            return response()->json(['error' => 'Agents cannot register server firmware files'], 403);
+        }
+
         $fileName = (string) ($request->input('file_name') ?? '');
 
         try {
-            $firmware = $this->firmware->registerLocal($fileName, $request->input('remark'));
+            $firmware = $this->firmware->registerLocal(
+                $fileName,
+                $request->input('remark'),
+                (int) $request->user()->id
+            );
 
             return response()->json(['ok' => true, 'firmware' => $firmware]);
         } catch (RuntimeException $e) {
@@ -72,8 +96,14 @@ class AdminFirmwareController extends Controller
         return $this->forwardLegacyNodeAdmin($request, '/api/admin/device-firmwares/upload');
     }
 
-    public function setDefault(int $id): JsonResponse
+    public function setDefault(Request $request, int $id): JsonResponse
     {
+        if ($this->agentScope->isScopedAgent($request->user())) {
+            return response()->json(['error' => 'Agents cannot set platform default firmware'], 403);
+        }
+
+        $this->assertCanManageFirmwareById($request, $id);
+
         try {
             $this->firmware->setDefault($id);
 
@@ -85,6 +115,8 @@ class AdminFirmwareController extends Controller
 
     public function updateRemark(Request $request, int $id): JsonResponse
     {
+        $this->assertCanManageFirmwareById($request, $id);
+
         try {
             $firmware = $this->firmware->updateRemark($id, $request->input('remark'));
 
@@ -94,8 +126,10 @@ class AdminFirmwareController extends Controller
         }
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
+        $this->assertCanManageFirmwareById($request, $id);
+
         try {
             $this->firmware->delete($id);
 
@@ -103,5 +137,14 @@ class AdminFirmwareController extends Controller
         } catch (\Throwable) {
             return response()->json(['error' => 'Database service unavailable'], 503);
         }
+    }
+
+    private function assertCanManageFirmwareById(Request $request, int $id): void
+    {
+        $firmware = $this->firmware->findById($id);
+        if (! $firmware) {
+            abort(404, 'Firmware not found');
+        }
+        $this->agentScope->assertCanManageFirmware($request->user(), $firmware);
     }
 }

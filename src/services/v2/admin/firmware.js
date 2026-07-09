@@ -24,9 +24,9 @@ export function updateFirmwareRemark(id, payload) {
   return v2.put(`/admin/device-firmwares/${id}/remark`, payload)
 }
 
-/** 直连 Node 删除（含 uploads 清理），避免 PHP 无权限删 root 所属文件 */
+/** 走 Laravel v2 删除（含归属校验与 uploads 清理） */
 export async function deleteFirmware(id) {
-  return api.delete(`/api/admin/device-firmwares/${id}`)
+  return v2.delete(`/admin/device-firmwares/${id}`)
 }
 
 export function initFirmwareUpload(payload) {

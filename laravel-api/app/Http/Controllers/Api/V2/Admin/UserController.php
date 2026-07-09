@@ -9,9 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+    private const AGENT_ROLE_LOCK_MESSAGE = 'Agent role can only be managed in Agent Accounts';
+
     public function index(Request $request): JsonResponse
     {
         $query = User::query()->with(['roles', 'agent'])->orderByDesc('id');
@@ -41,6 +44,8 @@ class UserController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->ensureAgentRoleNotManagedHere($request);
+
         $data = $request->validate([
             'username' => ['required', 'string', 'max:255', 'unique:users,username'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -71,6 +76,8 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
+        $this->ensureAgentRoleNotManagedHere($request, $user);
+
         $data = $request->validate([
             'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'string', 'min:8', 'max:255'],
@@ -131,6 +138,33 @@ class UserController extends Controller
         }
 
         return $existing?->roles->pluck('name')->all() ?? ['customer'];
+    }
+
+    private function ensureAgentRoleNotManagedHere(Request $request, ?User $existing = null): void
+    {
+        $incomingRoles = null;
+        if ($request->has('roles')) {
+            $incomingRoles = array_values(array_unique(array_filter((array) $request->input('roles', []))));
+        }
+        $incomingHasAgentRole = is_array($incomingRoles) && in_array('agent', $incomingRoles, true);
+        $incomingAgentUserType = $request->input('user_type') === 'agent';
+
+        $existingHasAgentIdentity = $existing
+            && ($existing->hasRole('agent')
+                || $existing->agent()->exists()
+                || $existing->user_type === 'agent');
+
+        if ($incomingHasAgentRole || $incomingAgentUserType) {
+            throw ValidationException::withMessages([
+                'roles' => [self::AGENT_ROLE_LOCK_MESSAGE],
+            ]);
+        }
+
+        if ($existingHasAgentIdentity && ($request->has('roles') || $request->has('user_type'))) {
+            throw ValidationException::withMessages([
+                'roles' => [self::AGENT_ROLE_LOCK_MESSAGE],
+            ]);
+        }
     }
 
     /** @param  array<int, string>  $roles */

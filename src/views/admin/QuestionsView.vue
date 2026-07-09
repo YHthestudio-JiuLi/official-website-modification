@@ -59,6 +59,7 @@
                 <th>{{ $t('admin.questions.colDbFile') }}</th>
                 <th>{{ $t('admin.questions.colIndexFile') }}</th>
                 <th>{{ $t('admin.questions.colCreatedAt') }}</th>
+                <AdminCreatedByHeader :show-column="!isScopedAgent" />
                 <th class="text-center">{{ $t('admin.questions.colActions') }}</th>
               </tr>
             </thead>
@@ -91,6 +92,7 @@
                 <td>
                   <span class="date-cell">{{ formatDate(question.created_at) }}</span>
                 </td>
+                <AdminCreatedByCell :show-cell="!isScopedAgent" :username="question.created_by_username" />
                 <td class="actions-cell">
                   <div v-if="canEdit || canDelete" class="action-group">
                     <router-link
@@ -116,7 +118,7 @@
                 </td>
               </tr>
               <tr v-if="filteredQuestions.length === 0">
-                <td colspan="7" class="empty-state">
+                <td :colspan="isScopedAgent ? 7 : 8" class="empty-state">
                   <i class="fas fa-database"></i>
                   <h3>{{ questions.length === 0 ? $t('admin.questions.emptyAllTitle') : $t('admin.questions.emptyFilterTitle') }}</h3>
                   <p>{{ questions.length === 0 ? $t('admin.questions.emptyAllDesc') : $t('admin.questions.emptyFilterDesc') }}</p>
@@ -178,9 +180,11 @@ import {
   deleteQuestion
 } from '@/services/v2/admin/questions'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminCreatedByHeader from '@/components/admin/AdminCreatedByHeader.vue'
+import AdminCreatedByCell from '@/components/admin/AdminCreatedByCell.vue'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
-const { has } = useAdminPermissions()
+const { has, isScopedAgent } = useAdminPermissions()
 
 const { t, locale } = useI18n()
 

@@ -19,6 +19,13 @@ async function rpc(op, args = {}) {
     throw new Error(detail || `Python DB backend error (${res.status})`);
   }
 
+  if (payload && payload.ok === false && payload.code) {
+    const err = new Error(payload.detail || payload.code);
+    err.code = payload.code;
+    err.httpStatus = payload.http_status;
+    throw err;
+  }
+
   if (!payload || payload.ok !== true) {
     throw new Error((payload && payload.error) || 'Python DB backend returned invalid payload');
   }
@@ -38,6 +45,7 @@ const dbOperations = {
     findById: (id) => rpc('users.findById', { id }),
     findByUsername: (username) => rpc('users.findByUsername', { username }),
     canAccessAdmin: (id) => rpc('users.canAccessAdmin', { id }),
+    isScopedAgent: (id) => rpc('users.isScopedAgent', { id }),
     findByEmail: (email) => rpc('users.findByEmail', { email }),
     create: (username, email, password, isAdmin = 0) =>
       rpc('users.create', { username, email, password, isAdmin }),
@@ -194,34 +202,57 @@ const dbOperations = {
   },
   deviceVerification: {
     getSettings: () => rpc('deviceVerification.getSettings'),
-    updateSettings: (verifyCooldownSeconds) =>
-      rpc('deviceVerification.updateSettings', { verify_cooldown_seconds: verifyCooldownSeconds }),
+    updateSettings: (payload) => rpc('deviceVerification.updateSettings', payload),
     findAll: () => rpc('deviceVerification.findAll'),
     findById: (id) => rpc('deviceVerification.findById', { id }),
     findByDeviceId: (deviceId) => rpc('deviceVerification.findByDeviceId', { device_id: deviceId }),
-    create: (deviceId, maxVerifications = 10, questionId = null, firmwareId = null, isWhitelisted = false) =>
-      rpc('deviceVerification.create', { device_id: deviceId, max_verifications: maxVerifications, question_id: questionId, firmware_id: firmwareId, is_whitelisted: isWhitelisted }),
-    updateMaxVerifications: (deviceId, maxVerifications) =>
-      rpc('deviceVerification.updateMaxVerifications', { device_id: deviceId, max_verifications: maxVerifications }),
-    updateQuestionId: (deviceId, questionId) =>
-      rpc('deviceVerification.updateQuestionId', { device_id: deviceId, question_id: questionId }),
-    updateFirmwareId: (deviceId, firmwareId) =>
-      rpc('deviceVerification.updateFirmwareId', { device_id: deviceId, firmware_id: firmwareId }),
-    updateWhitelist: (deviceId, isWhitelisted) =>
-      rpc('deviceVerification.updateWhitelist', { device_id: deviceId, is_whitelisted: isWhitelisted }),
-    cleanupUnwhitelistedExpired: (ttlMinutes = 30) =>
-      rpc('deviceVerification.cleanupUnwhitelistedExpired', { ttl_minutes: ttlMinutes }),
-    addMaxVerifications: (deviceId, addCount) =>
-      rpc('deviceVerification.addMaxVerifications', { device_id: deviceId, add_count: addCount }),
+    findByFingerprint: (fingerprint) => rpc('deviceVerification.findByFingerprint', { fingerprint }),
+    create: (
+      deviceId,
+      maxVerifications = 10,
+      questionId = null,
+      firmwareId = null,
+      isWhitelisted = false,
+      deviceFingerprint = null,
+      fingerprintAlgoVersion = null
+    ) =>
+      rpc('deviceVerification.create', {
+        device_id: deviceId,
+        max_verifications: maxVerifications,
+        question_id: questionId,
+        firmware_id: firmwareId,
+        is_whitelisted: isWhitelisted,
+        device_fingerprint: deviceFingerprint,
+        fingerprint_algo_version: fingerprintAlgoVersion
+      }),
+    updateDevice: (deviceId, payload) =>
+      rpc('deviceVerification.patchDevice', { device_id: deviceId, payload }),
     delete: (deviceId) => rpc('deviceVerification.delete', { device_id: deviceId }),
-    verify: (deviceId, ipAddress = null, userAgent = null) =>
-      rpc('deviceVerification.verify', { device_id: deviceId, ip_address: ipAddress, user_agent: userAgent }),
+    verify: (
+      fingerprint,
+      ipAddress = null,
+      userAgent = null,
+      fingerprintAlgoVersion = null
+    ) =>
+      rpc('deviceVerification.verify', {
+        fingerprint,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        fingerprint_algo_version: fingerprintAlgoVersion
+      }),
+    confirmVerification: (fingerprint, signature, issuedAt) =>
+      rpc('deviceVerification.confirmVerification', {
+        fingerprint,
+        signature,
+        issued_at: issuedAt
+      }),
     resetCount: (deviceId) => rpc('deviceVerification.resetCount', { device_id: deviceId }),
-    getPublicKey: (deviceId) => rpc('deviceVerification.getPublicKey', { device_id: deviceId }),
-    getPrivateKey: (deviceId) => rpc('deviceVerification.getPrivateKey', { device_id: deviceId }),
-    getKeys: (deviceId) => rpc('deviceVerification.getKeys', { device_id: deviceId }),
-    verifySignature: (deviceId, signature, issuedAt) =>
-      rpc('deviceVerification.verifySignature', { device_id: deviceId, signature, issued_at: issuedAt }),
+    authenticateSignedRequest: (fingerprint, signature, issuedAt) =>
+      rpc('deviceVerification.authenticateSignedRequest', {
+        fingerprint,
+        signature,
+        issued_at: issuedAt
+      }),
     findLogsByDeviceId: (deviceId, limit = 100, offset = 0) =>
       rpc('deviceVerification.findLogsByDeviceId', { device_id: deviceId, limit, offset }),
     countLogsByDeviceId: (deviceId) =>
@@ -229,14 +260,19 @@ const dbOperations = {
     findAllLogs: (limit = 100, offset = 0) =>
       rpc('deviceVerification.findAllLogs', { limit, offset }),
     countAllLogs: () => rpc('deviceVerification.countAllLogs'),
-    listFirmwareFiles: () => rpc('deviceVerification.listFirmwareFiles'),
-    createFirmwareFile: (fileName, fileUrl, fileSize = 0, checksumSha256 = null, remark = null) =>
+    listFirmwareFiles: (createdByUserId = null) =>
+      rpc('deviceVerification.listFirmwareFiles', {
+        ...(createdByUserId != null ? { created_by_user_id: createdByUserId } : {})
+      }),
+    findFirmwareById: (id) => rpc('deviceVerification.findFirmwareById', { id }),
+    createFirmwareFile: (fileName, fileUrl, fileSize = 0, checksumSha256 = null, remark = null, createdByUserId = null) =>
       rpc('deviceVerification.createFirmwareFile', {
         file_name: fileName,
         file_url: fileUrl,
         file_size: fileSize,
         checksum_sha256: checksumSha256,
-        remark
+        remark,
+        ...(createdByUserId != null ? { created_by_user_id: createdByUserId } : {})
       }),
     updateFirmwareRemark: (id, remark) =>
       rpc('deviceVerification.updateFirmwareRemark', { id, remark }),

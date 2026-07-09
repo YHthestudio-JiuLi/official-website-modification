@@ -116,6 +116,7 @@ class ProductCatalogService
                 'p.priceUsdt',
                 'p.categoryId',
                 'p.subCategoryId',
+                'p.createdByUserId',
                 'c.name as categoryName',
                 'c.nameEn as categoryNameEn',
                 'c.slug as categorySlug',
@@ -151,6 +152,7 @@ class ProductCatalogService
                 'subCategoryName' => $arr['subCategoryName'] ?? null,
                 'subCategoryNameEn' => $arr['subCategoryNameEn'] ?? null,
                 'subCategorySlug' => $arr['subCategorySlug'] ?? null,
+                'createdByUserId' => $arr['createdByUserId'] !== null ? (int) $arr['createdByUserId'] : null,
             ];
         }
 

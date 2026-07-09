@@ -21,21 +21,17 @@ export function createDevice(payload) {
 }
 
 export function updateDevice(deviceId, payload) {
-  return v2.put(`/admin/devices/${deviceId}`, payload)
+  return v2.put(`/admin/devices/${encodeURIComponent(deviceId)}`, payload)
 }
 
 export function deleteDevice(deviceId) {
-  return v2.delete(`/admin/devices/${deviceId}`)
+  return v2.delete(`/admin/devices/${encodeURIComponent(deviceId)}`)
 }
 
 export function resetDeviceCount(deviceId) {
-  return v2.post(`/admin/devices/${deviceId}/reset-count`)
-}
-
-export function fetchDeviceKeys(deviceId) {
-  return v2.get(`/admin/devices/${deviceId}/keys`)
+  return v2.post(`/admin/devices/${encodeURIComponent(deviceId)}/reset-count`)
 }
 
 export function fetchDeviceLogs(deviceId, params = {}) {
-  return v2.get(`/admin/devices/${deviceId}/logs`, { params })
+  return v2.get(`/admin/devices/${encodeURIComponent(deviceId)}/logs`, { params })
 }

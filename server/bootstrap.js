@@ -12,6 +12,7 @@ const {
   distPath
 } = require('./config');
 const { registerApiRateLimit, loginLimiter } = require('./middleware/rate-limit');
+const { registerLaravelProxy } = require('./middleware/laravel-proxy');
 const { registerLegacyBlockMiddleware } = require('./middleware/legacy-block');
 const { applyCompression, applySessionBodyAndCsrf } = require('./middleware/session-csrf');
 const {
@@ -42,6 +43,7 @@ function createApp() {
 
   applyCompression(app);
   registerApiRateLimit(app);
+  const laravelProxy = registerLaravelProxy(app, { logger });
   registerLegacyBlockMiddleware(app);
   applySessionBodyAndCsrf(app);
 
@@ -73,11 +75,11 @@ function createApp() {
 
   uploads.registerUploadCleanupIntervals();
 
-  return { app, deps };
+  return { app, deps, laravelProxy };
 }
 
 function start() {
-  const { app, deps } = createApp();
+  const { app, deps, laravelProxy } = createApp();
   const server = http.createServer(app);
 
   attachWebSocket(server, deps);
@@ -104,6 +106,9 @@ function start() {
     }
     if (!NODE_INTERNAL_SECRET) {
       console.warn('[Security] NODE_INTERNAL_SECRET is not set in root .env — legacy Node session bridge and Telegram internal API will fail.');
+    }
+    if (laravelProxy?.enabled) {
+      console.log(`[Dev Proxy] /api/v2 + /sanctum -> ${laravelProxy.target}`);
     }
 
     telegram.setupMultiBotPolling({ broadcastToChat: deps.broadcastToChat });

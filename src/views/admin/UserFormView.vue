@@ -107,7 +107,7 @@
               <i class="fas fa-shield-alt"></i> {{ $t('admin.users.permissionsSection') }}
             </h3>
 
-            <div v-if="canManageRoles" class="form-group">
+            <div v-if="canManageRoles && !isAgentManagedUser" class="form-group">
               <label for="roles">
                 <i class="fas fa-user-tag"></i> {{ $t('admin.users.assignRoles') }}
               </label>
@@ -128,6 +128,15 @@
               </select>
               <p class="form-hint">
                 <i class="fas fa-info-circle"></i> {{ $t('admin.users.rolesHint') }}
+              </p>
+            </div>
+
+            <div v-else-if="canManageRoles && isAgentManagedUser" class="form-group">
+              <label>
+                <i class="fas fa-user-tag"></i> {{ $t('admin.users.assignRoles') }}
+              </label>
+              <p class="form-hint">
+                <i class="fas fa-lock"></i> {{ $t('admin.users.agentRoleManagedByAgents') }}
               </p>
             </div>
 
@@ -204,12 +213,15 @@ const showPassword = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
+const isAgentManagedUser = ref(false)
 
 const toast = ref({
   visible: false,
   type: 'success',
   message: '',
 })
+
+const AGENT_ROLE_LOCK_MESSAGE = 'Agent role can only be managed in Agent Accounts'
 
 function roleLabel(name) {
   const key = `admin.rbac.roleNames.${name}`
@@ -236,12 +248,12 @@ async function loadAvailableRoles() {
   if (!canManageRoles.value) return
   try {
     const rolesRes = await fetchRoles()
-    availableRoles.value = Array.isArray(rolesRes.data) ? rolesRes.data : []
+    const rawRoles = Array.isArray(rolesRes.data) ? rolesRes.data : []
+    availableRoles.value = rawRoles.filter((role) => role?.name !== 'agent')
     if (!availableRoles.value.length) {
       availableRoles.value = [
         { name: 'super_admin' },
         { name: 'staff' },
-        { name: 'agent' },
         { name: 'customer' },
       ]
     }
@@ -266,12 +278,19 @@ onMounted(async () => {
     if (isEdit.value) {
       const userRes = await fetchUser(route.params.id)
       const data = userRes.data || {}
+      const roles = normalizeRoles(data.roles, !!data.isAdmin)
+      const hasAgentRole = roles.includes('agent')
+      const hasAgentProfile = !!data.agent
+      const hasAgentUserType = data.user_type === 'agent'
+      isAgentManagedUser.value = hasAgentRole || hasAgentProfile || hasAgentUserType
       form.value = {
         username: data.username || '',
         email: data.email || '',
         password: '',
-        roles: normalizeRoles(data.roles, !!data.isAdmin),
+        roles,
       }
+    } else {
+      isAgentManagedUser.value = false
     }
     await loadAvailableRoles()
   } catch (err) {
@@ -296,9 +315,9 @@ async function handleSubmit() {
   try {
     const payload = {
       email: form.value.email.trim(),
-      isAdmin: form.value.roles.includes('super_admin'),
     }
-    if (canManageRoles.value) {
+    if (canManageRoles.value && !isAgentManagedUser.value) {
+      payload.isAdmin = form.value.roles.includes('super_admin')
       payload.roles = [...form.value.roles]
     } else if (!isEdit.value) {
       payload.roles = ['customer']
@@ -320,7 +339,8 @@ async function handleSubmit() {
     showToast(t('admin.users.saveSuccess'), 'success')
     setTimeout(() => router.push('/admin/users'), 1200)
   } catch (err) {
-    error.value = readAdminApiError(err, t('admin.users.saveFailed'))
+    const raw = readAdminApiError(err, t('admin.users.saveFailed'))
+    error.value = raw === AGENT_ROLE_LOCK_MESSAGE ? t('admin.users.agentRoleManagedError') : raw
   } finally {
     submitting.value = false
   }

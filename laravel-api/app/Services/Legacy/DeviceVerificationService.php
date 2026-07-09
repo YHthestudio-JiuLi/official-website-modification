@@ -3,7 +3,6 @@
 namespace App\Services\Legacy;
 
 use App\Services\Database\PyDbClient;
-use Illuminate\Support\Facades\File;
 use RuntimeException;
 
 class DeviceVerificationService
@@ -15,17 +14,25 @@ class DeviceVerificationService
         return $this->db->call('deviceVerification.getSettings') ?? [];
     }
 
-    public function updateSettings(int $verifyCooldownSeconds): array
+    public function updateSettings(int $verifyCooldownSeconds, ?string $signingPrivateKey = null): array
     {
-        return $this->db->call('deviceVerification.updateSettings', [
-            'verify_cooldown_seconds' => $verifyCooldownSeconds,
-        ]) ?? [];
+        $payload = ['verify_cooldown_seconds' => $verifyCooldownSeconds];
+        if ($signingPrivateKey !== null && trim($signingPrivateKey) !== '') {
+            $payload['signing_private_key'] = $signingPrivateKey;
+        }
+
+        return $this->db->call('deviceVerification.updateSettings', $payload) ?? [];
     }
 
     /** @return array<int, array<string, mixed>> */
-    public function listDevices(): array
+    public function listDevices(?int $createdByUserId = null): array
     {
-        return $this->db->call('deviceVerification.findAll') ?? [];
+        $args = [];
+        if ($createdByUserId !== null) {
+            $args['created_by_user_id'] = $createdByUserId;
+        }
+
+        return $this->db->call('deviceVerification.findAll', $args) ?? [];
     }
 
     public function findById(int $id): ?array
@@ -43,76 +50,33 @@ class DeviceVerificationService
         int $maxVerifications,
         ?int $questionId,
         ?int $firmwareId,
-        bool $isWhitelisted
+        bool $isWhitelisted,
+        ?string $deviceFingerprint = null,
+        ?string $fingerprintAlgoVersion = null,
+        ?int $createdByUserId = null
     ): array {
-        return $this->db->call('deviceVerification.create', [
+        $payload = [
             'device_id' => $deviceId,
             'max_verifications' => $maxVerifications,
             'question_id' => $questionId,
             'firmware_id' => $firmwareId,
             'is_whitelisted' => $isWhitelisted,
-        ]) ?? [];
+            'device_fingerprint' => $deviceFingerprint,
+            'fingerprint_algo_version' => $fingerprintAlgoVersion,
+        ];
+        if ($createdByUserId !== null) {
+            $payload['created_by_user_id'] = $createdByUserId;
+        }
+
+        return $this->db->call('deviceVerification.create', $payload) ?? [];
     }
 
     public function updateDevice(string $deviceId, array $payload): array
     {
-        $existing = $this->findByDeviceId($deviceId);
-        if (! $existing) {
-            throw new RuntimeException('Device not found');
-        }
-
-        $newMax = (int) ($existing['max_verifications'] ?? 0);
-        if (array_key_exists('max_verifications', $payload)) {
-            $newMax = (int) $payload['max_verifications'];
-        }
-        if (array_key_exists('add_max_verifications', $payload)) {
-            $newMax += (int) $payload['add_max_verifications'];
-        }
-        if ($newMax < 0 || $newMax > 1000000) {
-            throw new RuntimeException('Invalid max_verifications');
-        }
-
-        $this->db->call('deviceVerification.updateMaxVerifications', [
+        return $this->db->call('deviceVerification.patchDevice', [
             'device_id' => $deviceId,
-            'max_verifications' => $newMax,
-        ]);
-
-        if (array_key_exists('question_id', $payload)) {
-            $qid = $payload['question_id'] ? (int) $payload['question_id'] : null;
-            $this->db->call('deviceVerification.updateQuestionId', [
-                'device_id' => $deviceId,
-                'question_id' => $qid,
-            ]);
-        }
-
-        if (array_key_exists('firmware_id', $payload)) {
-            $fid = $payload['firmware_id'] ? (int) $payload['firmware_id'] : null;
-            $this->db->call('deviceVerification.updateFirmwareId', [
-                'device_id' => $deviceId,
-                'firmware_id' => $fid,
-            ]);
-        }
-
-        if (array_key_exists('is_whitelisted', $payload)) {
-            $this->db->call('deviceVerification.updateWhitelist', [
-                'device_id' => $deviceId,
-                'is_whitelisted' => (bool) $payload['is_whitelisted'],
-            ]);
-        }
-
-        return [
-            'device_id' => $deviceId,
-            'max_verifications' => $newMax,
-            'question_id' => array_key_exists('question_id', $payload)
-                ? ($payload['question_id'] ? (int) $payload['question_id'] : null)
-                : ($existing['question_id'] ?? null),
-            'firmware_id' => array_key_exists('firmware_id', $payload)
-                ? ($payload['firmware_id'] ? (int) $payload['firmware_id'] : null)
-                : ($existing['firmware_id'] ?? null),
-            'is_whitelisted' => array_key_exists('is_whitelisted', $payload)
-                ? ((bool) $payload['is_whitelisted'] ? 1 : 0)
-                : ($existing['is_whitelisted'] ?? 0),
-        ];
+            'payload' => $payload,
+        ]) ?? [];
     }
 
     public function delete(string $deviceId): void
@@ -123,11 +87,6 @@ class DeviceVerificationService
     public function resetCount(string $deviceId): void
     {
         $this->db->call('deviceVerification.resetCount', ['device_id' => $deviceId]);
-    }
-
-    public function getKeys(string $deviceId): ?array
-    {
-        return $this->db->call('deviceVerification.getKeys', ['device_id' => $deviceId]);
     }
 
     public function getLogs(string $deviceId, int $limit, int $offset): array

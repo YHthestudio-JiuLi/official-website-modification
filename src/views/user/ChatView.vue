@@ -92,22 +92,12 @@
           <p>{{ $t('chat.emptyHint') || 'No messages yet, say hello!' }}</p>
         </div>
 
-        <div
+        <ChatMessageRow
           v-for="msg in messages"
           :key="msg.id"
-          class="msg-row"
-          :class="{ me: msg.sender === 'user', them: msg.sender === 'admin' || msg.sender === 'bot' }"
-        >
-          <div class="msg-avatar" :style="{ background: msg.sender === 'user' ? 'var(--primary-color)' : sessionMeta?.admin_avatar_color || '#07c160' }">
-            {{ msg.sender === 'user' ? userInitials : getInitials(sessionMeta?.admin_display_name) }}
-          </div>
-          <div class="msg-body">
-            <div class="bubble">
-              <p>{{ msg.body }}</p>
-            </div>
-            <div class="msg-time">{{ formatTime(msg.created_at) }}</div>
-          </div>
-        </div>
+          :message="msg"
+          :admin-avatar-color="sessionMeta?.admin_avatar_color"
+        />
       </div>
 
       <div class="composer">
@@ -145,6 +135,7 @@ import { useAuthStore } from '@/stores/auth'
 import AppHeader from '@/components/common/AppHeader.vue'
 import AppFooter from '@/components/common/AppFooter.vue'
 import LoginModal from '@/components/common/LoginModal.vue'
+import ChatMessageRow from '@/components/user/chat/ChatMessageRow.vue'
 import { ensureLegacyNodeUserSession } from '@/utils/legacyUserSession'
 
 const CHAT_AUTO_START_KEY = 'chat_auto_start'
@@ -156,10 +147,6 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
-const userInitials = computed(() => {
-  const username = authStore.user?.username || '?'
-  return username.slice(0, 2).toUpperCase()
-})
 
 let ws = null
 let reconnectTimer = null
@@ -203,34 +190,6 @@ function openCommunityLink(url) {
   if (!raw) return
   const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
   window.open(href, '_blank', 'noopener,noreferrer')
-}
-
-function getInitials(name) {
-  const s = String(name || '?').trim()
-  return s.slice(0, 1).toUpperCase() || '?'
-}
-
-function parseServerDateTime(value) {
-  if (!value) return null
-  let s = String(value).trim()
-  if (!s) return null
-  s = s.replace(' ', 'T')
-  if (!/[zZ]$/.test(s) && !/[+-]\d{2}:?\d{2}$/.test(s)) {
-    s += 'Z'
-  }
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function formatTime(iso) {
-  const d = parseServerDateTime(iso)
-  if (!d) return iso ? String(iso) : ''
-  return d.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function wsUrl() {
@@ -1029,182 +988,6 @@ onUnmounted(() => {
   font-size: 0.95rem;
 }
 
-/* 消息行：满宽以便「自己发的消息」在 row-reverse 下靠右对齐 */
-.msg-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  width: 100%;
-  box-sizing: border-box;
-  animation: fadeIn 0.3s ease;
-}
-
-.msg-row.them {
-  justify-content: flex-start;
-}
-
-.msg-row.me {
-  flex-direction: row-reverse;
-  justify-content: flex-start;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.msg-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 0.9rem;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.msg-body {
-  display: flex;
-  flex-direction: column;
-  max-width: 75%;
-}
-
-.msg-row.me .msg-body {
-  align-items: flex-end;
-}
-
-.bubble {
-  background: var(--bg-card);
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  word-wrap: break-word;
-}
-
-.bubble p {
-  margin: 0;
-  color: var(--text-primary);
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.msg-row.me .bubble {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-  border: none;
-}
-
-.msg-row.me .bubble p {
-  color: white;
-}
-
-.msg-time {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-top: 0.375rem;
-}
-
-/* 输入区域 */
-.composer {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.chat-input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  resize: none;
-  max-height: 120px;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
-  font-family: inherit;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  line-height: 1.4;
-  transition: border-color 0.2s;
-}
-
-.chat-input::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-input::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.chat-input::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-.chat-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.btn-send {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.btn-send:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
-}
-
-.btn-send:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* 响应式 */
-@media (max-width: 640px) {
-  .setup-card {
-    padding: 1.5rem;
-  }
-  
-  .service-type-list {
-    grid-template-columns: 1fr;
-  }
-  
-  .auth-actions {
-    flex-direction: column;
-  }
-  
-  .msg-body {
-    max-width: 85%;
-  }
-}
 </style>
+
+<style scoped src="./styles/chat-view-composer.css"></style>

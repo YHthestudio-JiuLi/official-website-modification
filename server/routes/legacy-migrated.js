@@ -97,6 +97,7 @@ function registerLegacyMigratedRoutes(app, deps) {
 
   registerLegacyQuestionRoutes(app, {
     logger,
+    dbOperations,
     requireAdmin,
     questionFilesUpload,
     questionChunkUpload,
@@ -115,7 +116,7 @@ function registerLegacyMigratedRoutes(app, deps) {
   registerLegacyPopupNoticeRoutes(app, {
     dbOperations,
     requireAdmin,
-  });
+});
 
 }
 

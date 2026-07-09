@@ -343,17 +343,6 @@ function registerUploadCleanupIntervals() {
     }
   }, 60000);
 
-  setInterval(async () => {
-    try {
-      const deleted = await dbOperations.deviceVerification.cleanupUnwhitelistedExpired(10);
-      if (deleted > 0) {
-        console.log(`[Device Whitelist Cleanup] Deleted ${deleted} unwhitelisted devices`);
-      }
-    } catch (error) {
-      console.error('[Device Whitelist Cleanup] Error:', error);
-    }
-  }, 60000);
-
   setInterval(() => {
     const now = Date.now();
     for (const [uploadId, session] of firmwareChunkSessions.entries()) {

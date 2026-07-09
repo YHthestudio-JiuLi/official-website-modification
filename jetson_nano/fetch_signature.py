@@ -2,116 +2,79 @@
 # -*- coding: utf-8 -*-
 """
 从官网 API 拉取设备验证签名，并写入同目录下的 last_verify.json。
-device_id 默认自动取本机网卡 MAC（小写冒号分隔，如 aa:bb:cc:dd:ee:ff）。
-拉签失败、未授权、次数用尽或其它错误时，会删除本地 YH/（固件与题库）。
+仅使用设备指纹鉴权；设备 ID 由管理员在后台维护，设备端不上报。
+拉签失败、设备停用、次数用尽或其它错误时，会删除本地 YH/（固件与题库）及缓存签名。
 
-退出码：0 成功；1 失败；2 设备未加入白名单（可由 yh_background_sync 轮询等待管理员授权）；
+退出码：0 成功；1 失败；2 设备未启用/未录入（可由 yh_background_sync 轮询等待管理员启用）；
 3 验证次数已达上限（需管理员在后台重置次数或提高上限）。
-
-用法：
-  export API_BASE=http://192.168.2.12:3000
-  python3 fetch_signature.py
-  # 如需手动指定（调试）: export DEVICE_ID=my-custom-id
-  # run_demo.sh 会设置 YH_RUN_DEMO=1，此时成功拉签后不打印「已写入」等详情。
 """
 from __future__ import annotations
 
 import json
-import os
-import re
 import sys
-import uuid
 import urllib.error
 import urllib.request
-from pathlib import Path
+
+from device_errors import (
+    ERROR_BROADCASTS,
+    exit_code_from_api_error,
+    parse_error_json,
+)
+from device_fingerprint import FINGERPRINT_ALGO_VERSION, build_device_fingerprint, normalize_fingerprint
+from yh_config import resolve_api_base
+from yh_demo_log import demo_info
+from yh_runtime import app_root, ensure_app_root_on_path
 
 OUTPUT_NAME = "last_verify.json"
 
-# 与 api-server 返回的英文 error 文案一致，用于识别次数用尽（不向前台打印原始 HTTP 403）
-_QUOTA_EXHAUSTED_MARKERS = ("quota exhausted", "verification quota exhausted")
-
 
 def _purge_binding_artifacts() -> None:
-    """拉签失败或未获有效签名时删除本地 YH（与验签失败策略一致）。"""
+    """拉签失败、设备停用或未获有效签名时删除本地 YH 与缓存签名。"""
     try:
         from verify_signature import purge_binding_artifacts_dir
     except ImportError:
-        return
-    purge_binding_artifacts_dir()
+        purge_binding_artifacts_dir = None
+    if purge_binding_artifacts_dir is not None:
+        purge_binding_artifacts_dir()
+    cache = app_root() / OUTPUT_NAME
+    if cache.is_file():
+        cache.unlink(missing_ok=True)
 
 
-def _is_quota_exhausted_response(http_code: int, err_body: str) -> bool:
-    """是否为「设备验证次数已达上限」类 403。"""
-    if http_code != 403:
-        return False
-    low = err_body.lower()
-    return any(m in low for m in _QUOTA_EXHAUSTED_MARKERS)
+def _handle_api_error(http_code: int, err_body: str) -> tuple[int, str]:
+    """根据结构化错误码决定退出码（播报由编排层统一处理）。"""
+    payload = parse_error_json(err_body)
+    code = str((payload or {}).get("code") or "").strip()
+    exit_code = exit_code_from_api_error(http_code, payload)
+
+    if code not in ERROR_BROADCASTS:
+        # 兜底输出，避免后端未返回结构化 code 时用户只看到静默退出
+        brief = str((payload or {}).get("error") or err_body or "").strip()
+        if brief:
+            print(f"[错误] HTTP {http_code}: {brief}", file=sys.stderr)
+        else:
+            print(f"[错误] HTTP {http_code}: 请求被拒绝", file=sys.stderr)
+
+    _purge_binding_artifacts()
+    return exit_code, code
 
 
-# Jetson / Linux 上常见有线网卡优先顺序
-_PREFERRED_IFACES = ("eth0", "enP8p1s0", "enp0s3", "wlan0", "wlP1s0")
+def run_fetch() -> tuple[int, str]:
+    """拉签核心逻辑。返回 (exit_code, api_error_code)。"""
+    ensure_app_root_on_path()
+    base = resolve_api_base()
+    fingerprint = normalize_fingerprint(build_device_fingerprint())
+    if not fingerprint:
+        print("[错误] 设备指纹采集失败，无法请求验证签名", file=sys.stderr)
+        _purge_binding_artifacts()
+        return 1, ""
 
-
-def _normalize_mac(addr: str) -> str | None:
-    """将 sysfs 读到的地址规范为小写 aa:bb:cc:dd:ee:ff。"""
-    addr = addr.strip().lower()
-    if not addr or addr == "00:00:00:00:00:00":
-        return None
-    if re.fullmatch(r"([0-9a-f]{2}:){5}[0-9a-f]{2}", addr):
-        return addr
-    return None
-
-
-def get_local_mac_device_id() -> str:
-    """
-    获取本机 MAC 作为 device_id。
-    Linux：优先读 /sys/class/net；其它系统或失败时用 uuid.getnode()。
-    """
-    sys_net = "/sys/class/net"
-    if os.path.isdir(sys_net):
-        for name in _PREFERRED_IFACES:
-            path = os.path.join(sys_net, name, "address")
-            if os.path.isfile(path):
-                try:
-                    raw = Path(path).read_text(encoding="utf-8")
-                    mac = _normalize_mac(raw)
-                    if mac:
-                        return mac
-                except OSError:
-                    continue
-        try:
-            for name in sorted(os.listdir(sys_net)):
-                if name == "lo":
-                    continue
-                path = os.path.join(sys_net, name, "address")
-                if not os.path.isfile(path):
-                    continue
-                raw = Path(path).read_text(encoding="utf-8")
-                mac = _normalize_mac(raw)
-                if mac:
-                    return mac
-        except OSError:
-            pass
-
-    node = uuid.getnode()
-    if (node >> 40) % 2:
-        # 随机/多播位为 1 时 uuid 可能不是稳定硬件 MAC，仍格式化返回避免崩溃
-        pass
-    mac_hex = f"{node & 0xFFFFFFFFFFFF:012x}"
-    return ":".join(mac_hex[i : i + 2] for i in range(0, 12, 2))
-
-
-def main() -> int:
-    # 部署到局域网时示例: export API_BASE=http://192.168.2.12:3000
-    base = os.environ.get("API_BASE", "https://yhthestudio.com").rstrip("/")
-    env_id = os.environ.get("DEVICE_ID", "").strip()
-    device_id = env_id or get_local_mac_device_id()
-    if env_id:
-        print(f"[信息] device_id = {device_id}（来自环境变量 DEVICE_ID）")
-    else:
-        print(f"[信息] device_id = {device_id}（本机 MAC 自动检测）")
+    demo_info(f"[信息] 识别到设备指纹：{fingerprint[:24]}...（algo v{FINGERPRINT_ALGO_VERSION}）")
     url = f"{base}/api/device/verify"
-    body = json.dumps({"device_id": device_id}).encode("utf-8")
+    body = json.dumps({
+        "fingerprint": fingerprint,
+        "fingerprint_algo_version": FINGERPRINT_ALGO_VERSION,
+    }).encode("utf-8")
 
     req = urllib.request.Request(
         url,
@@ -124,54 +87,44 @@ def main() -> int:
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         err_body = e.read().decode("utf-8", errors="replace")
-        # 未加入白名单：不打印原始 JSON，由 run_demo.sh 统一中文提示
-        if e.code == 403 and "not whitelisted" in err_body.lower():
-            _purge_binding_artifacts()
-            return 2
-        # 验证次数用尽：友好提示，不打印原始 JSON 403
-        if _is_quota_exhausted_response(e.code, err_body):
-            print("[播报] 设备验证次数已达上限，请联系管理员", file=sys.stderr)
-            _purge_binding_artifacts()
-            return 3
-        print(f"[错误] HTTP {e.code}: {err_body}", file=sys.stderr)
-        _purge_binding_artifacts()
-        return 1
+        exit_code, code = _handle_api_error(e.code, err_body)
+        return exit_code, code
     except urllib.error.URLError as e:
         print(f"[错误] 网络失败: {e.reason}", file=sys.stderr)
         _purge_binding_artifacts()
-        return 1
+        return 1, ""
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
         print(f"[错误] 响应不是 JSON: {raw[:200]}", file=sys.stderr)
         _purge_binding_artifacts()
-        return 1
+        return 1, ""
 
     if "error" in data:
-        print(f"[错误] 服务端: {data.get('error')}", file=sys.stderr)
-        _purge_binding_artifacts()
-        return 1
+        exit_code, code = _handle_api_error(int(data.get("http_status") or 403), json.dumps(data))
+        return exit_code, code
 
-    # 记录当前 API_BASE，便于 run_demo 在冷却期跳过拉签时仍能用正确地址下载
     to_save = dict(data)
     to_save["api_base"] = base
 
-    out_dir = Path(__file__).resolve().parent
+    out_dir = app_root()
     out_path = out_dir / OUTPUT_NAME
     out_path.write_text(json.dumps(to_save, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # run_demo 流程下不刷屏，由 run_demo 统一验签后提示
-    if os.environ.get("YH_RUN_DEMO") == "1":
-        return 0
+    demo_info(f"[成功] 已写入: {out_path}")
+    demo_info(f"  fingerprint: {str(data.get('fingerprint', ''))[:24]}...")
+    demo_info(f"  issued_at: {data.get('issued_at')}")
+    demo_info(f"  signature: {str(data.get('signature', ''))[:48]}...")
+    demo_info(
+        "\n下一步: python3 verify_signature.py（验签通过后 yh-device 将下载绑定资源到 YH/）"
+    )
+    return 0, ""
 
-    print(f"[成功] 已写入: {out_path}")
-    print(f"  device_id: {data.get('device_id')}")
-    print(f"  issued_at: {data.get('issued_at')}")
-    print(f"  signature: {str(data.get('signature', ''))[:48]}...")
-    print(f"  public_key: {str(data.get('public_key', ''))[:32]}...")
-    print("\n下一步: python3 verify_signature.py（run_demo.sh 会在验签通过后下载绑定资源到 YH/）")
-    return 0
+
+def main() -> int:
+    exit_code, _api_code = run_fetch()
+    return exit_code
 
 
 if __name__ == "__main__":

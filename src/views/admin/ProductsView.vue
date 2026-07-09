@@ -47,6 +47,7 @@
                 <th>{{ $t('admin.products.id') }}</th>
                 <th>{{ $t('admin.products.product') }}</th>
                 <th v-if="!isScopedAgent">{{ $t('admin.products.category') }}</th>
+                <AdminCreatedByHeader :show-column="!isScopedAgent" />
                 <th>{{ $t('admin.products.description') }}</th>
                 <th>{{ $t('admin.products.price') }}</th>
                 <th>{{ $t('admin.products.date') }}</th>
@@ -75,6 +76,7 @@
                     </template>
                   </span>
                 </td>
+                <AdminCreatedByCell :show-cell="!isScopedAgent" :username="product.created_by_username" />
                 <td>
                   <span class="description-cell">{{ truncateDescription(product.description) }}</span>
                 </td>
@@ -109,7 +111,7 @@
                 </td>
               </tr>
               <tr v-if="products.length === 0">
-                <td :colspan="isScopedAgent ? 6 : 7" class="empty-state">
+                <td :colspan="isScopedAgent ? 6 : 8" class="empty-state">
                   <i class="fas fa-box-open"></i>
                   <h3>{{ $t('admin.products.emptyTitle') }}</h3>
                   <p>{{ $t('admin.products.emptyDesc') }}</p>
@@ -182,6 +184,8 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchAdminProducts, deleteProduct } from '@/services/v2/catalog'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminCreatedByHeader from '@/components/admin/AdminCreatedByHeader.vue'
+import AdminCreatedByCell from '@/components/admin/AdminCreatedByCell.vue'
 import { primaryProductImage } from '@/utils/productImages'
 
 const route = useRoute()
@@ -531,6 +535,16 @@ function getProductImage(product) {
   border-radius: 4px;
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(100, 108, 255, 0.15);
+  color: #8f96ff;
+  font-size: 0.8rem;
 }
 
 .product-cell {

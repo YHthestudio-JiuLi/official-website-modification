@@ -3,6 +3,8 @@ const path = require('path');
 const FormData = require('form-data');
 const questionsService = require('../../../services/questionsService');
 const { deleteQuestionUploadFilesLocally } = require('../../lib/questionUploadCleanup');
+const { resolveLegacyAdminUserId } = require('../../lib/auth');
+const { createAgentScopeRoute } = require('../../lib/agentScopeRoute');
 
 function cleanupQuestionTempFiles(files = [], chunkFile = null) {
   for (const file of files) {
@@ -60,6 +62,13 @@ function buildQuestionFormData(req, options) {
     formData.append('category_name', categoryName);
   }
 
+  if (!allowClearFlags) {
+    const ownerId = resolveLegacyAdminUserId(req);
+    if (ownerId) {
+      formData.append('created_by_user_id', String(ownerId));
+    }
+  }
+
   if (allowClearFlags) {
     if (req.body.clearDbFile === 'true' || req.body.clearDbFile === true) {
       formData.append('clear_db_file', 'true');
@@ -78,6 +87,7 @@ function buildQuestionFormData(req, options) {
 
 function registerLegacyQuestionRoutes(app, {
   logger,
+  dbOperations,
   requireAdmin,
   questionFilesUpload,
   questionChunkUpload,
@@ -92,9 +102,19 @@ function registerLegacyQuestionRoutes(app, {
   normalizeUploadFileName,
   rootDir,
 }) {
+  const agentScope = createAgentScopeRoute(dbOperations, {
+    findQuestionById: (id) => questionsService.findById(id),
+  });
+
   app.get('/api/admin/questions', requireAdmin, async (req, res) => {
     try {
-      const questions = await questionsService.findAll();
+      const ctx = await agentScope.requireScopeContext(req, res);
+      if (!ctx) {
+        return;
+      }
+      const questions = ctx.isScopedAgent
+        ? await questionsService.findAll(ctx.userId)
+        : await questionsService.findAll();
       res.json(questions);
     } catch (error) {
       logger.error('Failed to get questions:', error);
@@ -104,8 +124,15 @@ function registerLegacyQuestionRoutes(app, {
 
   app.get('/api/admin/questions/:id', requireAdmin, async (req, res) => {
     try {
-      const question = await questionsService.findById(parseInt(req.params.id));
-      res.json(question);
+      const managed = await agentScope.requireManagedQuestion(
+        req,
+        res,
+        parseInt(req.params.id, 10)
+      );
+      if (!managed) {
+        return;
+      }
+      res.json(managed.question);
     } catch (error) {
       if (error.message.includes('404') || error.message.includes('not found')) {
         return res.status(404).json({ error: 'Question not found' });
@@ -273,9 +300,23 @@ function registerLegacyQuestionRoutes(app, {
     { name: 'vectorFile', maxCount: 1 },
   ]), async (req, res) => {
     let formContext = null;
+    const questionId = parseInt(req.params.id, 10);
+    if (Number.isNaN(questionId) || questionId <= 0) {
+      return res.status(400).json({ error: 'Invalid question id' });
+    }
     try {
+      const managed = await agentScope.requireAgentQuestionUpdate(
+        req,
+        res,
+        questionId,
+        req.body,
+        req.files
+      );
+      if (!managed) {
+        return;
+      }
       formContext = buildQuestionFormData(req, { consumeCompletedQuestionUpload, allowClearFlags: true });
-      const result = await questionsService.updateWithFiles(parseInt(req.params.id), formContext.formData);
+      const result = await questionsService.updateWithFiles(questionId, formContext.formData);
 
       res.json({ success: true, dbFilePath: result.db_file_path, vectorFilePath: result.vector_file_path });
     } catch (error) {
@@ -295,15 +336,16 @@ function registerLegacyQuestionRoutes(app, {
       return res.status(400).json({ error: 'Invalid question id' });
     }
     try {
-      let question = null;
-      try {
-        question = await questionsService.findById(questionId);
-      } catch (lookupError) {
-        logger.warn('Delete question: findById failed, will still try disk cleanup', {
-          questionId,
-          error: lookupError.message,
-        });
+      const access = await agentScope.requireQuestionDeleteAccess(
+        req,
+        res,
+        questionId,
+        (id) => questionsService.findById(id)
+      );
+      if (!access) {
+        return;
       }
+      const { question } = access;
 
       await questionsService.delete(questionId);
       deleteQuestionUploadFilesLocally(questionId, question, questionUploadsPath, rootDir);

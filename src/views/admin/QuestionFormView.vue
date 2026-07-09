@@ -73,134 +73,47 @@
 
           <div class="form-section">
             <h3 class="section-title">
-              <i class="fas fa-file-upload"></i> {{ $t('admin.questionsForm.sectionFiles') }}
+              <i class="fas fa-file-alt"></i>
+              {{ isEdit && isScopedAgent ? $t('admin.questionsForm.sectionFilesReadonly') : $t('admin.questionsForm.sectionFiles') }}
             </h3>
 
-            <div class="form-group">
-              <label>
-                <i class="fas fa-file-alt"></i> {{ $t('admin.questionsForm.dbFileLabel') }}
-              </label>
-              
-              <div class="upload-area">
-                <input
-                  type="file"
-                  id="dbFile"
-                  ref="dbFileInput"
-                  accept=".db,.sqlite,.sqlite3"
-                  @change="handleDbFileSelect"
-                  style="display: none"
-                />
-                
-                <div v-if="!form.dbFile && !existingDbFile" class="upload-box" @click="$refs.dbFileInput.click()">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <p class="upload-text">{{ $t('admin.questionsForm.dbUploadText') }}</p>
-                  <p class="upload-hint">{{ $t('admin.questionsForm.dbUploadHint') }}</p>
-                </div>
-                
-                <div v-if="existingDbFile && !form.dbFile && !clearDbFileFlag" class="file-preview-card">
-                  <div class="file-icon">
-                    <i class="fas fa-file-alt"></i>
-                  </div>
-                  <div class="file-info">
-                    <p class="file-name">{{ getFileName(existingDbFile) }}</p>
-                    <p class="file-status existing">
-                      <i class="fas fa-check-circle"></i>
-                      {{ $t('admin.questionsForm.currentFile') }}
-                    </p>
-                    <p v-if="existingDbFileSize" class="file-size">{{ formatFileSize(existingDbFileSize) }}</p>
-                  </div>
-                  <div class="file-actions">
-                    <button type="button" class="btn-file btn-replace" @click="$refs.dbFileInput.click()">
-                      <i class="fas fa-exchange-alt"></i> {{ $t('admin.questionsForm.replace') }}
-                    </button>
-                    <button type="button" class="btn-file btn-remove" @click="clearDbFile">
-                      <i class="fas fa-times"></i> {{ $t('admin.questionsForm.remove') }}
-                    </button>
-                  </div>
-                </div>
-                
-                <div v-if="form.dbFile" class="file-preview-card new">
-                  <div class="file-icon">
-                    <i class="fas fa-file-alt"></i>
-                  </div>
-                  <div class="file-info">
-                    <p class="file-name">{{ form.dbFile.name }}</p>
-                    <p class="file-status new">
-                      <i class="fas fa-clock"></i> {{ $t('admin.questionsForm.pendingUpload') }}
-                    </p>
-                    <p class="file-size">{{ formatFileSize(form.dbFile.size) }}</p>
-                  </div>
-                  <div class="file-actions">
-                    <button type="button" class="btn-file btn-remove" @click="clearDbFileInput">
-                      <i class="fas fa-times"></i> {{ $t('admin.questionsForm.cancelPending') }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <QuestionFileSlot
+              :label="$t('admin.questionsForm.dbFileLabel')"
+              icon-class="fas fa-file-alt"
+              accept=".db,.sqlite,.sqlite3"
+              :upload-text="$t('admin.questionsForm.dbUploadText')"
+              :upload-hint="$t('admin.questionsForm.dbUploadHint')"
+              input-id="questionDbFile"
+              :mode="dbFileSlotMode"
+              :existing-file="existingDbFile"
+              :existing-file-size="existingDbFileSize"
+              :pending-file="form.dbFile"
+              :cleared="clearDbFileFlag"
+              :format-file-size="formatFileSize"
+              :get-file-name="getFileName"
+              @select="onDbFileSelected"
+              @clear-existing="clearDbFile"
+              @clear-pending="clearDbFileInput"
+            />
 
-            <div class="form-group">
-              <label>
-                <i class="fas fa-file-archive"></i> {{ $t('admin.questionsForm.indexFileLabel') }}
-              </label>
-              
-              <div class="upload-area">
-                <input
-                  type="file"
-                  id="vectorFile"
-                  ref="vectorFileInput"
-                  accept=".index"
-                  @change="handleVectorFileSelect"
-                  style="display: none"
-                />
-                
-                <div v-if="!form.vectorFile && !existingVectorFile" class="upload-box" @click="$refs.vectorFileInput.click()">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <p class="upload-text">{{ $t('admin.questionsForm.indexUploadText') }}</p>
-                  <p class="upload-hint">{{ $t('admin.questionsForm.indexUploadHint') }}</p>
-                </div>
-                
-                <div v-if="existingVectorFile && !form.vectorFile && !clearVectorFileFlag" class="file-preview-card">
-                  <div class="file-icon">
-                    <i class="fas fa-file-archive"></i>
-                  </div>
-                  <div class="file-info">
-                    <p class="file-name">{{ getFileName(existingVectorFile) }}</p>
-                    <p class="file-status existing">
-                      <i class="fas fa-check-circle"></i>
-                      {{ $t('admin.questionsForm.currentFile') }}
-                    </p>
-                    <p v-if="existingVectorFileSize" class="file-size">{{ formatFileSize(existingVectorFileSize) }}</p>
-                  </div>
-                  <div class="file-actions">
-                    <button type="button" class="btn-file btn-replace" @click="$refs.vectorFileInput.click()">
-                      <i class="fas fa-exchange-alt"></i> {{ $t('admin.questionsForm.replace') }}
-                    </button>
-                    <button type="button" class="btn-file btn-remove" @click="clearVectorFile">
-                      <i class="fas fa-times"></i> {{ $t('admin.questionsForm.remove') }}
-                    </button>
-                  </div>
-                </div>
-                
-                <div v-if="form.vectorFile" class="file-preview-card new">
-                  <div class="file-icon">
-                    <i class="fas fa-file-archive"></i>
-                  </div>
-                  <div class="file-info">
-                    <p class="file-name">{{ form.vectorFile.name }}</p>
-                    <p class="file-status new">
-                      <i class="fas fa-clock"></i> {{ $t('admin.questionsForm.pendingUpload') }}
-                    </p>
-                    <p class="file-size">{{ formatFileSize(form.vectorFile.size) }}</p>
-                  </div>
-                  <div class="file-actions">
-                    <button type="button" class="btn-file btn-remove" @click="clearVectorFileInput">
-                      <i class="fas fa-times"></i> {{ $t('admin.questionsForm.cancelPending') }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <QuestionFileSlot
+              :label="$t('admin.questionsForm.indexFileLabel')"
+              icon-class="fas fa-file-archive"
+              accept=".index"
+              :upload-text="$t('admin.questionsForm.indexUploadText')"
+              :upload-hint="$t('admin.questionsForm.indexUploadHint')"
+              input-id="questionVectorFile"
+              :mode="vectorFileSlotMode"
+              :existing-file="existingVectorFile"
+              :existing-file-size="existingVectorFileSize"
+              :pending-file="form.vectorFile"
+              :cleared="clearVectorFileFlag"
+              :format-file-size="formatFileSize"
+              :get-file-name="getFileName"
+              @select="onVectorFileSelected"
+              @clear-existing="clearVectorFile"
+              @clear-pending="clearVectorFileInput"
+            />
           </div>
 
           <div class="form-actions">
@@ -247,10 +160,11 @@ import {
 } from '@/services/v2/admin/questions'
 import { refreshV2Csrf } from '@/services/v2/http'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
+import QuestionFileSlot from '@/components/admin/QuestionFileSlot.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { has } = useAdminPermissions()
+const { has, isScopedAgent } = useAdminPermissions()
 const { t, locale } = useI18n()
 
 const isEdit = computed(() => route.name === 'admin-question-edit')
@@ -269,9 +183,22 @@ const existingDbFile = ref(null)
 const existingVectorFile = ref(null)
 const existingDbFileSize = ref(null)
 const existingVectorFileSize = ref(null)
-const existingTotalFileSize = ref(0)
 const clearDbFileFlag = ref(false)
 const clearVectorFileFlag = ref(false)
+
+const dbFileSlotMode = computed(() => {
+  if (isEdit.value && isScopedAgent.value) {
+    return existingDbFile.value ? 'readonly' : 'add-only'
+  }
+  return 'editable'
+})
+
+const vectorFileSlotMode = computed(() => {
+  if (isEdit.value && isScopedAgent.value) {
+    return existingVectorFile.value ? 'readonly' : 'add-only'
+  }
+  return 'editable'
+})
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -312,7 +239,6 @@ onMounted(async () => {
       existingVectorFile.value = questionResp.data.vector_file_path || null
       existingDbFileSize.value = Number(questionResp.data.db_file_size || 0) || null
       existingVectorFileSize.value = Number(questionResp.data.vector_file_size || 0) || null
-      existingTotalFileSize.value = Number(questionResp.data.total_file_size || 0) || 0
       if (!form.value.category_name) {
         categorySelectValue.value = ''
       } else if (existingCategories.value.includes(form.value.category_name)) {
@@ -356,47 +282,41 @@ async function fetchExistingCategories() {
   }
 }
 
-function handleDbFileSelect(event) {
-  const file = event.target.files[0]
-  if (file) {
-    form.value.dbFile = file
-    clearDbFileFlag.value = false
-  }
+function onDbFileSelected(file) {
+  form.value.dbFile = file
+  clearDbFileFlag.value = false
 }
 
-function handleVectorFileSelect(event) {
-  const file = event.target.files[0]
-  if (file) {
-    form.value.vectorFile = file
-    clearVectorFileFlag.value = false
-  }
+function onVectorFileSelected(file) {
+  form.value.vectorFile = file
+  clearVectorFileFlag.value = false
 }
 
 function clearDbFileInput() {
   form.value.dbFile = null
-  if (document.getElementById('dbFile')) {
-    document.getElementById('dbFile').value = ''
+  const dbInput = document.getElementById('questionDbFile')
+  if (dbInput) {
+    dbInput.value = ''
   }
 }
 
 function clearVectorFileInput() {
   form.value.vectorFile = null
-  if (document.getElementById('vectorFile')) {
-    document.getElementById('vectorFile').value = ''
+  const vectorInput = document.getElementById('questionVectorFile')
+  if (vectorInput) {
+    vectorInput.value = ''
   }
 }
 
 function clearDbFile() {
   existingDbFile.value = null
   existingDbFileSize.value = null
-  existingTotalFileSize.value = (existingVectorFileSize.value || 0)
   clearDbFileFlag.value = true
 }
 
 function clearVectorFile() {
   existingVectorFile.value = null
   existingVectorFileSize.value = null
-  existingTotalFileSize.value = (existingDbFileSize.value || 0)
   clearVectorFileFlag.value = true
 }
 
@@ -428,10 +348,21 @@ async function handleSubmit() {
     if (form.value.category_name) {
       formData.append('category_name', form.value.category_name)
     }
-    
+
+    const agentEdit = isScopedAgent.value && isEdit.value
+
     const pendingUploads = []
-    if (form.value.dbFile) pendingUploads.push({ file: form.value.dbFile, field: 'dbFile' })
-    if (form.value.vectorFile) pendingUploads.push({ file: form.value.vectorFile, field: 'vectorFile' })
+    if (agentEdit) {
+      if (form.value.dbFile && !existingDbFile.value) {
+        pendingUploads.push({ file: form.value.dbFile, field: 'dbFile' })
+      }
+      if (form.value.vectorFile && !existingVectorFile.value) {
+        pendingUploads.push({ file: form.value.vectorFile, field: 'vectorFile' })
+      }
+    } else {
+      if (form.value.dbFile) pendingUploads.push({ file: form.value.dbFile, field: 'dbFile' })
+      if (form.value.vectorFile) pendingUploads.push({ file: form.value.vectorFile, field: 'vectorFile' })
+    }
     if (pendingUploads.length > 0) {
       uploadingChunks.value = true
       chunkUploadProgress.value = 0
@@ -454,11 +385,13 @@ async function handleSubmit() {
     }
 
     if (isEdit.value) {
-      if (clearDbFileFlag.value) {
-        formData.append('clearDbFile', 'true')
-      }
-      if (clearVectorFileFlag.value) {
-        formData.append('clearVectorFile', 'true')
+      if (!agentEdit) {
+        if (clearDbFileFlag.value) {
+          formData.append('clearDbFile', 'true')
+        }
+        if (clearVectorFileFlag.value) {
+          formData.append('clearVectorFile', 'true')
+        }
       }
       
       // 大题库/向量上传由 api 拦截器统一延长超时，勿在此写 60s
@@ -741,155 +674,6 @@ function showToast(message, type = 'success') {
   box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
 }
 
-.upload-area {
-  position: relative;
-}
-
-.upload-box {
-  border: 2px dashed var(--border-color);
-  border-radius: 12px;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: rgba(0, 212, 255, 0.02);
-}
-
-.upload-box:hover {
-  border-color: var(--primary-color);
-  background: rgba(0, 212, 255, 0.05);
-}
-
-.upload-box i {
-  font-size: 3rem;
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  opacity: 0.6;
-}
-
-.upload-box:hover i {
-  opacity: 1;
-}
-
-.upload-text {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 1rem;
-}
-
-.upload-hint {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.file-preview-card {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 1rem;
-  background: rgba(0, 212, 255, 0.03);
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: all 0.3s ease;
-}
-
-.file-preview-card.new {
-  border-color: var(--primary-color);
-  background: rgba(0, 212, 255, 0.08);
-}
-
-.file-icon {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 212, 255, 0.15);
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.file-icon i {
-  font-size: 1.5rem;
-  color: var(--primary-color);
-}
-
-.file-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  margin: 0 0 0.25rem 0;
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-status {
-  margin: 0;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.file-status.existing {
-  color: #43e97b;
-}
-
-.file-status.new {
-  color: var(--primary-color);
-}
-
-.file-size {
-  margin: 0.25rem 0 0 0;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
-.file-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
-
-.btn-file {
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.btn-replace {
-  background: rgba(0, 212, 255, 0.15);
-  color: var(--primary-color);
-}
-
-.btn-replace:hover {
-  background: rgba(0, 212, 255, 0.25);
-}
-
-.btn-remove {
-  background: rgba(245, 87, 108, 0.15);
-  color: #f5576c;
-}
-
-.btn-remove:hover {
-  background: rgba(245, 87, 108, 0.25);
-}
-
 .form-actions {
   display: flex;
   gap: 1rem;
@@ -975,24 +759,6 @@ function showToast(message, type = 'success') {
     left: 1rem;
     right: 1rem;
     bottom: 1rem;
-  }
-
-  .file-preview-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .file-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .upload-box {
-    padding: 1.5rem;
-  }
-
-  .upload-box i {
-    font-size: 2rem;
   }
 }
 </style>

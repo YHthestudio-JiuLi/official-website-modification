@@ -26,6 +26,10 @@ export function useAdminPermissions() {
 
   const isScopedAgent = computed(() => {
     if (!authReady.value || !store.user) return false
+    if (typeof store.user.is_scoped_agent === 'boolean') {
+      return store.user.is_scoped_agent
+    }
+    // 兼容未携带 is_scoped_agent 的旧会话载荷
     const roles = store.user.roles || []
     if (roles.includes('super_admin') || store.user.isAdmin) return false
     return roles.includes('agent')

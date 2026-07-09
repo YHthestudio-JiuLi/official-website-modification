@@ -209,6 +209,12 @@ def add_column_if_missing(conn: CompatConnection, table: str, column: str, ddl: 
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
 
+def drop_column_if_exists(conn: CompatConnection, table: str, column: str) -> None:
+    """列存在时执行 ALTER TABLE DROP COLUMN。"""
+    if column_exists(conn, table, column):
+        conn.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
+
+
 def table_exists(conn: CompatConnection, table: str) -> bool:
     cur = conn.execute(
         """

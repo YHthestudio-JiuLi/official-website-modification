@@ -27,6 +27,11 @@ data/*.db
 # 用户上传文件（运行时数据，不入库）
 uploads/
 
+# 本地打包产物（勿提交）
+/*.zip
+jetson_nano.zip
+jetson_nano2.1.1.zip
+
 # Environment variables
 .env
 .env.local

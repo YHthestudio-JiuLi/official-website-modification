@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\StoredImage;
 use App\Services\Agent\AgentDataScope;
+use App\Services\Agent\CreatorAttributionEnricher;
 use App\Services\Catalog\ProductCatalogService;
 use App\Support\PublicApiCache;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class ProductController extends Controller
     public function __construct(
         private readonly ProductCatalogService $catalog,
         private readonly AgentDataScope $agentScope,
+        private readonly CreatorAttributionEnricher $creatorAttribution,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -25,6 +27,8 @@ class ProductController extends Controller
         $rows = $this->catalog->listProductsForAdminIndex($ownerId);
         if ($ownerId !== null) {
             $rows = array_map(fn (array $row) => $this->stripCategoryFields($row), $rows);
+        } elseif ($rows !== []) {
+            $rows = $this->creatorAttribution->enrichList($rows, 'createdByUserId');
         }
 
         return response()->json($rows);

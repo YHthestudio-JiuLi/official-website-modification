@@ -33,35 +33,46 @@
           </div>
         </template>
 
-        <el-table :data="agents" v-loading="loading" size="small" stripe>
-          <el-table-column :label="$t('admin.users.username')" min-width="120">
+        <div class="agents-table-wrap">
+          <el-table
+            :data="agents"
+            v-loading="loading"
+            size="small"
+            stripe
+            class="agents-table"
+            table-layout="auto"
+            :fit="false"
+          >
+          <el-table-column :label="$t('admin.users.username')" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">{{ row.user?.username || '—' }}</template>
           </el-table-column>
-          <el-table-column :label="$t('admin.users.email')" min-width="180">
+          <el-table-column :label="$t('admin.users.email')" min-width="210" show-overflow-tooltip>
             <template #default="{ row }">{{ row.user?.email || '—' }}</template>
           </el-table-column>
-          <el-table-column :label="$t('admin.agents.parent')" width="120">
+          <el-table-column :label="$t('admin.agents.parent')" min-width="130" show-overflow-tooltip>
             <template #default="{ row }">{{ row.parent_username || '—' }}</template>
           </el-table-column>
-          <el-table-column :label="$t('admin.agents.commission')" width="110" align="right">
-            <template #default="{ row }">{{ formatCommission(row.commission_rate) }}</template>
+          <el-table-column :label="$t('admin.agents.commission')" min-width="120" align="right">
+            <template #default="{ row }">
+              <span class="numeric-value">{{ formatCommission(row.commission_rate) }}</span>
+            </template>
           </el-table-column>
-          <el-table-column :label="$t('admin.agents.revenue')" width="140" align="right">
+          <el-table-column :label="$t('admin.agents.revenue')" min-width="155" align="right">
             <template #default="{ row }">
               <el-tooltip
                 v-if="hasCommissionDeduction(row)"
                 :content="revenueTooltip(row)"
                 placement="top"
               >
-                <span class="revenue-cell">{{ formatRevenue(row.revenue) }}</span>
+                <span class="revenue-cell numeric-value">{{ formatRevenue(row.revenue) }}</span>
               </el-tooltip>
-              <span v-else>{{ formatRevenue(row.revenue) }}</span>
+              <span v-else class="numeric-value">{{ formatRevenue(row.revenue) }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="region" :label="$t('admin.agents.region')" width="120">
+          <el-table-column prop="region" :label="$t('admin.agents.region')" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">{{ row.region || '—' }}</template>
           </el-table-column>
-          <el-table-column :label="$t('admin.orders.status')" width="100" align="center">
+          <el-table-column :label="$t('admin.orders.status')" min-width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
                 {{ statusLabel(row.status) }}
@@ -100,6 +111,7 @@
             <el-empty :description="$t('admin.agents.empty')" />
           </template>
         </el-table>
+        </div>
       </el-card>
 
       <el-dialog
@@ -445,6 +457,23 @@ onMounted(load)
 
 .agents-card {
   min-height: 360px;
+  overflow: hidden;
+}
+
+.agents-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.agents-table {
+  min-width: 980px;
+}
+
+.numeric-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .card-head {
@@ -493,7 +522,20 @@ onMounted(load)
 }
 
 .revenue-cell {
+  display: inline-flex;
+  align-items: center;
   cursor: help;
+  white-space: nowrap;
   border-bottom: 1px dashed rgba(0, 212, 255, 0.35);
+}
+
+:deep(.agents-table .el-table__cell) {
+  white-space: nowrap;
+}
+
+@media (max-width: 1366px) {
+  .agents-table {
+    min-width: 900px;
+  }
 }
 </style>

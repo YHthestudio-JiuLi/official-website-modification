@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from .modules import DatabaseManager
+from .modules.device_verification_errors import DeviceVerificationError
 from .utils import connect, validate_table_name, row_to_dict, rows_to_dict
 from .controller import questions_router
 
@@ -119,6 +120,12 @@ def rpc(req: RpcRequest) -> Dict[str, Any]:
         result = dispatch(db_manager, req.op, req.args)
         logger.info(f"RPC call completed: {req.op}")
         return {"ok": True, "result": result}
+    except DeviceVerificationError as e:
+        logger.info(
+            f"RPC business error: {req.op} - {e.code}",
+            extra={"extra_data": {"op": req.op, "code": e.code}},
+        )
+        return {"ok": False, "code": e.code, "detail": e.detail, "http_status": e.http_status}
     except HTTPException:
         raise
     except Exception as e:
@@ -192,6 +199,8 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
         return db_manager.users.find_by_username(args["username"])
     if op == "users.canAccessAdmin":
         return db_manager.users.can_access_admin(int(args["id"]))
+    if op == "users.isScopedAgent":
+        return db_manager.users.is_scoped_agent(int(args["id"]))
     if op == "users.findByEmail":
         return db_manager.users.find_by_email(args["email"])
     if op == "users.create":
@@ -467,70 +476,66 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "deviceVerification.getSettings":
         return db_manager.device_verification.get_settings()
     if op == "deviceVerification.updateSettings":
-        return db_manager.device_verification.update_verify_cooldown_seconds(
-            int(args.get("verify_cooldown_seconds", 0))
+        return db_manager.device_verification.update_settings(
+            verify_cooldown_seconds=args.get("verify_cooldown_seconds"),
+            signing_private_key=args.get("signing_private_key"),
+            signing_private_key_b64=args.get("signing_private_key_b64"),
         )
 
     if op == "deviceVerification.findAll":
-        return db_manager.device_verification.find_all()
+        created_by = args.get("created_by_user_id")
+        return db_manager.device_verification.find_all(
+            int(created_by) if created_by is not None else None
+        )
     if op == "deviceVerification.findById":
         return db_manager.device_verification.find_by_id(args["id"])
     if op == "deviceVerification.findByDeviceId":
         return db_manager.device_verification.find_by_device_id(args["device_id"])
+    if op == "deviceVerification.findByFingerprint":
+        return db_manager.device_verification.find_by_fingerprint(args["fingerprint"])
     if op == "deviceVerification.create":
         question_id = args.get("question_id")
         firmware_id = args.get("firmware_id")
-        is_whitelisted = bool(args.get("is_whitelisted", False))
+        is_whitelisted = parse_bool(args.get("is_whitelisted", False), False)
+        created_by_user_id = args.get("created_by_user_id")
         return db_manager.device_verification.create(
             args["device_id"],
             int(args.get("max_verifications", 10)),
             question_id if question_id is not None else None,
             firmware_id if firmware_id is not None else None,
             is_whitelisted,
+            args.get("device_fingerprint"),
+            args.get("fingerprint_algo_version"),
+            int(created_by_user_id) if created_by_user_id is not None else None,
         )
-    if op == "deviceVerification.updateMaxVerifications":
-        return db_manager.device_verification.update_max_verifications(args["device_id"], int(args["max_verifications"]))
-    if op == "deviceVerification.updateQuestionId":
-        question_id = args.get("question_id")
-        return db_manager.device_verification.update_question_id(
-            args["device_id"],
-            question_id if question_id is not None else None
-        )
-    if op == "deviceVerification.updateFirmwareId":
-        firmware_id = args.get("firmware_id")
-        return db_manager.device_verification.update_firmware_id(
-            args["device_id"],
-            firmware_id if firmware_id is not None else None
-        )
-    if op == "deviceVerification.updateWhitelist":
-        return db_manager.device_verification.update_whitelist(
-            args["device_id"],
-            bool(args.get("is_whitelisted", False)),
-        )
-    if op == "deviceVerification.cleanupUnwhitelistedExpired":
-        return db_manager.device_verification.cleanup_unwhitelisted_expired(
-            int(args.get("ttl_minutes", 30))
-        )
-    if op == "deviceVerification.addMaxVerifications":
-        return db_manager.device_verification.add_max_verifications(args["device_id"], int(args["add_count"]))
+    if op == "deviceVerification.patchDevice":
+        payload = args.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError("deviceVerification.patchDevice requires args.payload object")
+        return db_manager.device_verification.patch_device(args["device_id"], payload)
     if op == "deviceVerification.delete":
         return db_manager.device_verification.delete(args["device_id"])
     if op == "deviceVerification.verify":
         return db_manager.device_verification.verify_device(
-            args["device_id"],
+            args.get("fingerprint"),
+            args.get("fingerprint_algo_version"),
             args.get("ip_address"),
-            args.get("user_agent")
+            args.get("user_agent"),
+        )
+    if op == "deviceVerification.confirmVerification":
+        return db_manager.device_verification.confirm_verification(
+            args["fingerprint"],
+            int(args["issued_at"]),
+            args["signature"],
         )
     if op == "deviceVerification.resetCount":
         return db_manager.device_verification.reset_verification_count(args["device_id"])
-    if op == "deviceVerification.getPublicKey":
-        return db_manager.device_verification.get_public_key(args["device_id"])
-    if op == "deviceVerification.getPrivateKey":
-        return db_manager.device_verification.get_private_key(args["device_id"])
-    if op == "deviceVerification.getKeys":
-        return db_manager.device_verification.get_keys(args["device_id"])
-    if op == "deviceVerification.verifySignature":
-        return db_manager.device_verification.verify_signature(args["device_id"], args["signature"], int(args["issued_at"]))
+    if op == "deviceVerification.authenticateSignedRequest":
+        return db_manager.device_verification.authenticate_signed_request(
+            args["fingerprint"],
+            args["signature"],
+            int(args["issued_at"]),
+        )
     if op == "deviceVerification.findLogsByDeviceId":
         return db_manager.device_verification.find_logs_by_device_id(
             args["device_id"],
@@ -547,32 +552,44 @@ def dispatch(db_manager: DatabaseManager, op: str, args: Dict[str, Any]) -> Any:
     if op == "deviceVerification.countAllLogs":
         return db_manager.device_verification.count_all_logs()
     if op == "deviceVerification.listFirmwareFiles":
-        return db_manager.device_verification.list_firmware_files()
+        created_by = args.get("created_by_user_id")
+        return db_manager.device_verification.firmware.list_firmware_files(
+            int(created_by) if created_by is not None else None
+        )
+    if op == "deviceVerification.findFirmwareById":
+        return db_manager.device_verification.firmware.find_firmware_by_id(int(args["id"]))
     if op == "deviceVerification.createFirmwareFile":
-        return db_manager.device_verification.create_firmware_file(
+        created_by_user_id = args.get("created_by_user_id")
+        return db_manager.device_verification.firmware.create_firmware_file(
             args["file_name"],
             args["file_url"],
             int(args.get("file_size", 0)),
             args.get("checksum_sha256"),
             args.get("remark"),
+            int(created_by_user_id) if created_by_user_id is not None else None,
         )
     if op == "deviceVerification.deleteFirmwareFile":
-        return db_manager.device_verification.delete_firmware_file(int(args["id"]))
+        return db_manager.device_verification.firmware.delete_firmware_file(int(args["id"]))
     if op == "deviceVerification.setDefaultFirmware":
-        return db_manager.device_verification.set_default_firmware(int(args["id"]))
+        return db_manager.device_verification.firmware.set_default_firmware(int(args["id"]))
     if op == "deviceVerification.updateFirmwareRemark":
-        return db_manager.device_verification.update_firmware_remark(int(args["id"]), args.get("remark"))
+        return db_manager.device_verification.firmware.update_firmware_remark(int(args["id"]), args.get("remark"))
 
     if op == "questions.findAll":
-        return db_manager.questions.find_all()
+        created_by = args.get("created_by_user_id")
+        return db_manager.questions.find_all(
+            int(created_by) if created_by is not None else None
+        )
     if op == "questions.findById":
         return db_manager.questions.find_by_id(int(args["id"]))
     if op == "questions.create":
+        created_by_user_id = args.get("created_by_user_id")
         return db_manager.questions.create(
             args["name"],
             args.get("category_name"),
             args.get("db_file_path"),
             args.get("vector_file_path"),
+            int(created_by_user_id) if created_by_user_id is not None else None,
         )
     if op == "questions.update":
         return db_manager.questions.update(

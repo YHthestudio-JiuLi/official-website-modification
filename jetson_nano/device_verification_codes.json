@@ -1,0 +1,76 @@
+{
+  "fingerprint_algo_version": "3",
+  "fingerprint_hex_length": 128,
+  "errors": {
+    "INVALID_FINGERPRINT": {
+      "http_status": 400,
+      "message": "Invalid fingerprint format",
+      "jetson_exit": 1
+    },
+    "FINGERPRINT_REQUIRED": {
+      "http_status": 403,
+      "message": "Fingerprint required; contact administrator.",
+      "jetson_exit": 2
+    },
+    "FINGERPRINT_ALGO_MISMATCH": {
+      "http_status": 403,
+      "message": "Fingerprint algo version mismatch; contact administrator.",
+      "jetson_exit": 2
+    },
+    "FINGERPRINT_BINDING_INVALID": {
+      "http_status": 403,
+      "message": "Fingerprint binding invalid; contact administrator.",
+      "jetson_exit": 2
+    },
+    "FINGERPRINT_NOT_ENROLLED": {
+      "http_status": 403,
+      "message": "Device fingerprint not enrolled; contact administrator.",
+      "jetson_exit": 2
+    },
+    "FINGERPRINT_ALREADY_ENROLLED": {
+      "http_status": 400,
+      "message": "Device fingerprint already enrolled; contact administrator.",
+      "jetson_exit": 1
+    },
+    "DEVICE_NOT_FOUND": {
+      "http_status": 404,
+      "message": "Device not found",
+      "jetson_exit": 1
+    },
+    "DEVICE_DISABLED": {
+      "http_status": 403,
+      "message": "Device disabled; contact administrator.",
+      "jetson_exit": 2
+    },
+    "QUOTA_EXHAUSTED": {
+      "http_status": 403,
+      "message": "Verification quota exhausted; contact administrator.",
+      "jetson_exit": 3
+    },
+    "SIGNATURE_INVALID": {
+      "http_status": 403,
+      "message": "Signature verification failed",
+      "jetson_exit": 2
+    },
+    "PLATFORM_SIGNING_KEY_MISSING": {
+      "http_status": 503,
+      "message": "Platform signing key not configured; upload private key in admin settings.",
+      "jetson_exit": 1
+    },
+    "INVALID_SIGNING_KEY": {
+      "http_status": 400,
+      "message": "Invalid platform signing private key",
+      "jetson_exit": 1
+    },
+    "INVALID_COOLDOWN": {
+      "http_status": 400,
+      "message": "Invalid verify_cooldown_seconds",
+      "jetson_exit": 1
+    },
+    "INVALID_MAX_VERIFICATIONS": {
+      "http_status": 400,
+      "message": "Invalid max_verifications",
+      "jetson_exit": 1
+    }
+  }
+}

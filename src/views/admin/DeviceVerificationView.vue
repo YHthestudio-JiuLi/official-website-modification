@@ -28,7 +28,13 @@
       <AdminNoPermissionCard v-if="!canAccessPage" message-key="admin.deviceVerification.noPermission" />
 
       <template v-else>
-      <div class="cooldown-settings-bar">
+      <div v-if="canManageGlobalSettings" class="global-settings-card" id="device-global-settings">
+        <div class="global-settings-header">
+          <h3><i class="fas fa-sliders-h"></i> {{ $t('admin.deviceVerification.globalSettingsTitle') }}</h3>
+          <p>{{ $t('admin.deviceVerification.globalSettingsHint') }}</p>
+        </div>
+
+      <div class="cooldown-settings-bar cooldown-settings-bar--nested">
         <div class="cooldown-settings-main">
           <div class="cooldown-settings-icon" aria-hidden="true">
             <i class="fas fa-clock"></i>
@@ -49,11 +55,41 @@
             step="0.1"
             class="form-input cooldown-input"
           />
-          <button type="button" class="btn btn-primary" :disabled="settingsSaving" @click="saveCooldownSettings">
+          <button type="button" class="btn btn-primary btn-compact" :disabled="settingsSaving" @click="saveCooldownSettings">
             <i class="fas fa-save"></i>
             {{ settingsSaving ? $t('common.loading') : $t('common.save') }}
           </button>
         </div>
+      </div>
+
+      <div class="signing-settings-row" id="signing-key-settings">
+        <div class="signing-settings-label">
+          <i class="fas fa-key" aria-hidden="true"></i>
+          <span>{{ $t('admin.deviceVerification.signingKeyTitle') }}</span>
+          <span
+            class="signing-badge"
+            :class="signingKeyConfigured ? 'signing-badge--ok' : 'signing-badge--warn'"
+          >
+            {{ signingKeyConfigured ? $t('admin.deviceVerification.signingKeyConfigured') : $t('admin.deviceVerification.signingKeyNotConfigured') }}
+          </span>
+        </div>
+        <div class="signing-settings-input-wrap">
+          <input
+            id="signingPrivateKeyInput"
+            v-model="signingPrivateKeyInput"
+            type="password"
+            class="form-input signing-private-input"
+            :placeholder="$t('admin.deviceVerification.signingPrivateKeyPlaceholder')"
+            autocomplete="off"
+            spellcheck="false"
+            :disabled="signingKeySaving"
+            @input="scheduleSigningKeyAutoSave"
+          />
+          <span v-if="signingKeySaving" class="signing-saving" aria-live="polite">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+        </div>
+      </div>
       </div>
 
       <div v-if="loading" class="loading-container">
@@ -98,7 +134,9 @@
                 <th>{{ $t('admin.deviceVerification.verificationCount') }}</th>
                 <th>{{ $t('admin.deviceVerification.maxVerifications') }}</th>
                 <th>{{ $t('admin.deviceVerification.remaining') }}</th>
-                <th>白名单</th>
+                <th>{{ $t('admin.deviceVerification.deviceStatus') }}</th>
+                <th>{{ $t('admin.deviceVerification.presetFingerprint') }}</th>
+                <AdminCreatedByHeader :show-column="!isScopedAgent" />
                 <th>{{ $t('admin.deviceVerification.createdAt') }}</th>
                 <th class="text-center">{{ $t('admin.deviceVerification.actions') }}</th>
               </tr>
@@ -141,9 +179,15 @@
                 </td>
                 <td>
                   <span :class="['remaining-badge', Number(device.is_whitelisted) === 1 ? 'remaining-ok' : 'remaining-zero']">
-                    {{ Number(device.is_whitelisted) === 1 ? '已授权' : '未授权' }}
+                    {{ Number(device.is_whitelisted) === 1 ? $t('admin.deviceVerification.statusEnabled') : $t('admin.deviceVerification.statusDisabled') }}
                   </span>
                 </td>
+                <td>
+                  <span class="fingerprint-cell" :title="device.device_fingerprint || '-'">
+                    {{ formatFingerprint(device.device_fingerprint) }}
+                  </span>
+                </td>
+                <AdminCreatedByCell :show-cell="!isScopedAgent" :username="device.created_by_username" />
                 <td>
                   <span class="date-cell" :title="formatFullDate(device.created_at)">{{ formatDate(device.created_at) }}</span>
                 </td>
@@ -169,7 +213,7 @@
                 </td>
               </tr>
               <tr v-if="devices.length === 0">
-                <td colspan="11" class="empty-state">
+                <td colspan="12" class="empty-state">
                   <i class="fas fa-shield-alt"></i>
                   <h3>{{ $t('admin.deviceVerification.empty') }}</h3>
                   <p>{{ $t('admin.deviceVerification.emptyHint') }}</p>
@@ -233,12 +277,23 @@
               </select>
               <p class="form-hint">{{ $t('admin.deviceVerification.firmwareHintDevice') }}</p>
             </div>
+            <div class="form-group">
+              <label>设备指纹（必填）</label>
+              <input
+                v-model.trim="newDevice.device_fingerprint"
+                type="text"
+                class="form-input"
+                placeholder="128位十六进制（sha512）"
+              />
+              <p class="form-hint">{{ $t('admin.deviceVerification.fingerprintHintAdd') }}</p>
+              <p class="form-hint">指纹算法版本固定为 v3（不可手动修改）。</p>
+            </div>
           </div>
           <div class="modal-footer">
             <button @click="closeAddModal" class="btn btn-secondary">
               <i class="fas fa-times"></i> {{ $t('common.cancel') }}
             </button>
-            <button @click="addDevice" class="btn btn-primary" :disabled="!newDevice.device_id">
+            <button @click="addDevice" class="btn btn-primary" :disabled="!normalizeDeviceIdValue(newDevice.device_id) || !normalizeFingerprintValue(newDevice.device_fingerprint)">
               <i class="fas fa-plus"></i> {{ $t('admin.deviceVerification.addDevice') }}
             </button>
           </div>
@@ -313,6 +368,17 @@
                 <option v-for="f in firmwareItems" :key="f.id" :value="f.id">{{ f.file_name }}{{ f.is_default ? $t('admin.deviceVerification.firmwareDefaultOptionSuffix') : '' }}</option>
               </select>
               <p class="form-hint">{{ $t('admin.deviceVerification.firmwareHintOverride') }}</p>
+            </div>
+            <div class="form-group">
+              <label>设备指纹（必填）</label>
+              <input
+                v-model.trim="editData.device_fingerprint"
+                type="text"
+                class="form-input"
+                placeholder="128位十六进制（sha512）"
+              />
+              <p class="form-hint">{{ $t('admin.deviceVerification.fingerprintHintEdit') }}</p>
+              <p class="form-hint">指纹算法版本固定为 v3（不可手动修改）。</p>
             </div>
           </div>
           <div class="modal-footer">
@@ -466,53 +532,6 @@
         </div>
       </div>
 
-      <!-- Keys Modal -->
-      <div v-if="showKeysModalVisible" class="modal-overlay" @click="closeKeysModal">
-        <div class="modal-container" @click.stop>
-          <div class="modal-header">
-            <i class="fas fa-key"></i>
-            <h3>{{ $t('admin.deviceVerification.deviceKeys') }} - {{ keysDevice?.device_id }}</h3>
-          </div>
-          <div class="modal-body">
-            <div v-if="keysLoading" class="loading-container">
-              <div class="loading-spinner">
-                <i class="fas fa-spinner fa-spin"></i>
-                <span>{{ $t('admin.deviceVerification.loadingKeys') }}</span>
-              </div>
-            </div>
-            <div v-else>
-              <div class="key-section">
-                <div class="key-header">
-                  <label>{{ $t('admin.deviceVerification.publicKey') }}</label>
-                  <button @click="copyKey(keys.public_key)" class="copy-btn">
-                    <i class="fas fa-copy"></i>
-                  </button>
-                </div>
-                <div class="key-value">{{ keys.public_key }}</div>
-              </div>
-              <div class="key-section">
-                <div class="key-header">
-                  <label>{{ $t('admin.deviceVerification.privateKey') }}</label>
-                  <button @click="copyKey(keys.private_key)" class="copy-btn">
-                    <i class="fas fa-copy"></i>
-                  </button>
-                </div>
-                <div class="key-value key-private">{{ keys.private_key }}</div>
-                <p class="key-warning">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  {{ $t('admin.deviceVerification.privateKeyWarning') }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="closeKeysModal" class="btn btn-secondary">
-              <i class="fas fa-times"></i> {{ $t('common.close') }}
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Toast Notification -->
       <div v-if="toast.visible" :class="['toast', toast.type]">
         <i :class="toast.type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'"></i>
@@ -528,19 +547,15 @@
           :style="actionMenuPanelStyle"
           @click.stop
         >
-          <button v-if="canViewKeys" type="button" class="action-menu-item" @click="runDeviceAction(() => showKeysModal(openActionMenuDevice))">
-            <i class="fas fa-key"></i>
-            <span>{{ $t('admin.deviceVerification.keys') }}</span>
-          </button>
-          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => showLogsModal(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(showLogsModal)">
             <i class="fas fa-history"></i>
             <span>{{ $t('admin.deviceVerification.logs') }}</span>
           </button>
-          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => showEditModal(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(showEditModal)">
             <i class="fas fa-edit"></i>
             <span>{{ $t('admin.deviceVerification.edit') }}</span>
           </button>
-          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(() => resetCount(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item" @click="runDeviceAction(resetCount)">
             <i class="fas fa-redo"></i>
             <span>{{ $t('admin.deviceVerification.reset') }}</span>
           </button>
@@ -548,12 +563,12 @@
             v-if="canManage"
             type="button"
             class="action-menu-item"
-            @click="runDeviceAction(() => toggleWhitelist(openActionMenuDevice))"
+            @click="runDeviceAction(toggleWhitelist)"
           >
-            <i :class="Number(openActionMenuDevice.is_whitelisted) === 1 ? 'fas fa-user-slash' : 'fas fa-user-check'"></i>
-            <span>{{ Number(openActionMenuDevice.is_whitelisted) === 1 ? $t('admin.deviceVerification.revokeAuth') : $t('admin.deviceVerification.grantAuth') }}</span>
+            <i :class="Number(openActionMenuDevice.is_whitelisted) === 1 ? 'fas fa-toggle-off' : 'fas fa-toggle-on'"></i>
+            <span>{{ Number(openActionMenuDevice.is_whitelisted) === 1 ? $t('admin.deviceVerification.disableDevice') : $t('admin.deviceVerification.enableDevice') }}</span>
           </button>
-          <button v-if="canManage" type="button" class="action-menu-item danger" @click="runDeviceAction(() => confirmDelete(openActionMenuDevice))">
+          <button v-if="canManage" type="button" class="action-menu-item danger" @click="runDeviceAction(confirmDelete)">
             <i class="fas fa-trash"></i>
             <span>{{ $t('admin.deviceVerification.delete') }}</span>
           </button>
@@ -564,1785 +579,77 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { fetchQuestions as fetchQuestionsApi } from '@/services/v2/admin/questions'
-import { fetchFirmwares as fetchFirmwaresApi } from '@/services/v2/admin/firmware'
-import {
-  fetchVerificationSettings,
-  updateVerificationSettings,
-  fetchDevices as fetchDevicesApi,
-  createDevice as createDeviceApi,
-  updateDevice as updateDeviceApi,
-  deleteDevice as deleteDeviceApi,
-  resetDeviceCount,
-  fetchDeviceKeys,
-  fetchDeviceLogs
-} from '@/services/v2/admin/devices'
-import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
-import { useAdminPermissions } from '@/composables/useAdminPermission'
 import AdminNoPermissionCard from '@/components/admin/AdminNoPermissionCard.vue'
+import AdminCreatedByHeader from '@/components/admin/AdminCreatedByHeader.vue'
+import AdminCreatedByCell from '@/components/admin/AdminCreatedByCell.vue'
+import { useDeviceVerificationAdmin } from '@/composables/useDeviceVerificationAdmin'
 
-const { has } = useAdminPermissions()
-const canManage = computed(() => has('device.view'))
-const canViewKeys = computed(() => has('device.keys.view'))
-const canAccessPage = computed(() => canManage.value || canViewKeys.value)
-
-const { t, locale } = useI18n()
-
-function getFmtLocale() {
-  return locale.value === 'zh' ? 'zh-CN' : 'en-US'
-}
-
-const devices = ref([])
-const loading = ref(true)
-const selectAll = ref(false)
-const selectedDevices = ref([])
-const questions = ref([])
-
-const showAddModal = ref(false)
-const newDevice = ref({
-  device_id: '',
-  max_verifications: 10,
-  question_id: '',
-  firmware_id: ''
-})
-
-const showEditModalVisible = ref(false)
-const editingDevice = ref(null)
-const editData = ref({
-  max_verifications: null,
-  add_count: 0,
-  question_id: '',
-  firmware_id: ''
-})
-
-const showDeleteModal = ref(false)
-const deviceToDelete = ref(null)
-
-const showBatchDeleteModal = ref(false)
-
-const showLogsModalVisible = ref(false)
-const logsDevice = ref(null)
-const logs = ref([])
-const logsTotal = ref(0)
-const logsLoading = ref(false)
-
-const showKeysModalVisible = ref(false)
-const keysDevice = ref(null)
-const keys = ref({ public_key: '', private_key: '' })
-const keysLoading = ref(false)
-
-const toast = ref({
-  visible: false,
-  type: 'success',
-  message: ''
-})
-
-// 全局：多少秒内重复验证不消耗次数（秒，0=关闭）
-const cooldownHours = ref(0)
-const settingsSaving = ref(false)
-const firmwareItems = ref([])
-const firmwareLoading = ref(false)
-const openActionMenuDevice = ref(null)
-const actionMenuPanelRef = ref(null)
-const actionMenuPanelStyle = ref({})
-let actionMenuTriggerEl = null
-
-async function toggleActionMenu(device, event) {
-  if (openActionMenuDevice.value?.id === device.id) {
-    closeActionMenu()
-    return
-  }
-  openActionMenuDevice.value = device
-  actionMenuTriggerEl = event.currentTarget
-  await nextTick()
-  positionActionMenu()
-  await nextTick()
-  positionActionMenu()
-}
-
-function positionActionMenu() {
-  if (!actionMenuTriggerEl) return
-
-  const rect = actionMenuTriggerEl.getBoundingClientRect()
-  const panel = actionMenuPanelRef.value
-  const panelHeight = panel?.offsetHeight || 240
-  const panelWidth = Math.max(panel?.offsetWidth || 160, rect.width)
-  const gap = 6
-  const margin = 8
-
-  let top = rect.bottom + gap
-  if (top + panelHeight > window.innerHeight - margin) {
-    top = Math.max(margin, rect.top - gap - panelHeight)
-  }
-
-  let left = rect.right - panelWidth
-  left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin))
-
-  actionMenuPanelStyle.value = {
-    top: `${top}px`,
-    left: `${left}px`,
-    minWidth: `${panelWidth}px`,
-  }
-}
-
-function closeActionMenu() {
-  openActionMenuDevice.value = null
-  actionMenuTriggerEl = null
-  actionMenuPanelStyle.value = {}
-}
-
-function runDeviceAction(action) {
-  closeActionMenu()
-  action()
-}
-
-function onActionMenuViewportChange() {
-  if (!openActionMenuDevice.value) return
-  if (!actionMenuTriggerEl || !document.body.contains(actionMenuTriggerEl)) {
-    closeActionMenu()
-    return
-  }
-  positionActionMenu()
-}
-
-onMounted(() => {
-  initPage()
-  document.addEventListener('click', closeActionMenu)
-  window.addEventListener('resize', onActionMenuViewportChange)
-  window.addEventListener('scroll', onActionMenuViewportChange, true)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', closeActionMenu)
-  window.removeEventListener('resize', onActionMenuViewportChange)
-  window.removeEventListener('scroll', onActionMenuViewportChange, true)
-})
-
-async function initPage() {
-  if (!canAccessPage.value) {
-    loading.value = false
-    return
-  }
-  await Promise.all([fetchCooldownSettings(), fetchDevices()])
-  // 题库/固件列表仅用于下拉，后台加载不阻塞首屏
-  fetchQuestions()
-  fetchFirmwareItems()
-}
-
-async function handleUnauthorized(error) {
-  return handleAdminApiFailure(error, {
-    onForbidden: (msg) => showToast(msg, 'error')
-  })
-}
-
-async function fetchQuestions() {
-  try {
-    const response = await fetchQuestionsApi()
-    const data = response.data
-    questions.value = Array.isArray(data) ? data : (data?.items || [])
-  } catch (error) {
-    if (await handleUnauthorized(error)) return
-    showToast(readAdminApiError(error, t('admin.questions.loadError')), 'error')
-  }
-}
-
-async function fetchCooldownSettings() {
-  try {
-    const response = await fetchVerificationSettings()
-    const sec = response.data?.verify_cooldown_seconds
-    const secNum = typeof sec === 'number' ? sec : parseInt(sec, 10) || 0
-    cooldownHours.value = Number((secNum / 3600).toFixed(2))
-  } catch (error) {
-    if (await handleUnauthorized(error)) return
-    showToast(t('admin.deviceVerification.loadSettingsError'), 'error')
-  }
-}
-
-async function saveCooldownSettings() {
-  const hours = parseFloat(cooldownHours.value)
-  if (Number.isNaN(hours) || hours < 0 || hours > 8760) {
-    showToast(t('admin.deviceVerification.cooldownInvalid'), 'error')
-    return
-  }
-  const sec = Math.round(hours * 3600)
-  settingsSaving.value = true
-  try {
-    await updateVerificationSettings({
-      verify_cooldown_seconds: sec
-    })
-    await fetchCooldownSettings()
-    showToast(t('admin.deviceVerification.cooldownSaved'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.cooldownSaveError'), 'error')
-  } finally {
-    settingsSaving.value = false
-  }
-}
-
-async function fetchFirmwareItems() {
-  firmwareLoading.value = true
-  try {
-    const response = await fetchFirmwaresApi()
-    firmwareItems.value = response.data.items || []
-  } catch (error) {
-    if (await handleUnauthorized(error)) return
-    showToast(readAdminApiError(error, t('admin.deviceVerification.firmwareLoadListError')), 'error')
-  } finally {
-    firmwareLoading.value = false
-  }
-}
-
-async function fetchDevices() {
-  loading.value = true
-  try {
-    const response = await fetchDevicesApi()
-    devices.value = response.data.devices || []
-  } catch (error) {
-    if (await handleUnauthorized(error)) return
-    showToast(t('admin.deviceVerification.loadError'), 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-function closeAddModal() {
-  showAddModal.value = false
-  newDevice.value = { device_id: '', max_verifications: 10, question_id: '', firmware_id: '' }
-}
-
-async function addDevice() {
-  if (!newDevice.value.device_id.trim()) return
-  
-  try {
-    const questionId = newDevice.value.question_id ? parseInt(newDevice.value.question_id) : null
-    const firmwareId = newDevice.value.firmware_id ? parseInt(newDevice.value.firmware_id) : null
-    await createDeviceApi({
-      device_id: newDevice.value.device_id.trim(),
-      max_verifications: newDevice.value.max_verifications,
-      question_id: questionId,
-      firmware_id: firmwareId,
-      // 手动添加的设备默认已授权；未授权场景由列表「授权」按钮处理
-      is_whitelisted: true
-    })
-    closeAddModal()
-    await fetchDevices()
-    showToast(t('admin.deviceVerification.addSuccess'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.addError'), 'error')
-  }
-}
-
-function showEditModal(device) {
-  editingDevice.value = device
-  editData.value = {
-    max_verifications: device.max_verifications,
-    add_count: 0,
-    question_id: device.question_id || '',
-    firmware_id: device.firmware_id || ''
-  }
-  showEditModalVisible.value = true
-}
-
-function closeEditModal() {
-  showEditModalVisible.value = false
-  editingDevice.value = null
-}
-
-async function updateDevice() {
-  if (!editingDevice.value) return
-  
-  try {
-    const payload = {}
-    if (editData.value.max_verifications !== editingDevice.value.max_verifications) {
-      payload.max_verifications = editData.value.max_verifications
-    }
-    if (editData.value.add_count > 0) {
-      payload.add_max_verifications = editData.value.add_count
-    }
-    const editQuestionId = editData.value.question_id ? parseInt(editData.value.question_id) : null
-    const deviceQuestionId = editingDevice.value.question_id
-    if (editQuestionId !== deviceQuestionId) {
-      payload.question_id = editQuestionId
-    }
-    const editFirmwareId = editData.value.firmware_id ? parseInt(editData.value.firmware_id) : null
-    const deviceFirmwareId = editingDevice.value.firmware_id || null
-    if (editFirmwareId !== deviceFirmwareId) {
-      payload.firmware_id = editFirmwareId
-    }
-    if (Object.keys(payload).length === 0) {
-      closeEditModal()
-      return
-    }
-    
-    await updateDeviceApi(editingDevice.value.device_id, payload)
-    closeEditModal()
-    await fetchDevices()
-    showToast(t('admin.deviceVerification.updateSuccess'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.updateError'), 'error')
-  }
-}
-
-async function toggleWhitelist(device) {
-  const current = Number(device.is_whitelisted || 0) === 1
-  try {
-    await updateDeviceApi(device.device_id, {
-      is_whitelisted: !current
-    })
-    await fetchDevices()
-    showToast(!current ? '设备已加入白名单，可正常验证' : '设备已移出白名单，将拒绝验证', 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || '更新白名单失败', 'error')
-  }
-}
-
-async function resetCount(device) {
-  try {
-    await resetDeviceCount(device.device_id)
-    await fetchDevices()
-    showToast(t('admin.deviceVerification.resetSuccess'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.resetError'), 'error')
-  }
-}
-
-async function showLogsModal(device) {
-  logsDevice.value = device
-  logs.value = []
-  logsTotal.value = 0
-  showLogsModalVisible.value = true
-  await fetchLogs()
-}
-
-function closeLogsModal() {
-  showLogsModalVisible.value = false
-  logsDevice.value = null
-  logs.value = []
-  logsTotal.value = 0
-}
-
-async function showKeysModal(device) {
-  keysDevice.value = device
-  keys.value = { public_key: '', private_key: '' }
-  showKeysModalVisible.value = true
-  await fetchKeys()
-}
-
-function closeKeysModal() {
-  showKeysModalVisible.value = false
-  keysDevice.value = null
-  keys.value = { public_key: '', private_key: '' }
-}
-
-async function fetchKeys() {
-  if (!keysDevice.value) return
-  keysLoading.value = true
-  try {
-    const response = await fetchDeviceKeys(keysDevice.value.device_id)
-    keys.value = {
-      public_key: response.data.public_key || '',
-      private_key: response.data.private_key || ''
-    }
-  } catch (error) {
-    showToast(t('admin.deviceVerification.loadKeysError'), 'error')
-  } finally {
-    keysLoading.value = false
-  }
-}
-
-function copyKey(key) {
-  if (!key) return
-  navigator.clipboard.writeText(key).then(() => {
-    showToast(t('admin.deviceVerification.keyCopied'), 'success')
-  }).catch(() => {
-    showToast(t('admin.deviceVerification.copyFailed'), 'error')
-  })
-}
-
-async function fetchLogs() {
-  if (!logsDevice.value) return
-  logsLoading.value = true
-  try {
-    const response = await fetchDeviceLogs(logsDevice.value.device_id)
-    logs.value = response.data.logs || []
-    logsTotal.value = response.data.total || 0
-  } catch (error) {
-    showToast(t('admin.deviceVerification.loadLogsError'), 'error')
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-function formatDateTime(dateStr) {
-  if (!dateStr) return '-'
-  const parsed = parseServerDate(dateStr)
-  if (!parsed) return dateStr
-  return parsed.toLocaleString(getFmtLocale(), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  })
-}
-
-function truncateUA(ua) {
-  if (!ua) return '-'
-  if (ua.length <= 50) return ua
-  return ua.substring(0, 50) + '...'
-}
-
-function confirmDelete(device) {
-  deviceToDelete.value = device
-  showDeleteModal.value = true
-}
-
-function closeDeleteModal() {
-  showDeleteModal.value = false
-  deviceToDelete.value = null
-}
-
-async function executeDelete() {
-  if (!deviceToDelete.value) return
-  
-  try {
-    await deleteDeviceApi(deviceToDelete.value.device_id)
-    closeDeleteModal()
-    await fetchDevices()
-    showToast(t('admin.deviceVerification.deleteSuccess'), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.deleteError'), 'error')
-  }
-}
-
-function confirmBatchDelete() {
-  if (selectedDevices.value.length === 0) return
-  showBatchDeleteModal.value = true
-}
-
-function closeBatchDeleteModal() {
-  showBatchDeleteModal.value = false
-}
-
-async function executeBatchDelete() {
-  const selectedIds = [...selectedDevices.value]
-  if (selectedIds.length === 0) return
-  
-  try {
-    const promises = selectedIds.map(id => {
-      const device = devices.value.find(d => d.id === id)
-      return deleteDeviceApi(device.device_id)
-    })
-    await Promise.all(promises)
-    
-    closeBatchDeleteModal()
-    selectedDevices.value = []
-    await fetchDevices()
-    showToast(t('admin.deviceVerification.batchDeleteSuccess', { count: selectedIds.length }), 'success')
-  } catch (error) {
-    showToast(error.response?.data?.error || t('admin.deviceVerification.deleteError'), 'error')
-  }
-}
-
-watch(selectedDevices, (newVal) => {
-  selectAll.value = newVal.length > 0 && devices.value.every(d => newVal.includes(d.id))
-}, { deep: true })
-
-function toggleSelectAll() {
-  if (selectAll.value) {
-    selectedDevices.value = devices.value.map(d => d.id)
-  } else {
-    selectedDevices.value = []
-  }
-}
-
-function getRemainingClass(device) {
-  const remaining = device.max_verifications - device.verification_count
-  if (remaining <= 0) return 'remaining-zero'
-  if (remaining <= 5) return 'remaining-low'
-  return 'remaining-ok'
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  const parsed = parseServerDate(dateStr)
-  if (!parsed) return dateStr
-  return parsed.toLocaleDateString(getFmtLocale(), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
-}
-
-function formatFullDate(dateStr) {
-  if (!dateStr) return '-'
-  const parsed = parseServerDate(dateStr)
-  if (!parsed) return dateStr
-  return parsed.toLocaleString(getFmtLocale(), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  })
-}
-
-function parseServerDate(dateStr) {
-  if (typeof dateStr !== 'string') return null
-  const raw = dateStr.trim()
-  if (!raw) return null
-
-  // 兼容 SQLite 的 "YYYY-MM-DD HH:MM:SS"（默认 UTC）与 ISO 格式
-  const hasTimezone = /[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)
-  const isoLike = raw.replace(' ', 'T')
-  const normalized = hasTimezone ? isoLike : `${isoLike}Z`
-  const d = new Date(normalized)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function showToast(message, type = 'success') {
-  toast.value = { visible: true, type, message }
-  setTimeout(() => {
-    toast.value.visible = false
-  }, 4000)
-}
+const {
+  canManage,
+  canAccessPage,
+  canManageGlobalSettings,
+  isScopedAgent,
+  devices,
+  loading,
+  selectAll,
+  selectedDevices,
+  questions,
+  showAddModal,
+  newDevice,
+  showEditModalVisible,
+  editingDevice,
+  editData,
+  showDeleteModal,
+  deviceToDelete,
+  showBatchDeleteModal,
+  showLogsModalVisible,
+  logsDevice,
+  logs,
+  logsTotal,
+  logsLoading,
+  cooldownHours,
+  signingPrivateKeyInput,
+  signingKeyConfigured,
+  settingsSaving,
+  signingKeySaving,
+  toast,
+  firmwareItems,
+  firmwareLoading,
+  openActionMenuDevice,
+  actionMenuPanelRef,
+  actionMenuPanelStyle,
+  toggleActionMenu,
+  closeActionMenu,
+  runDeviceAction,
+  saveCooldownSettings,
+  scheduleSigningKeyAutoSave,
+  normalizeDeviceIdValue,
+  normalizeFingerprintValue,
+  formatFingerprint,
+  closeAddModal,
+  addDevice,
+  showEditModal,
+  closeEditModal,
+  updateDevice,
+  toggleWhitelist,
+  resetCount,
+  showLogsModal,
+  closeLogsModal,
+  formatDateTime,
+  truncateUA,
+  confirmDelete,
+  closeDeleteModal,
+  executeDelete,
+  confirmBatchDelete,
+  closeBatchDeleteModal,
+  executeBatchDelete,
+  toggleSelectAll,
+  getRemainingClass,
+  formatDate,
+  formatFullDate,
+  showToast,
+} = useDeviceVerificationAdmin()
 </script>
 
-<style scoped>
-.device-page {
-  animation: fadeIn 0.12s ease;
-  position: relative;
-}
 
-.cooldown-settings-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  padding: 1.1rem 1.5rem;
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  background-image: linear-gradient(90deg, rgba(0, 212, 255, 0.06) 0%, transparent 55%);
-}
-
-.cooldown-settings-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.cooldown-settings-icon {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 212, 255, 0.12);
-  color: var(--primary-color);
-  font-size: 1.15rem;
-}
-
-.cooldown-settings-text h3 {
-  margin: 0 0 0.35rem;
-  font-size: 1.05rem;
-  color: var(--text-primary);
-}
-
-.cooldown-settings-text p {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.cooldown-settings-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.top-panels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.top-panels-single {
-  grid-template-columns: 1fr;
-  max-width: 640px;
-}
-
-.settings-card {
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  padding: 1.25rem 1.5rem;
-}
-
-.firmware-card {
-  min-height: 100%;
-}
-
-.firmware-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.firmware-file-input {
-  display: none;
-}
-
-.firmware-empty {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  padding: 0.75rem 0;
-}
-
-.firmware-select-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.firmware-default-badge {
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  background: rgba(67, 233, 123, 0.16);
-  color: #43e97b;
-}
-
-.firmware-sub {
-  margin-top: 0.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.firmware-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.settings-header h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-primary);
-}
-
-.settings-desc {
-  margin: 0 0 1rem 0;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.settings-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1rem;
-}
-
-.settings-label {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  min-width: 6rem;
-}
-
-.cooldown-input {
-  width: 120px;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-darker);
-  color: var(--text-primary);
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header-content h2 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-primary);
-}
-
-.header-content p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-radius: 8px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  border: none;
-  cursor: pointer;
-}
-
-.header-actions .btn,
-.header-actions a.btn,
-.header-actions button.btn {
-  /* 1. 强制消除内外边距差异 */
-  margin: 0 !important; 
-  padding: 0 1.2rem !important;
-
-  /* 2. 布局核心 */
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  vertical-align: middle; /* 解决行内对齐导致的视觉错位 */
-  
-  /* 3. 尺寸控制 */
-  height: 40px !important;
-  min-width: 120px;
-  box-sizing: border-box !important; /* 确保 padding 不撑开高度 */
-
-  /* 4. 文字处理 */
-  line-height: 1; /* 已经设置了 flex 居中，line-height 设为 1 最保险 */
-  font-size: 0.9rem;
-  font-weight: 500;
-  
-  /* 其他样式 */
-  gap: 0.5rem;
-  border-radius: 8px;
-  border: none !important;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  overflow: hidden; /* 防止内容溢出撑大高度 */
-}
-
-.btn-primary {
-  background: var(--gradient-3);
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
-}
-
-.btn-secondary {
-  background: rgba(154, 157, 180, 0.15);
-  color: var(--text-secondary);
-}
-
-.btn-secondary:hover {
-  background: rgba(154, 157, 180, 0.25);
-  color: var(--text-primary);
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #f5576c, #e0455a);
-  color: white;
-}
-
-.btn-danger:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(245, 87, 108, 0.3);
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 300px;
-}
-
-.loading-spinner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.loading-spinner i {
-  font-size: 2rem;
-  color: var(--primary-color);
-}
-
-.table-card {
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: visible;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.table-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 212, 255, 0.03);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.table-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.table-info i {
-  color: var(--primary-color);
-}
-
-.table-info strong {
-  color: var(--primary-color);
-}
-
-.table-info-bar {
-  padding: 0.75rem 1.5rem;
-  background: rgba(0, 212, 255, 0.05);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.info-text {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.info-text i {
-  color: var(--primary-color);
-}
-
-.table-responsive {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch;
-  max-width: 100%;
-  display: block;
-  width: 100%;
-}
-
-.table-responsive::-webkit-scrollbar {
-  height: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-  background: var(--bg-darker);
-  border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-  background: var(--primary-color);
-  border-radius: 4px;
-}
-
-.data-table {
-  width: 100%;
-  min-width: 1050px;
-  border-collapse: collapse;
-  display: table;
-}
-
-.scroll-indicator {
-  display: none;
-  padding: 0.5rem 1rem;
-  background: var(--bg-darker);
-  border-top: 1px solid var(--border-color);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  text-align: center;
-  gap: 0.5rem;
-  align-items: center;
-  justify-content: center;
-}
-
-@media (max-width: 1200px) {
-  .scroll-indicator {
-    display: flex;
-  }
-}
-
-.data-table thead {
-  background: var(--bg-darker);
-}
-
-.data-table th {
-  padding: 1rem 1.5rem;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.data-table th.text-center {
-  text-align: center;
-}
-
-.data-table td {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  vertical-align: middle;
-}
-
-.data-table tbody tr:hover {
-  background: rgba(0, 212, 255, 0.05);
-}
-
-.data-table tbody tr.selected-row {
-  background: rgba(0, 212, 255, 0.08);
-}
-
-.id-badge {
-  display: inline-block;
-  padding: 0.25rem 0.6rem;
-  background: rgba(0, 212, 255, 0.1);
-  color: var(--primary-color);
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.device-id-cell {
-  font-family: monospace;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-}
-
-.count-badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  background: rgba(0, 212, 255, 0.1);
-  color: var(--primary-color);
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-
-.max-badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  background: rgba(67, 233, 123, 0.1);
-  color: #43e97b;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-
-.remaining-badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-
-.remaining-ok {
-  background: rgba(67, 233, 123, 0.1);
-  color: #43e97b;
-}
-
-.remaining-low {
-  background: rgba(255, 193, 7, 0.1);
-  color: #ffc107;
-}
-
-.remaining-zero {
-  background: rgba(245, 87, 108, 0.1);
-  color: #f5576c;
-}
-
-.date-cell {
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.question-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.75rem;
-  background: linear-gradient(135deg, rgba(100, 108, 255, 0.2), rgba(160, 120, 255, 0.15));
-  color: #646cff;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  border: 1px solid rgba(100, 108, 255, 0.3);
-  transition: all 0.2s ease;
-}
-
-.question-badge:hover {
-  background: linear-gradient(135deg, rgba(100, 108, 255, 0.3), rgba(160, 120, 255, 0.25));
-  transform: translateY(-1px);
-}
-
-.question-badge i {
-  font-size: 0.8rem;
-  opacity: 0.8;
-}
-
-.question-name-text {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.no-question-badge {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  opacity: 0.5;
-}
-
-.firmware-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 212, 255, 0.25);
-  background: rgba(0, 212, 255, 0.1);
-  color: var(--primary-color);
-  font-size: 0.82rem;
-}
-
-.device-question-text {
-  margin: 0 0 0.5rem 0;
-  color: #646cff;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.actions-cell {
-  text-align: center;
-  width: 120px;
-  position: relative;
-}
-
-.action-menu {
-  position: relative;
-  display: inline-block;
-}
-
-.action-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-width: 96px;
-  height: 34px;
-  padding: 0 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: rgba(154, 157, 180, 0.1);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.action-menu-trigger:hover,
-.action-menu.open .action-menu-trigger {
-  border-color: rgba(0, 212, 255, 0.45);
-  color: var(--primary-color);
-  background: rgba(0, 212, 255, 0.08);
-}
-
-.action-menu-caret {
-  font-size: 0.65rem;
-  transition: transform 0.2s ease;
-}
-
-.action-menu.open .action-menu-caret {
-  transform: rotate(180deg);
-}
-
-.action-menu-panel {
-  min-width: 148px;
-  padding: 0.35rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-
-.action-menu-panel--fixed {
-  position: fixed;
-  z-index: 5000;
-}
-
-.action-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.action-menu-item i {
-  width: 16px;
-  text-align: center;
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
-
-.action-menu-item:hover {
-  background: rgba(0, 212, 255, 0.1);
-}
-
-.action-menu-item.danger {
-  color: #f5576c;
-}
-
-.action-menu-item.danger i {
-  color: #f5576c;
-}
-
-.action-menu-item.danger:hover {
-  background: rgba(245, 87, 108, 0.12);
-}
-
-.action-group {
-  display: inline-flex;
-  gap: 0.5rem;
-  justify-content: center;
-  align-items: center;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-width: 60px;
-  height: 36px;
-  padding: 0 0.75rem;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.action-btn i {
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
-
-.action-text {
-  display: none;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-@media (min-width: 1200px) {
-  .action-text {
-    display: inline;
-  }
-}
-
-.btn-edit {
-  background: rgba(0, 212, 255, 0.15);
-  color: var(--primary-color);
-}
-
-.btn-edit:hover {
-  background: var(--primary-color);
-  color: white;
-}
-
-.btn-reset {
-  background: rgba(255, 193, 7, 0.15);
-  color: #ffc107;
-}
-
-.btn-reset:hover {
-  background: #ffc107;
-  color: white;
-}
-
-.btn-delete {
-  background: rgba(245, 87, 108, 0.15);
-  color: #f5576c;
-}
-
-.btn-delete:hover {
-  background: #f5576c;
-  color: white;
-}
-
-.btn-logs {
-  background: rgba(100, 108, 255, 0.15);
-  color: #646cff;
-}
-
-.btn-logs:hover {
-  background: #646cff;
-  color: white;
-}
-
-.btn-keys {
-  background: rgba(160, 120, 255, 0.15);
-  color: #a078ff;
-}
-
-.btn-keys:hover {
-  background: #a078ff;
-  color: white;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem !important;
-  color: var(--text-secondary);
-}
-
-.empty-state i {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-state h3 {
-  margin: 1rem 0 0.5rem;
-  color: var(--text-primary);
-}
-
-.empty-state p {
-  margin: 0 0 1.5rem;
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
-}
-
-.modal-container {
-  background: var(--bg-card);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  max-width: 550px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: slideUp 0.3s ease;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.modal-header i {
-  color: var(--primary-color);
-  font-size: 1.5rem;
-}
-
-.modal-header.danger i {
-  color: #ffc107;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--text-primary);
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.modal-body p {
-  margin: 0 0 1rem 0;
-  color: var(--text-secondary);
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-darker);
-  color: var(--text-primary);
-  font-size: 1rem;
-  transition: all 0.3s ease;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
-}
-
-select.form-input {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a9db4' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  padding-right: 2.5rem;
-  cursor: pointer;
-}
-
-select.form-input:hover {
-  border-color: var(--primary-color);
-  background-color: rgba(0, 212, 255, 0.05);
-}
-
-select.form-input option {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 0.75rem 1rem;
-}
-
-select.form-input option:hover {
-  background: rgba(0, 212, 255, 0.1);
-}
-
-select.form-input option:checked {
-  background: rgba(0, 212, 255, 0.15);
-  color: var(--primary-color);
-}
-
-.form-hint {
-  margin: 0.5rem 0 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.device-info-box {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid var(--primary-color);
-  border-radius: 8px;
-  margin: 1rem 0;
-}
-
-.device-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  background: var(--gradient-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.device-details {
-  flex: 1;
-}
-
-.device-id-text {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-}
-
-.device-stats-text,
-.device-max-text {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.badge-stats {
-  background: rgba(0, 212, 255, 0.15);
-  color: var(--primary-color);
-}
-
-.key-section {
-  margin-bottom: 1.5rem;
-}
-
-.key-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.key-header label {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 0.9rem;
-}
-
-.copy-btn {
-  background: rgba(0, 212, 255, 0.15);
-  border: none;
-  border-radius: 4px;
-  padding: 0.35rem 0.6rem;
-  color: var(--primary-color);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.copy-btn:hover {
-  background: var(--primary-color);
-  color: white;
-}
-
-.key-value {
-  font-family: monospace;
-  font-size: 0.8rem;
-  background: var(--bg-darker);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0.75rem;
-  word-break: break-all;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.key-private {
-  border-color: #f5576c;
-  background: rgba(245, 87, 108, 0.05);
-}
-
-.key-warning {
-  margin: 0.5rem 0 0;
-  font-size: 0.8rem;
-  color: #f5576c;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.warning-box {
-  display: flex;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: rgba(245, 87, 108, 0.1);
-  border: 1px solid #f5576c;
-  border-radius: 8px;
-  color: #f5576c;
-}
-
-.warning-box i {
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-.warning-content {
-  flex: 1;
-}
-
-.warning-content p {
-  margin: 0 0 0.5rem 0;
-  color: #f5576c;
-}
-
-.warning-content ul {
-  margin: 0.5rem 0 0 0;
-  padding-left: 1.25rem;
-}
-
-.warning-content li {
-  color: #f5576c;
-  margin-bottom: 0.25rem;
-}
-
-.modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-
-.modal-lg {
-  max-width: 800px;
-}
-
-.logs-table-wrapper {
-  overflow-x: auto;
-}
-
-.logs-stats {
-  padding: 0.75rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.logs-stats strong {
-  color: var(--primary-color);
-}
-
-.logs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.logs-table th {
-  padding: 0.75rem;
-  text-align: left;
-  background: var(--bg-darker);
-  color: var(--text-primary);
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.logs-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  vertical-align: middle;
-}
-
-.logs-table tbody tr:hover {
-  background: rgba(0, 212, 255, 0.05);
-}
-
-.log-time {
-  font-family: monospace;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.log-signature {
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: var(--primary-color);
-}
-
-.log-ip {
-  font-family: monospace;
-  font-size: 0.85rem;
-}
-
-.log-ua {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-}
-
-.empty-logs {
-  text-align: center;
-  padding: 3rem;
-  color: var(--text-secondary);
-}
-
-.empty-logs i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-logs p {
-  margin: 0;
-}
-
-/* Toast */
-.toast {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  animation: slideInRight 0.3s ease;
-  z-index: 1001;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
-}
-
-.toast.success {
-  background: rgba(67, 233, 123, 0.15);
-  border: 1px solid #43e97b;
-  color: #43e97b;
-}
-
-.toast.error {
-  background: rgba(245, 87, 108, 0.15);
-  border: 1px solid #f5576c;
-  color: #f5576c;
-}
-
-.toast i {
-  font-size: 1.2rem;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .cooldown-settings-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cooldown-settings-controls {
-    flex-wrap: wrap;
-  }
-
-  .cooldown-input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .top-panels {
-    grid-template-columns: 1fr;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .device-info-box {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .toast {
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-  }
-
-  .modal-footer {
-    flex-direction: column;
-  }
-
-  .modal-footer .btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
+<style scoped src="./device-verification-view.css"></style>

@@ -35,10 +35,13 @@ class QuestionsService {
     return response.json();
   }
 
-  async findAll() {
+  async findAll(createdByUserId = null) {
     const list = await this.request('/api/questions');
     if (!Array.isArray(list)) return [];
-    return list.map(item => this.enrichWithFileSizes(item));
+    const filtered = createdByUserId != null
+      ? list.filter((item) => Number(item.created_by_user_id || 0) === Number(createdByUserId))
+      : list;
+    return filtered.map(item => this.enrichWithFileSizes(item));
   }
 
   async findById(id) {

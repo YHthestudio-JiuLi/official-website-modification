@@ -91,6 +91,43 @@ class UserManager:
         )
         return self.cur.fetchone() is not None
 
+    def _role_names(self, user_id: int) -> set[str]:
+        model_type = "App\\Models\\User"
+        self.cur.execute(
+            """
+            SELECT r.name FROM roles r
+            INNER JOIN model_has_roles mhr ON mhr.role_id = r.id
+            WHERE mhr.model_type = ? AND mhr.model_id = ?
+            """,
+            (model_type, user_id),
+        )
+        return {str(row[0]) for row in self.cur.fetchall()}
+
+    def _is_super_admin(self, user: Dict[str, Any]) -> bool:
+        user_id = int(user.get("id") or 0)
+        if user_id <= 0:
+            return False
+        role_names = self._role_names(user_id)
+        if "super_admin" in role_names:
+            return True
+        if str(user.get("user_type") or "").lower() == "super_admin":
+            return True
+        # 历史账号仅 isAdmin=1、尚未挂 Spatie 角色时仍视为超管（与 Laravel User::isSuperAdmin 对齐）
+        if user.get("isAdmin") in (1, True, "1") and not role_names:
+            return True
+        return False
+
+    def is_scoped_agent(self, user_id: int) -> bool:
+        """与 Laravel AgentDataScope::isScopedAgent 对齐"""
+        user = self.find_by_id(user_id)
+        if not user:
+            return False
+        if self._is_super_admin(user):
+            return False
+        if str(user.get("user_type") or "").lower() == "agent":
+            return True
+        return "agent" in self._role_names(user_id)
+
     def create(self, username: str, email: str, password: str, is_admin: int = 0) -> int:
         self.cur.execute(
             "INSERT INTO users (username, email, password, isAdmin) VALUES (?, ?, ?, ?)",

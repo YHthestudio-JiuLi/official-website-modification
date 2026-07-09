@@ -5,6 +5,14 @@ yh_background_sync.pid
 .yh_background_sync.lock
 YH/
 
+# 打包产物
+dist/
+build/staging/
+build/obf/
+build/cython/
+build/pyinstaller-work/
+build/.venv/
+
 # Python / 系统杂项
 __pycache__/
 *.py[cod]

@@ -1,0 +1,5 @@
+# 打包构建依赖（仅在执行 build_package.sh 时需要）
+cryptography>=42.0.0
+Cython>=3.0.0
+pyarmor>=8.5.0
+pyinstaller>=6.0.0

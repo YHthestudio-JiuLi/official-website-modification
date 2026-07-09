@@ -16,11 +16,23 @@ class FirmwareService
 
     public function __construct(private readonly PyDbClient $db) {}
 
-    public function listFirmwareFiles(): array
+    public function listFirmwareFiles(?int $createdByUserId = null): array
     {
-        $list = $this->db->call('deviceVerification.listFirmwareFiles') ?? [];
+        $args = [];
+        if ($createdByUserId !== null) {
+            $args['created_by_user_id'] = $createdByUserId;
+        }
+
+        $list = $this->db->call('deviceVerification.listFirmwareFiles', $args) ?? [];
 
         return array_map(fn (array $row) => $this->enrichFirmwareFileSize($row), $list);
+    }
+
+    public function findById(int $id): ?array
+    {
+        $row = $this->db->call('deviceVerification.findFirmwareById', ['id' => $id]);
+
+        return is_array($row) ? $this->enrichFirmwareFileSize($row) : null;
     }
 
     public function listLocalFiles(): array
@@ -48,7 +60,7 @@ class FirmwareService
         return $items;
     }
 
-    public function registerLocal(string $fileName, ?string $remark): array
+    public function registerLocal(string $fileName, ?string $remark, ?int $createdByUserId = null): array
     {
         $fileName = $this->normalizeFileName($fileName);
         $ext = '.'.strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -64,13 +76,18 @@ class FirmwareService
         $checksum = hash_file('sha256', $abs);
         $size = filesize($abs) ?: 0;
 
-        $firmware = $this->db->call('deviceVerification.createFirmwareFile', [
+        $payload = [
             'file_name' => $fileName,
             'file_url' => "/uploads/nano-firmwares/{$fileName}",
             'file_size' => $size,
             'checksum_sha256' => $checksum,
             'remark' => $this->normalizeRemark($remark),
-        ]);
+        ];
+        if ($createdByUserId !== null) {
+            $payload['created_by_user_id'] = $createdByUserId;
+        }
+
+        $firmware = $this->db->call('deviceVerification.createFirmwareFile', $payload);
 
         return $firmware ?? [];
     }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Database;
 
+use App\Exceptions\PyDbRpcException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +45,13 @@ class PyDbClient
         }
 
         if (! is_array($payload) || ($payload['ok'] ?? false) !== true) {
+            if (is_array($payload) && ! empty($payload['code'])) {
+                throw new PyDbRpcException(
+                    (string) $payload['code'],
+                    (string) ($payload['detail'] ?? $payload['code']),
+                    (int) ($payload['http_status'] ?? 400),
+                );
+            }
             $bodySnippet = substr((string) $response->body(), 0, 500);
             Log::warning('[PyDbClient] invalid RPC payload', ['op' => $op, 'status' => $response->status(), 'body' => $bodySnippet]);
             $message = is_array($payload) ? ($payload['error'] ?? 'Invalid RPC payload') : 'Invalid RPC payload';

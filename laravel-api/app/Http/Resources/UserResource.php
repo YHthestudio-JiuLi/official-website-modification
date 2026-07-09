@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Agent\AgentDataScope;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,10 @@ class UserResource extends JsonResource
             'status' => $this->status ?? 'active',
             'isAdmin' => (bool) $this->isAdmin,
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
+            'is_scoped_agent' => $this->when(
+                $request->user()?->id === $this->id,
+                fn () => app(AgentDataScope::class)->isScopedAgent($this->resource)
+            ),
             'permissions' => $this->when(
                 $request->user()?->id === $this->id,
                 fn () => $request->attributes->get('resolved_permissions')

@@ -28,9 +28,16 @@ class QuestionManager:
         )
         from ..db import add_column_if_missing
         add_column_if_missing(self.conn, "questions", "category_name", "VARCHAR(255)")
+        add_column_if_missing(self.conn, "questions", "created_by_user_id", "INT")
 
-    def find_all(self) -> List[Dict[str, Any]]:
-        self.cur.execute("SELECT * FROM questions ORDER BY created_at DESC, id DESC")
+    def find_all(self, created_by_user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        sql = "SELECT * FROM questions"
+        params: tuple = ()
+        if created_by_user_id is not None:
+            sql += " WHERE created_by_user_id = ?"
+            params = (created_by_user_id,)
+        sql += " ORDER BY created_at DESC, id DESC"
+        self.cur.execute(sql, params)
         return rows_to_dict(self.cur.fetchall())
 
     def find_by_id(self, question_id: int) -> Optional[Dict[str, Any]]:
@@ -43,10 +50,11 @@ class QuestionManager:
         category_name: Optional[str] = None,
         db_file_path: Optional[str] = None,
         vector_file_path: Optional[str] = None,
+        created_by_user_id: Optional[int] = None,
     ) -> int:
         self.cur.execute(
-            "INSERT INTO questions (name, category_name, db_file_path, vector_file_path) VALUES (?, ?, ?, ?)",
-            (name, category_name, db_file_path, vector_file_path),
+            "INSERT INTO questions (name, category_name, db_file_path, vector_file_path, created_by_user_id) VALUES (?, ?, ?, ?, ?)",
+            (name, category_name, db_file_path, vector_file_path, created_by_user_id),
         )
         self.conn.commit()
         return int(self.cur.lastrowid)

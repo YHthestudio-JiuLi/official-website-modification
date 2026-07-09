@@ -18,7 +18,13 @@
                 : $t('admin.firmware.upload') }}
             </span>
           </button>
-          <button type="button" class="btn btn-secondary" :disabled="firmwareUploading" @click="registerFirmwareFromServer">
+          <button
+            v-if="!isScopedAgent"
+            type="button"
+            class="btn btn-secondary"
+            :disabled="firmwareUploading"
+            @click="registerFirmwareFromServer"
+          >
             <i class="fas fa-server"></i>
             <span>{{ $t('admin.firmware.registerFromServer') }}</span>
           </button>
@@ -63,6 +69,7 @@
                 <th>{{ $t('admin.firmware.colChecksum') }}</th>
                 <th>{{ $t('admin.firmware.colDefault') }}</th>
                 <th>{{ $t('admin.firmware.colCreatedAt') }}</th>
+                <AdminCreatedByHeader :show-column="!isScopedAgent" />
                 <th class="text-center">{{ $t('admin.firmware.colActions') }}</th>
               </tr>
             </thead>
@@ -135,18 +142,17 @@
                   <span v-else class="empty-cell">-</span>
                 </td>
                 <td>
-                  <span v-if="item.is_default" class="default-badge">
-                    {{ $t('admin.firmware.defaultBadge') }}
-                  </span>
+                  <span v-if="item.is_default">{{ $t('admin.users.yes') }}</span>
                   <span v-else class="empty-cell">-</span>
                 </td>
                 <td>
                   <span class="date-cell">{{ item.createdAtText }}</span>
                 </td>
+                <AdminCreatedByCell :show-cell="!isScopedAgent" :username="item.created_by_username" />
                 <td class="actions-cell">
                   <div v-if="canEdit || canDelete" class="action-group">
                     <button
-                      v-if="canEdit"
+                      v-if="canEdit && !isScopedAgent"
                       type="button"
                       class="action-btn btn-default"
                       :disabled="item.is_default"
@@ -171,7 +177,7 @@
                 </td>
               </tr>
               <tr v-if="firmwareItems.length === 0">
-                <td colspan="8" class="empty-state">
+                <td :colspan="isScopedAgent ? 8 : 9" class="empty-state">
                   <i class="fas fa-microchip"></i>
                   <h3>{{ $t('admin.firmware.emptyAllTitle') }}</h3>
                   <p>{{ $t('admin.firmware.emptyAllDesc') }}</p>
@@ -305,9 +311,11 @@ import {
   deleteFirmware as deleteFirmwareApi
 } from '@/services/v2/admin/firmware'
 import { useAdminPermissions } from '@/composables/useAdminPermission'
+import AdminCreatedByHeader from '@/components/admin/AdminCreatedByHeader.vue'
+import AdminCreatedByCell from '@/components/admin/AdminCreatedByCell.vue'
 import { readAdminApiError, handleAdminApiFailure } from '@/utils/adminApiError'
 
-const { has } = useAdminPermissions()
+const { has, isScopedAgent } = useAdminPermissions()
 const { t, locale } = useI18n()
 
 const canView = computed(() => has('firmware.view'))
@@ -858,6 +866,16 @@ function showToast(message, type = 'success') {
   font-size: 0.85rem;
 }
 
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(100, 108, 255, 0.15);
+  color: #8f96ff;
+  font-size: 0.8rem;
+}
+
 .file-name {
   display: inline-flex;
   align-items: center;
@@ -947,15 +965,6 @@ function showToast(message, type = 'success') {
   font-size: 0.82rem;
   color: var(--text-primary);
   cursor: help;
-}
-
-.default-badge {
-  display: inline-flex;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(67, 233, 123, 0.16);
-  color: #43e97b;
-  font-size: 0.8rem;
 }
 
 .empty-cell {

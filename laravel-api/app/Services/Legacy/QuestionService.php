@@ -2,6 +2,7 @@
 
 namespace App\Services\Legacy;
 
+use App\Exceptions\ResourceNotFoundException;
 use App\Services\Database\PyDbClient;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -12,9 +13,14 @@ class QuestionService
 {
     public function __construct(private readonly PyDbClient $db) {}
 
-    public function findAll(): array
+    public function findAll(?int $createdByUserId = null): array
     {
-        $list = $this->db->call('questions.findAll') ?? [];
+        $args = [];
+        if ($createdByUserId !== null) {
+            $args['created_by_user_id'] = $createdByUserId;
+        }
+
+        $list = $this->db->call('questions.findAll', $args) ?? [];
 
         return array_map(fn (array $item) => $this->enrichWithFileSizes($item), $list);
     }
@@ -23,10 +29,20 @@ class QuestionService
     {
         $question = $this->db->call('questions.findById', ['id' => $id]);
         if (! $question) {
-            throw new RuntimeException('Question not found');
+            throw new ResourceNotFoundException('Question not found');
         }
 
         return $this->enrichWithFileSizes($question);
+    }
+
+    /** 代理编辑题库时仅允许更新名称与分类 */
+    public function updateMetadata(int $id, string $name, ?string $categoryName): void
+    {
+        $this->db->call('questions.updateFields', [
+            'id' => $id,
+            'name' => $name,
+            'category_name' => $categoryName,
+        ]);
     }
 
     /**
@@ -83,7 +99,7 @@ class QuestionService
         }
 
         if ($response->status() === 404) {
-            throw new RuntimeException('Question not found');
+            throw new ResourceNotFoundException('Question not found');
         }
 
         if (! $response->ok()) {

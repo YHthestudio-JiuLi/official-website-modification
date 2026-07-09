@@ -43,6 +43,15 @@ async function resolveLegacyAdminFromBridge(req) {
   }
 }
 
+/** 解析当前 Node 管理端用户 ID（session 或 bridge token）；权限校验请用 agentDataScope.loadAgentScopeContext */
+function resolveLegacyAdminUserId(req) {
+  if (req.session?.admin?.id) {
+    return req.session.admin.id;
+  }
+  const token = req.headers['x-legacy-node-token'] || req.body?.token;
+  return verifyLegacyNodeBridgeToken(token) || null;
+}
+
 /** 尝试写入 session（Cookie 写失败时不阻塞请求） */
 async function tryPersistAdminSession(req, admin) {
   if (!admin) return;
@@ -83,5 +92,6 @@ module.exports = {
   canAccessLegacyAdminApi,
   canAccessLegacyAdminApiAsync,
   resolveLegacyAdminFromBridge,
-  tryPersistAdminSession
+  tryPersistAdminSession,
+  resolveLegacyAdminUserId
 };

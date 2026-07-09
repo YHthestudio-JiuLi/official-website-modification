@@ -279,8 +279,6 @@ Route::middleware(['stateful', 'auth:admin', 'use.guard:admin', 'admin.boot', 't
             ->middleware('permission:device.view');
         Route::post('/devices/{deviceId}/reset-count', [AdminDeviceVerificationController::class, 'resetCount'])
             ->middleware('permission:device.view');
-        Route::get('/devices/{deviceId}/keys', [AdminDeviceVerificationController::class, 'keys'])
-            ->middleware('permission:device.keys.view');
         Route::get('/devices/{deviceId}/logs', [AdminDeviceVerificationController::class, 'logs'])
             ->middleware('permission:device.view');
 

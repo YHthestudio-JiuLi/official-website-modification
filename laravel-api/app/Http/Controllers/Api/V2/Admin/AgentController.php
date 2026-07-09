@@ -42,7 +42,8 @@ class AgentController extends Controller
 
                 return [
                     'id' => $agent->id,
-                    'user' => new UserResource($agent->user),
+                    // 历史脏数据可能存在孤儿代理记录（user 已被删除），这里必须兜底避免整页 500
+                    'user' => $agent->user ? new UserResource($agent->user) : null,
                     'parent_id' => $agent->parent_id,
                     'parent_username' => $agent->parent?->user?->username,
                     'commission_rate' => $agent->commission_rate,

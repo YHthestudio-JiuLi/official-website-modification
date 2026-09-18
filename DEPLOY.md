@@ -58,10 +58,13 @@ cd "$ROOT"
 # 固定拉取生产分支（避免误拉旧 tag / 其他分支）
 git -c safe.directory="$ROOT" pull github refs/heads/V2.1.1
 
-# 一键部署：依赖、构建、Laravel 缓存/迁移、PM2、并启用 PHP-FPM
+# 一键部署：依赖、构建、Laravel 缓存/迁移、PM2、PHP-FPM、Node 反代
 bash scripts/deploy.sh --laravel-fpm
+# 或根目录入口（默认已带 --laravel-fpm）:
+# bash deploy.sh
 ```
 
+> 脚本已覆盖：Composer ≥2.2、`storage/framework/cache/data`、站点 `root`→`dist`、客服 `/api/auth/*` 反代。
 #### 0.1.2 首次部署
 
 ```bash

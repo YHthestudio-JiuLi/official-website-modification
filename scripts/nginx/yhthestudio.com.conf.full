@@ -9,7 +9,8 @@ server
     listen [::]:80;
     server_name yhthestudio.com www.yhthestudio.com;
     index index.php index.html index.htm default.php default.htm default.html;
-    root /www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2;
+    # 必须指向 dist，否则会提供源码 index.html（/src/main.js）导致白屏
+    root /www/wwwroot/yhthestudio.com/official-website-modification_v0.1.2/dist;
 
     #CERT-APPLY-CHECK--START
     # 用于SSL证书申请时的文件验证相关配置 -- 请勿删除
@@ -106,25 +107,13 @@ server
         client_max_body_size 512m;
     }
 
-    # Laravel V2 / Sanctum 由 extension/yh-laravel-fpm.conf 走 PHP-FPM（勿再 proxy :8000）
+    # Laravel V2 / Sanctum → extension/yh-laravel-fpm.conf（PHP-FPM，勿再 proxy :8000）
+    # Node 客服/会话桥接/设备/上传/ws → extension/yh-node-proxy.conf（setup-node-proxy.sh）
     # location /api/v2/ { proxy_pass http://127.0.0.1:8000; ... }
     # location /sanctum/ { proxy_pass http://127.0.0.1:8000; ... }
 
-    # 客服 WebSocket
-    location /ws {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 3600s;
-    }
-
-    # 引用反向代理规则（整站及其余 /api/* → Node :3000）
-    include /www/server/panel/vhost/nginx/proxy/yhthestudio.com/*.conf;
+    # 可选：若未用 extension/yh-node-proxy.conf，宝塔整站反代可放这里
+    # include /www/server/panel/vhost/nginx/proxy/yhthestudio.com/*.conf;
 
     include enable-php-00.conf;
     #PHP-INFO-END

@@ -12,9 +12,10 @@
 #   --skip-npm        跳过 npm install
 #   --skip-python     跳过 Python 虚拟环境
 #   --no-pm2          不启动/重启 PM2（仅构建与 Laravel 步骤）
-#   --laravel-fpm     安装 Nginx+PHP-FPM 接管 Laravel（根治 API 卡顿，停用 yh-laravel）
+#   --laravel-fpm     安装 Nginx+PHP-FPM + Node 反代（客服会话桥接等）
 #
-# 详见 DEPLOY.md（Nginx / SSL 需单独配置）
+# 根目录 deploy.sh 默认等价于本脚本加 --laravel-fpm。
+# 详见 DEPLOY.md（SSL 证书仍需在宝塔配置）
 
 set -euo pipefail
 
@@ -234,27 +235,63 @@ if [ "$SKIP_PYTHON" = false ]; then
   setup_python
 fi
 
+# ── 解析 Composer（Laravel 11 需要 runtime-api ^2.2；宝塔自带 composer 常为 2.0）──
+resolve_composer_cmd() {
+  local laravel="$1"
+  local bin candidate ver
+
+  if [ -f "$laravel/composer.phar" ]; then
+    echo "$PHP_BIN $laravel/composer.phar"
+    return 0
+  fi
+
+  # 优先 Composer 2.2+（composer22 / composer2）
+  for candidate in composer22 composer2 composer; do
+    bin="$(command -v "$candidate" 2>/dev/null || true)"
+    [ -n "$bin" ] || continue
+    ver="$("$PHP_BIN" "$bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 || true)"
+    if [ -n "$ver" ]; then
+      # 2.2+ 可用；2.0/2.1 跳过继续找
+      if awk -v v="$ver" 'BEGIN { split(v,a,"."); exit !((a[1]>2) || (a[1]==2 && a[2]>=2)) }'; then
+        echo "$PHP_BIN $bin"
+        return 0
+      fi
+      warn "跳过过旧 Composer: $bin ($ver)，需要 >= 2.2"
+    fi
+  done
+
+  info "下载最新 composer.phar（需要 runtime-api ^2.2）..."
+  (
+    cd "$laravel"
+    "$PHP_BIN" -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+    "$PHP_BIN" composer-setup.php --quiet --2
+    rm -f composer-setup.php
+  )
+  echo "$PHP_BIN $laravel/composer.phar"
+}
+
 # ── Laravel ──
 setup_laravel() {
   local laravel="$ROOT/laravel-api"
+  local composer_cmd
   cd "$laravel"
 
-  # Composer
-  local composer_cmd=""
-  if [ -f "$laravel/composer.phar" ]; then
-    composer_cmd="$PHP_BIN $laravel/composer.phar"
-  elif command -v composer >/dev/null 2>&1; then
-    composer_cmd="$PHP_BIN $(command -v composer)"
-  else
-    info "下载 composer.phar..."
-    "$PHP_BIN" -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-    "$PHP_BIN" composer-setup.php --quiet
-    rm -f composer-setup.php
-    composer_cmd="$PHP_BIN $laravel/composer.phar"
-  fi
+  # file 缓存 / 会话目录（缺失会导致 /api/v2/products 等 500）
+  mkdir -p \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    storage/app/public \
+    storage/app/product-image-cache \
+    storage/nginx-fcgi-cache \
+    bootstrap/cache
 
+  composer_cmd="$(resolve_composer_cmd "$laravel")"
+  info "使用 Composer: $composer_cmd"
   info "composer install --no-dev..."
-  $composer_cmd install --no-interaction --no-dev --optimize-autoloader
+  # root 下允许插件（宝塔常用 root 部署）
+  COMPOSER_ALLOW_SUPERUSER=1 $composer_cmd install --no-interaction --no-dev --optimize-autoloader
 
   if [ ! -f vendor/autoload.php ]; then
     fail "laravel-api/vendor 未生成，composer install 失败"
@@ -288,7 +325,6 @@ setup_laravel() {
     "$PHP_BIN" artisan route:cache
   fi
 
-  mkdir -p storage/app/product-image-cache storage/nginx-fcgi-cache
   info "php artisan catalog:warm --images（预热 API + 图片磁盘缓存）..."
   "$PHP_BIN" artisan catalog:warm --images 2>/dev/null || warn "catalog:warm 失败（可稍后手动执行）"
 
@@ -306,11 +342,21 @@ setup_laravel
 if [ "$LARAVEL_FPM" = true ]; then
   info "启用 Laravel PHP-FPM 模式..."
   bash "$ROOT/scripts/setup-laravel-fpm.sh"
+  info "安装/刷新 Node 反代（客服会话桥接等）..."
+  bash "$ROOT/scripts/setup-node-proxy.sh" || warn "setup-node-proxy 失败，请手动: sudo bash scripts/setup-node-proxy.sh"
 fi
 
 # ── 运行时目录权限 ──
-mkdir -p "$ROOT/logs" "$ROOT/uploads" "$ROOT/laravel-api/storage/framework/sessions"
-mkdir -p "$ROOT/laravel-api/storage/logs" "$ROOT/laravel-api/bootstrap/cache"
+mkdir -p "$ROOT/logs" "$ROOT/uploads" \
+  "$ROOT/laravel-api/storage/framework/cache/data" \
+  "$ROOT/laravel-api/storage/framework/sessions" \
+  "$ROOT/laravel-api/storage/framework/views" \
+  "$ROOT/laravel-api/storage/logs" \
+  "$ROOT/laravel-api/bootstrap/cache"
+if id www >/dev/null 2>&1; then
+  chown -R www:www "$ROOT/laravel-api/storage" "$ROOT/laravel-api/bootstrap/cache" 2>/dev/null || true
+  chmod -R ug+rwX "$ROOT/laravel-api/storage" "$ROOT/laravel-api/bootstrap/cache" 2>/dev/null || true
+fi
 
 # ── PM2 ──
 pm2_deploy() {

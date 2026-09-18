@@ -51,7 +51,9 @@ sed \
 
 # FPM 以 www 运行，须可写 storage / bootstrap/cache
 info "设置 laravel-api/storage 权限（www）..."
-mkdir -p "$ROOT/laravel-api/storage/framework/sessions" \
+mkdir -p "$ROOT/laravel-api/storage/framework/cache/data" \
+  "$ROOT/laravel-api/storage/framework/sessions" \
+  "$ROOT/laravel-api/storage/framework/views" \
   "$ROOT/laravel-api/storage/logs" \
   "$ROOT/laravel-api/bootstrap/cache" \
   "$ROOT/laravel-api/storage/app/product-image-cache" \
@@ -70,7 +72,7 @@ fi
 
 info "Laravel optimize（config/route 缓存）..."
 cd "$ROOT/laravel-api"
-"$PHP_BIN" artisan optimize --force 2>/dev/null || {
+"$PHP_BIN" artisan optimize 2>/dev/null || {
   "$PHP_BIN" artisan config:cache
   "$PHP_BIN" artisan route:cache
 }
